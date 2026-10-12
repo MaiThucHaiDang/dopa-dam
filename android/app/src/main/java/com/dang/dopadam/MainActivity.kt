@@ -10,6 +10,7 @@ import androidx.activity.viewModels
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Settings
@@ -42,6 +43,7 @@ import com.dang.dopadam.ui.MainViewModel
 import com.dang.dopadam.ui.OverviewScreen
 import com.dang.dopadam.ui.SettingsScreen
 import com.dang.dopadam.ui.StatsScreen
+import com.dang.dopadam.ui.StudyScreen
 import com.dang.dopadam.ui.theme.DopaTheme
 import com.dang.dopadam.ui.theme.Tokens
 
@@ -50,6 +52,7 @@ private data class Tab(val route: String, val label: String, val icon: ImageVect
 @Suppress("DEPRECATION") // Icons.Filled.List is fine for a simple list glyph.
 private val TABS = listOf(
     Tab(MainActivity.ROUTE_OVERVIEW, "Tổng quan", Icons.Filled.Home),
+    Tab(MainActivity.ROUTE_STUDY, "Học", Icons.Filled.Edit),
     Tab(MainActivity.ROUTE_STATS, "Thống kê", Icons.Filled.DateRange),
     Tab(MainActivity.ROUTE_APPS, "Ứng dụng", Icons.Filled.List),
     Tab(MainActivity.ROUTE_SETTINGS, "Cài đặt", Icons.Filled.Settings),
@@ -77,6 +80,7 @@ class MainActivity : ComponentActivity() {
     companion object {
         const val EXTRA_ROUTE = "route"
         const val ROUTE_OVERVIEW = "overview"
+        const val ROUTE_STUDY = "study"
         const val ROUTE_STATS = "stats"
         const val ROUTE_APPS = "apps"
         const val ROUTE_SETTINGS = "settings"
@@ -130,8 +134,14 @@ private fun App(vm: MainViewModel, requestedRoute: String?, onRouteHandled: () -
     ) { padding ->
         NavHost(nav, startDestination = MainActivity.ROUTE_OVERVIEW, modifier = Modifier.padding(padding)) {
             composable(MainActivity.ROUTE_OVERVIEW) {
-                OverviewScreen(vm, openGuide = { nav.navigate(MainActivity.ROUTE_GUIDE) }, openApps = { nav.goTab(MainActivity.ROUTE_APPS) })
+                OverviewScreen(
+                    vm,
+                    openGuide = { nav.navigate(MainActivity.ROUTE_GUIDE) },
+                    openApps = { nav.goTab(MainActivity.ROUTE_APPS) },
+                    openStudy = { nav.goTab(MainActivity.ROUTE_STUDY) },
+                )
             }
+            composable(MainActivity.ROUTE_STUDY) { StudyScreen(vm) }
             composable(MainActivity.ROUTE_STATS) { StatsScreen() }
             composable(MainActivity.ROUTE_APPS) { AppsScreen(vm) }
             composable(MainActivity.ROUTE_SETTINGS) {

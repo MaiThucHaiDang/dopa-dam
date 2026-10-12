@@ -1,8 +1,10 @@
 """End-to-end check of the Android app on an emulator (or a phone with USB debugging).
 
-Installs the debug APK, turns on the accessibility service with adb, then drives the real UI:
+Installs the APK, turns on the accessibility service with adb, then drives the real UI:
 tags the system Settings app as "Giải trí", opens it, checks that the warning covers it, presses
 Back (= Thoát) and checks that DopaDam counted the warning and the exit.
+Then starts a study session from the Study tab, checks the warning again, and that ending early
+asks for the confirmation.
 
 Usage (an emulator or device must already be running):
     python android/e2e/emulator_test.py [--apk path/to/app-debug.apk] [--shots out_dir]
@@ -203,6 +205,46 @@ def main():
         time.sleep(1)
 
     check("opening again shows the warning again", second_open_escalates)
+
+    def start_study():
+        shell(f"am start -n {PKG}/.MainActivity --es route study")
+        find("Khung giờ cố định", timeout=30)
+        tap("Học gì?")
+        shell("input text OnThi")
+        shell("input keyevent KEYCODE_BACK")  # hide the keyboard
+        time.sleep(1)
+        tap("Học 25 phút", exact=True)
+        find("Đang học: OnThi")
+        screenshot(args.shots, "07-study.png")
+
+    check("start a 25-minute study session from the Study tab", start_study)
+
+    def warning_during_study():
+        shell("input keyevent KEYCODE_HOME")
+        time.sleep(1)
+        shell(f"monkey -p {TARGET_PKG} -c android.intent.category.LAUNCHER 1")
+        deadline = time.time() + 10
+        while time.time() < deadline and not overlay_visible():
+            time.sleep(0.5)
+        time.sleep(1.5)
+        screenshot(args.shots, "08-warning-study.png")
+        if not overlay_visible():
+            raise AssertionError("no overlay during study")
+        shell("input keyevent KEYCODE_BACK")
+        time.sleep(1)
+
+    check("the warning shows during study", warning_during_study)
+
+    def end_early_needs_confirmation():
+        shell(f"am start -n {PKG}/.MainActivity --es route study")
+        tap("Kết thúc sớm", exact=True, timeout=30)
+        find("Thay đổi này làm yếu bảo vệ")
+        find("Chờ ")
+        screenshot(args.shots, "09-end-early.png")
+        tap("Giữ nguyên bảo vệ", exact=True)
+        find("Đang học: OnThi")
+
+    check("ending study early asks for the confirmation", end_early_needs_confirmation)
 
     print(f"\n{failures} step(s) failed" if failures else "\nAll emulator checks passed")
     sys.exit(1 if failures else 0)

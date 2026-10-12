@@ -6,7 +6,10 @@ import androidx.lifecycle.viewModelScope
 import com.dang.dopadam.DopaDamApp
 import com.dang.dopadam.core.DAY_MS
 import com.dang.dopadam.core.Settings
+import com.dang.dopadam.core.StudyRule
 import com.dang.dopadam.core.StudyStatus
+import com.dang.dopadam.core.formatStudyDays
+import com.dang.dopadam.core.shortDate
 import com.dang.dopadam.core.Tag
 import com.dang.dopadam.core.dayKey
 import com.dang.dopadam.core.localTzOffsetMinutes
@@ -40,6 +43,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
 
     val settings: StateFlow<Settings> = repo.observeSettings().stateIn(viewModelScope, SharingStarted.Eagerly, Settings())
+
+    val studyRules: StateFlow<List<StudyRule>> = repo.observeStudyRules()
+        .map { list -> list.sortedWith(compareBy({ it.start }, { it.days.firstOrNull() ?: 8 })) }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     private val _apps = MutableStateFlow<List<InstalledApp>?>(null)
     val apps: StateFlow<List<InstalledApp>?> = _apps.asStateFlow()
@@ -100,20 +107,53 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun confirmPending() {
         val pending = _pending.value ?: return
         _pending.value = null
-        viewModelScope.launch { pending.run()?.let { _message.value = it.message } ; refreshToday() }
+        viewModelScope.launch {
+            when (val error = pending.run()) {
+                null -> syncSoon()
+                else -> _message.value = error.message
+            }
+            refreshToday()
+        }
+    }
+
+    /** Sends a change to the other devices right away (when signed in) instead of on the next round. */
+    private fun syncSoon() {
+        val app = getApplication<DopaDamApp>()
+        app.appScope.launch { app.sync.maybeSync(minIntervalMs = 0) }
     }
 
     /** Runs a change; if it weakens protection, asks for the confirmation and then runs it confirmed. */
     private fun submit(action: String, change: suspend (confirmed: Boolean) -> ErrorCode?) {
         viewModelScope.launch {
             when (val error = change(false)) {
-                null -> Unit
+                null -> syncSoon()
                 ErrorCode.NEEDS_CONFIRM -> _pending.value = PendingConfirm(action) { change(true) }
                 else -> _message.value = error.message
             }
             refreshToday()
         }
     }
+
+    fun startStudy(minutes: Int, label: String?) = submit("Bật phiên học $minutes phút.") {
+        repo.startStudy(minutes, label, System.currentTimeMillis())
+    }
+
+    fun stopStudy() = submit("Kết thúc giờ học ngay bây giờ: cảnh báo trở về mức bình thường và cài đặt được mở khóa.") { confirmed ->
+        repo.stopStudy(confirmed, System.currentTimeMillis())
+    }
+
+    fun addStudyRule(rule: StudyRule) = submit("Thêm khung giờ học.") { confirmed ->
+        repo.setStudyRule(rule, confirmed, System.currentTimeMillis())
+    }
+
+    fun skipStudyDay(rule: StudyRule, date: String) = submit("Bỏ qua khung giờ học ngày ${shortDate(date)}.") { confirmed ->
+        repo.setStudyRule(rule.copy(exceptions = rule.exceptions + date), confirmed, System.currentTimeMillis())
+    }
+
+    fun deleteStudyRule(rule: StudyRule) =
+        submit("Xóa khung giờ học ${formatStudyDays(rule.days)} ${rule.start}–${rule.end}.") { confirmed ->
+            repo.deleteStudyRule(rule.id, confirmed, System.currentTimeMillis())
+        }
 
     fun setTag(app: InstalledApp, tag: Tag?) = submit(
         if (tag == null) "Bỏ tag của ${app.label}: app này sẽ không bị cảnh báo nữa." else "Đổi ${app.label} sang tag ${tag.label}.",

@@ -27,7 +27,7 @@ import com.dang.dopadam.ui.theme.Tokens
 import kotlin.math.ceil
 
 @Composable
-fun OverviewScreen(vm: MainViewModel, openGuide: () -> Unit, openApps: () -> Unit) {
+fun OverviewScreen(vm: MainViewModel, openGuide: () -> Unit, openApps: () -> Unit, openStudy: () -> Unit) {
     val context = LocalContext.current
     val today by vm.today.collectAsStateWithLifecycle()
     val protection by vm.protection.collectAsStateWithLifecycle()
@@ -85,6 +85,12 @@ fun OverviewScreen(vm: MainViewModel, openGuide: () -> Unit, openApps: () -> Uni
                 val left = today.study.endsAt?.let { ceil((it - System.currentTimeMillis()) / 60_000.0).toInt() }
                 Text(today.study.label ?: "")
                 left?.let { Muted("Còn $it phút. Nút Vào khóa lâu hơn và cài đặt bị khóa.") }
+                OutlinedButton(onClick = openStudy) { Text("Mở Chế độ Học") }
+            }
+        } else {
+            SectionCard("Chế độ Học") {
+                Muted("Bật khi ngồi vào học: cảnh báo khóa nút Vào lâu hơn và chỉ cho vào 5 hoặc 10 phút.")
+                OutlinedButton(onClick = openStudy) { Text("Bật Chế độ Học") }
             }
         }
 

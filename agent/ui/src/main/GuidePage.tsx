@@ -45,6 +45,29 @@ export function GuidePage() {
       </section>
 
       <section className="card">
+        <h2>Chế độ Học</h2>
+        <p className="muted">
+          Bật tay 25, 50 hoặc 90 phút kèm nhãn (ví dụ "Ôn Hệ điều hành"), hoặc đặt khung giờ cố định theo tuần (ví dụ T2–T6,
+          19:30–22:00). Trong giờ học, nút Vào khóa 30 giây, chỉ cho vào 5 hoặc 10 phút, và tag, mức cản trở, ngân sách bị
+          khóa; vẫn thêm được link học được phép. Cảnh báo nhắc lại nhãn phiên học để quay về việc đang làm.
+        </p>
+        <p className="muted">
+          Kết thúc sớm, xóa hoặc rút ngắn khung giờ, hay bỏ qua hôm nay đều phải qua bước chờ 60 giây. Bỏ qua một ngày sau này
+          thì không cần. Đã đăng nhập thì bật ở máy tính hay điện thoại, thiết bị còn lại cũng vào giờ học trong khoảng một
+          phút.
+        </p>
+      </section>
+
+      <section className="card">
+        <h2>Đọc trang Thống kê</h2>
+        <p className="muted">
+          Biểu đồ "Số giây trung bình đến lúc bấm Thoát" là chỉ số chính: con số giảm dần nghĩa là bạn dừng lại nhanh hơn, ít
+          giằng co hơn. Biểu đồ lần bị chặn cho thấy tỉ lệ Thoát so với Vào; biểu đồ thời gian theo tag có đường gạch là ngân
+          sách giải trí mỗi ngày. Số liệu gộp cả máy tính, Edge và điện thoại (khi đã đăng nhập).
+        </p>
+      </section>
+
+      <section className="card">
         <h2>Khi có trục trặc</h2>
         <ul className="steps">
           <li>Extension không nối: ở Tổng quan bấm "Đăng ký lại" rồi khởi động lại Edge.</li>

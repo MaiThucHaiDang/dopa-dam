@@ -1,7 +1,7 @@
 // Typed wrappers over the agent's Rust commands (src-tauri/src/commands.rs).
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import type { AllowEntry, Tag } from "@core";
+import type { AllowEntry, StudyRule, Tag } from "@core";
 
 export type ErrorCode = "invalid" | "needs-confirm" | "study-locked" | "unknown-event" | "already-decided" | "locked";
 
@@ -119,6 +119,12 @@ export interface AccountStatus {
   lastError: string | null;
 }
 
+export interface StudyView {
+  status: StudyStatus;
+  rules: StudyRule[];
+  today: string;
+}
+
 export interface DeviceRow {
   platform: string;
   name: string;
@@ -165,6 +171,11 @@ export const api = {
   syncNow: () => invoke<{ pushed: number; pulled: number; changed: number }>("sync_now"),
   devices: () => invoke<DeviceRow[]>("account_devices"),
   deleteServerData: (confirmed: boolean) => invoke<void>("delete_server_data", { confirmed }),
+  study: () => invoke<StudyView>("get_study"),
+  startStudy: (minutes: number, label: string | null) => invoke<void>("start_study", { minutes, label }),
+  stopStudy: (confirmed: boolean) => invoke<void>("stop_study", { confirmed }),
+  setStudyRule: (rule: StudyRule, confirmed: boolean) => invoke<void>("set_study_rule", { rule, confirmed }),
+  deleteStudyRule: (id: string, confirmed: boolean) => invoke<void>("delete_study_rule", { id, confirmed }),
 };
 
 export function onEvent<T>(name: string, handler: (payload: T) => void): Promise<UnlistenFn> {

@@ -36,6 +36,22 @@
       p {
         margin: 0;
       }
+      #study-start {
+        display: grid;
+        gap: var(--dd-space-sm);
+      }
+      #study-start.hidden {
+        display: none;
+      }
+      .study-buttons {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: var(--dd-space-xs);
+      }
+      .study-buttons button {
+        padding: 6px 4px;
+        font-size: var(--dd-font-small);
+      }
     </style>
   </head>
   <body>
@@ -46,6 +62,12 @@
       </header>
       <p id="protection" class="muted"></p>
       <p id="study" class="chip hidden"></p>
+      <section id="study-start" class="hidden" aria-label="Chế độ Học">
+        <input id="study-label" type="text" maxlength="60" placeholder="Học gì? vd: Ôn Hệ điều hành" aria-label="Nhãn phiên học" />
+        <div id="study-buttons" class="study-buttons"></div>
+      </section>
+      <button id="study-stop" class="btn-quiet hidden">Kết thúc sớm…</button>
+      <p id="error" class="notice hidden" role="alert"></p>
       <dl>
         <dt>Bị chặn hôm nay</dt>
         <dd id="warnings">0</dd>

@@ -2,7 +2,7 @@
 
 use crate::core::{
     allow_options_for, budget_status, compute_level, effective_delay, number_change_weakens, recent_count,
-    tag_change_weakens, NumberField, Settings, StudyStatus,
+    study_rule_change_weakens, tag_change_weakens, NumberField, Settings, StudyRule, StudyStatus,
 };
 use serde::Serialize;
 
@@ -191,6 +191,38 @@ pub fn check_friction(old: &Settings, new: &Settings, confirmed: bool, study_act
         )
     });
     if (lock_weakens || budget_weakens || delay_weakens) && !confirmed {
+        Some(ErrorCode::NeedsConfirm)
+    } else {
+        None
+    }
+}
+
+/// Adding or widening a weekly rule is always fine; anything that weakens it waits for the
+/// confirmation, and is locked while studying (ending study early goes through `check_study_stop`).
+pub fn check_study_rule_change(
+    old: Option<&StudyRule>,
+    new: Option<&StudyRule>,
+    confirmed: bool,
+    study_active: bool,
+    now: i64,
+    tz: i64,
+) -> Option<ErrorCode> {
+    if old == new || !study_rule_change_weakens(old, new, now, tz) {
+        None
+    } else if study_active {
+        Some(ErrorCode::StudyLocked)
+    } else if !confirmed {
+        Some(ErrorCode::NeedsConfirm)
+    } else {
+        None
+    }
+}
+
+/// Ending study before its time (FR14).
+pub fn check_study_stop(study_active: bool, confirmed: bool) -> Option<ErrorCode> {
+    if !study_active {
+        Some(ErrorCode::Invalid)
+    } else if !confirmed {
         Some(ErrorCode::NeedsConfirm)
     } else {
         None

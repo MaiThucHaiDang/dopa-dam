@@ -360,3 +360,22 @@ code {
   color: var(--dd-text);
   font-variant-numeric: tabular-nums;
 }
+
+.weekdays {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--dd-space-sm);
+  border: none;
+  padding: 0;
+  margin: 0 0 var(--dd-space-sm);
+}
+
+.weekdays label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.list td.actions input[type="date"] {
+  margin-right: var(--dd-space-xs);
+}

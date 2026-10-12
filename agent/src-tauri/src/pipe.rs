@@ -1,7 +1,7 @@
 //! Named pipe server for the extension (relayed by dopadam.exe in host mode). One JSON object per line.
 //! See docs/thiet-ke-ky-thuat.md, section 3, for the messages.
 
-use crate::core::{match_domain, now_ms, Settings};
+use crate::core::{match_domain, now_ms, Settings, StudyRule};
 use crate::db::{AllowEntry, KIND_DOMAIN};
 use crate::logic::{Decision, ErrorCode, ACTIVITIES};
 use crate::nmhost::PIPE_NAME;
@@ -162,6 +162,41 @@ pub fn handle_message(state: &Shared, client: u64, msg: &Value) -> Option<Value>
             let enabled = msg.get("enabled").and_then(Value::as_bool).unwrap_or(true);
             let confirmed = msg.get("confirmed").and_then(Value::as_bool).unwrap_or(false);
             let outcome = state.store().set_protection(enabled, confirmed, now);
+            if outcome.is_ok() {
+                state.changed();
+            }
+            Some(result(&request_id, outcome))
+        }
+        "start_study" => {
+            let minutes = msg.get("minutes").and_then(Value::as_i64).unwrap_or(0);
+            let outcome = state.store().start_study(minutes, str_field(msg, "label"), now).map(|_| ());
+            if outcome.is_ok() {
+                state.changed();
+            }
+            Some(result(&request_id, outcome))
+        }
+        "stop_study" => {
+            let confirmed = msg.get("confirmed").and_then(Value::as_bool).unwrap_or(false);
+            let outcome = state.store().stop_study(confirmed, now);
+            if outcome.is_ok() {
+                state.changed();
+            }
+            Some(result(&request_id, outcome))
+        }
+        "set_study_rule" => {
+            let confirmed = msg.get("confirmed").and_then(Value::as_bool).unwrap_or(false);
+            let outcome = match msg.get("rule").cloned().and_then(|r| serde_json::from_value::<StudyRule>(r).ok()) {
+                Some(rule) => state.store().set_study_rule(&rule, confirmed, now).map(|_| ()),
+                None => Err(ErrorCode::Invalid),
+            };
+            if outcome.is_ok() {
+                state.changed();
+            }
+            Some(result(&request_id, outcome))
+        }
+        "delete_study_rule" => {
+            let confirmed = msg.get("confirmed").and_then(Value::as_bool).unwrap_or(false);
+            let outcome = state.store().delete_study_rule(str_field(msg, "id").unwrap_or(""), confirmed, now);
             if outcome.is_ok() {
                 state.changed();
             }

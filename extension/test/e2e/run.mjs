@@ -184,6 +184,57 @@ try {
     await page.close();
   });
 
+  await test("the popup starts a study session and the warning shows it", async () => {
+    const popup = await context.newPage();
+    await popup.goto(`${EXT}/popup.html`);
+    await popup.locator("#study-label").fill("Ôn Hệ điều hành");
+    await popup.locator("#study-buttons button", { hasText: "Học 25 phút" }).click();
+    await popup.locator("#study").waitFor({ state: "visible" });
+    assert.match(await popup.locator("#study").textContent(), /Đang học: Ôn Hệ điều hành · còn 2[45] phút/);
+    assert.equal(await popup.locator("#study-start").isHidden(), true);
+    await popup.close();
+    const page = await openBlocked2("/during-study");
+    assert.match(await page.locator("#study").textContent(), /Đang học: Ôn Hệ điều hành/);
+    await page.waitForFunction(() => !document.querySelector("#enter").disabled, null, { timeout: 5000 });
+    await page.locator("#enter").click();
+    const options = await page.locator("#allow-buttons button").allTextContents();
+    assert.deepEqual(options, ["5 phút", "10 phút"]);
+    await page.close();
+  });
+
+  await test("tags are locked during study and ending early needs the confirmation", async () => {
+    const res = await send({ type: "options:setDomainRule", pattern: "reddit.com", tag: "entertainment", confirmed: true });
+    assert.deepEqual(res, { ok: false, error: "study-locked" });
+    const page = await context.newPage();
+    await page.goto(`${EXT}/options.html#study`);
+    assert.match(await page.locator("#study-status").textContent(), /Đang học: Ôn Hệ điều hành \(bật tay\)/);
+    await page.locator("#study-stop").click();
+    const modal = page.locator(".modal");
+    await modal.waitFor({ state: "visible" });
+    assert.match(await modal.textContent(), /Kết thúc giờ học/);
+    await modal.locator("button", { hasText: "Giữ nguyên bảo vệ" }).click();
+    assert.equal((await send({ type: "popup:get" })).study.active, true);
+    assert.deepEqual(await send({ type: "study:stop", confirmed: true }), { ok: true });
+    assert.equal((await send({ type: "popup:get" })).study.active, false);
+    await page.close();
+  });
+
+  await test("the options page adds and lists a weekly study rule", async () => {
+    const page = await context.newPage();
+    await page.goto(`${EXT}/options.html#study`);
+    await page.locator("#rule-start").fill("06:00");
+    await page.locator("#rule-end").fill("06:30");
+    await page.locator("#rule-label").fill("Từ vựng");
+    await page.locator("#add-rule button[type=submit]").click();
+    const row = page.locator("#study-rules tr", { hasText: "Từ vựng" });
+    await row.waitFor({ state: "visible" });
+    assert.match(await row.textContent(), /T2–T6 · 06:00–06:30/);
+    const view = await send({ type: "options:get" });
+    assert.equal(view.studyRules.length, 1);
+    assert.deepEqual(view.studyRules[0].days, [1, 2, 3, 4, 5]);
+    await page.close();
+  });
+
   await test("protection off lets sites through; back on blocks again", async () => {
     assert.deepEqual(await send({ type: "options:setProtection", enabled: false, confirmed: true }), { ok: true });
     const page = await context.newPage();

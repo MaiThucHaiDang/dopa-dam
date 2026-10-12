@@ -3,8 +3,10 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  activeRuleOccurrences,
   budgetStatus,
   classifyNumberChange,
+  classifyStudyRuleChange,
   classifyTagChange,
   computeLevel,
   dayKey,
@@ -105,5 +107,18 @@ describe("study.json", () => {
       );
       expect(result).toEqual(c.expected);
     });
+  }
+});
+
+describe("study-change.json", () => {
+  const v = vectors("study-change.json");
+  const rules = v.rules as Record<string, StudyRule>;
+  const rule = (k: string | null) => (k === null ? null : rules[k]);
+  for (const c of v.changeCases) {
+    it(c.name, () => expect(classifyStudyRuleChange(rule(c.old), rule(c.new), c.now, c.tzOffsetMinutes)).toBe(c.expected));
+  }
+  for (const c of v.activeCases) {
+    it(`đang diễn ra: ${c.name}`, () =>
+      expect(activeRuleOccurrences((c.rules as string[]).map((k) => rules[k]), c.now, c.tzOffsetMinutes)).toEqual(c.expected));
   }
 });

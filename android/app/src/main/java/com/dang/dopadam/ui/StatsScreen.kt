@@ -23,6 +23,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -76,7 +77,7 @@ private fun niceMax(v: Double): Double {
 fun StatsScreen() {
     val app = LocalContext.current.applicationContext as DopaDamApp
     var stats by remember { mutableStateOf<List<DayStat>?>(null) }
-    var budget by remember { mutableStateOf(0) }
+    var budget by remember { mutableIntStateOf(0) }
     var weeks by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         val now = System.currentTimeMillis()

@@ -109,3 +109,40 @@
   font-size: var(--dd-font-small);
   padding: 4px 12px;
 }
+
+.card h3 {
+  margin: 0;
+  font-size: var(--dd-font-base);
+}
+
+.weekdays {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--dd-space-sm);
+  border: none;
+  padding: 0;
+  margin: 0;
+  grid-column: 1 / -1;
+  color: var(--dd-text-muted);
+  font-size: var(--dd-font-small);
+}
+
+.weekdays legend {
+  padding: 0;
+  margin-bottom: var(--dd-space-xs);
+}
+
+.weekdays label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--dd-text);
+}
+
+.rule-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--dd-space-xs);
+  justify-content: flex-end;
+  align-items: center;
+}

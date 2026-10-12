@@ -1,6 +1,7 @@
 // Sign-in (Google through Credential Manager, or email + password) and sync status, part of Settings.
 package com.dang.dopadam.ui
 
+import android.annotation.SuppressLint
 import android.app.Activity
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
@@ -51,6 +52,8 @@ private fun ago(at: Long): String {
 }
 
 /** Google account picker (Credential Manager), then the ID token goes to Supabase with the raw nonce. */
+// The lint check misses the GoogleIdTokenCredential use below (it is reached through a CustomCredential).
+@SuppressLint("CredentialManagerSignInWithGoogle")
 private suspend fun googleSignIn(activity: Activity?, sync: SyncManager): String? {
     if (activity == null) return "Không mở được đăng nhập Google."
     val (raw, hashed) = sync.newNonce()

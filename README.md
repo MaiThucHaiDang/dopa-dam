@@ -43,7 +43,7 @@ Vì sao có `build.ps1`: các công cụ Java trên Windows không đọc đư�
 
 Cài lên điện thoại: `adb install -r android\app\build\outputs\apk\release\app-release.apk` (hoặc chép file APK sang điện thoại rồi mở), sau đó mở DopaDam → **Hướng dẫn và kiểm tra quyền**.
 
-Kiểm thử trên máy ảo hoặc điện thoại thật đang cắm cáp: `python android/e2e/emulator_test.py --shots <thư mục ảnh>`.
+Kiểm thử trên máy ảo hoặc điện thoại thật đang cắm cáp: `python android/e2e/emulator_test.py --shots <thư mục ảnh>` (máy ảo có thể chạy ẩn: `emulator -avd <tên> -no-window`).
 
 ## Agent Windows
 

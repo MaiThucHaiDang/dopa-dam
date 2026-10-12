@@ -1,5 +1,16 @@
-// Options page: domain tags, allowed links, friction settings, protection and log.
-import { TAGS, TAG_LABELS, describeAllowEntry, type AllowEntry, type Tag } from "../core";
+// Options page: study mode, domain tags, allowed links, friction settings, protection and log.
+import {
+  MANUAL_STUDY_MINUTES,
+  TAGS,
+  TAG_LABELS,
+  describeAllowEntry,
+  formatLocalDate,
+  formatStudyDays,
+  shortDate,
+  type AllowEntry,
+  type StudyRule,
+  type Tag,
+} from "../core";
 import { ERROR_TEXT, sendRequest, type OptionsView, type Request, type SimpleResponse } from "../shared/messages";
 import { confirmWeakening } from "./confirm";
 import { byId, el, show } from "./dom";
@@ -52,7 +63,82 @@ function timeOf(ms: number): string {
   return new Date(ms).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
 }
 
+const WEEKDAYS: [number, string][] = [
+  [1, "T2"],
+  [2, "T3"],
+  [3, "T4"],
+  [4, "T5"],
+  [5, "T6"],
+  [6, "T7"],
+  [7, "CN"],
+];
+
+const SOURCE_TEXT: Record<string, string> = { manual: "bật tay", rule: "theo khung giờ", taskflow: "theo TaskFlow" };
+
+/** Today's local date "YYYY-MM-DD". */
+function today(): string {
+  const now = Date.now();
+  return formatLocalDate(now - new Date(now).getTimezoneOffset() * 60_000);
+}
+
+function renderStudy(v: OptionsView): void {
+  const studying = v.study.active && v.study.endsAt !== null;
+  byId("study-status").textContent = studying
+    ? `Đang học: ${v.study.label} (${SOURCE_TEXT[v.study.source ?? ""] ?? "đang bật"}), đến ${timeOf(v.study.endsAt!)}.`
+    : "Hiện không trong giờ học.";
+  show(byId("study-stop"), studying);
+
+  const date = today();
+  byId("study-rules").replaceChildren(
+    ...(v.studyRules.length
+      ? v.studyRules.map((rule: StudyRule) => {
+          const upcoming = rule.exceptions.filter((d) => d >= date);
+          const picker = el("input", { type: "date", min: date, "aria-label": "Ngày bỏ qua" });
+          return el("tr", {}, [
+            el("td", {}, [
+              el("strong", { text: `${formatStudyDays(rule.days)} · ${rule.start}–${rule.end}` }),
+              rule.label ? ` · ${rule.label}` : "",
+              upcoming.length ? el("div", { class: "faint", text: `Bỏ qua: ${upcoming.map(shortDate).join(", ")}` }) : null,
+            ]),
+            el("td", {}, [
+              el("div", { class: "rule-actions" }, [
+                picker,
+                el("button", {
+                  class: "btn-quiet small-btn",
+                  type: "button",
+                  text: "Bỏ qua ngày này",
+                  onclick: (() => {
+                    if (!picker.value) {
+                      showError("Chọn ngày muốn bỏ qua.");
+                      return;
+                    }
+                    const next = { ...rule, exceptions: [...rule.exceptions, picker.value] };
+                    void submit(
+                      (confirmed) => ({ type: "study:setRule", rule: next, confirmed }),
+                      `Bỏ qua khung giờ học ngày ${shortDate(picker.value)}.`,
+                    );
+                  }) as EventListener,
+                }),
+                el("button", {
+                  class: "btn-quiet small-btn",
+                  type: "button",
+                  text: "Xóa",
+                  onclick: (() =>
+                    void submit(
+                      (confirmed) => ({ type: "study:deleteRule", id: rule.id, confirmed }),
+                      `Xóa khung giờ học ${formatStudyDays(rule.days)} ${rule.start}–${rule.end}.`,
+                    )) as EventListener,
+                }),
+              ]),
+            ]),
+          ]);
+        })
+      : [el("tr", {}, [el("td", { class: "faint", text: "Chưa có khung giờ nào." })])]),
+  );
+}
+
 function render(v: OptionsView): void {
+  renderStudy(v);
   const locked = v.study.active;
   byId("status-line").textContent = v.protectionEnabled ? "Bảo vệ đang bật" : "Bảo vệ đang TẮT";
 
@@ -136,6 +222,49 @@ function render(v: OptionsView): void {
 }
 
 // ---- Static controls -------------------------------------------------------
+
+byId("study-buttons").replaceChildren(
+  ...MANUAL_STUDY_MINUTES.map((m) =>
+    el("button", {
+      class: "btn-primary",
+      type: "button",
+      text: `Học ${m} phút`,
+      onclick: (async () => {
+        const input = byId<HTMLInputElement>("study-label");
+        const label = input.value.trim() || null;
+        if (await submit(() => ({ type: "study:start", minutes: m, label }), `Bật phiên học ${m} phút.`)) input.value = "";
+      }) as EventListener,
+    }),
+  ),
+);
+byId("study-start").addEventListener("submit", (e) => e.preventDefault());
+
+byId("study-stop").addEventListener("click", () => {
+  void submit(
+    (confirmed) => ({ type: "study:stop", confirmed }),
+    "Kết thúc giờ học ngay bây giờ: cảnh báo trở về mức bình thường và cài đặt được mở khóa.",
+  );
+});
+
+byId("rule-days").append(
+  ...WEEKDAYS.map(([d, name]) =>
+    el("label", {}, [el("input", { type: "checkbox", value: String(d), checked: d <= 5 }), name]),
+  ),
+);
+
+byId("add-rule").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const days = Array.from(document.querySelectorAll<HTMLInputElement>("#rule-days input:checked")).map((i) => Number(i.value));
+  const start = byId<HTMLInputElement>("rule-start").value;
+  const end = byId<HTMLInputElement>("rule-end").value;
+  const labelInput = byId<HTMLInputElement>("rule-label");
+  if (!days.length || !start || !end || start === end) {
+    showError("Chọn ít nhất một ngày, và giờ kết thúc khác giờ bắt đầu.");
+    return;
+  }
+  const rule: StudyRule = { id: "", days, start, end, label: labelInput.value.trim() || null, exceptions: [] };
+  if (await submit((confirmed) => ({ type: "study:setRule", rule, confirmed }), "Thêm khung giờ học.")) labelInput.value = "";
+});
 
 byId("domain-tag").replaceChildren(
   ...TAGS.map((t) => el("option", { value: t, text: TAG_LABELS[t], selected: t === "entertainment" })),

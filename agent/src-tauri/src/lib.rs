@@ -226,6 +226,11 @@ pub fn run() {
             commands::account_devices,
             commands::delete_server_data,
             commands::get_stats,
+            commands::get_study,
+            commands::start_study,
+            commands::stop_study,
+            commands::set_study_rule,
+            commands::delete_study_rule,
         ])
         .run(tauri::generate_context!())
         .expect("error while running DopaDam");

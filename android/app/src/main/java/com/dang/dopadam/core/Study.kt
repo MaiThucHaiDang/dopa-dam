@@ -63,6 +63,36 @@ private fun pickActive(sessions: List<Session>, now: Long): Session? {
     return best
 }
 
+/**
+ * Anything that can say "these are study sessions": manual sessions, the weekly rules, and later
+ * TaskFlow. Adding a source means writing one of these; the blocking side does not change.
+ */
+interface StudySessionSource {
+    val kind: StudySource
+    fun sessions(now: Long, tzOffsetMinutes: Int): List<Session>
+}
+
+class SessionListSource(override val kind: StudySource, private val list: List<Session>) : StudySessionSource {
+    override fun sessions(now: Long, tzOffsetMinutes: Int) = list
+}
+
+class RuleSource(private val rules: List<StudyRule>) : StudySessionSource {
+    override val kind = StudySource.RULE
+    override fun sessions(now: Long, tzOffsetMinutes: Int) = rules.flatMap { ruleOccurrences(it, now, tzOffsetMinutes) }
+}
+
+/** Studying when any source has a session running; the label comes from manual, then TaskFlow, then rules. */
+fun resolveSources(now: Long, tzOffsetMinutes: Int, sources: List<StudySessionSource>): StudyStatus {
+    for (kind in StudySource.entries) {
+        val session = pickActive(sources.filter { it.kind == kind }.flatMap { it.sessions(now, tzOffsetMinutes) }, now)
+        if (session != null) {
+            val label = session.label?.takeIf { it.isNotEmpty() } ?: kind.defaultLabel
+            return StudyStatus(true, kind, label, session.end)
+        }
+    }
+    return StudyStatus.NONE
+}
+
 /** Combines study sources with priority manual > taskflow > rule. */
 fun resolveStudy(
     now: Long,
@@ -70,17 +100,84 @@ fun resolveStudy(
     manual: List<Session>,
     rules: List<StudyRule>,
     external: List<Session>,
-): StudyStatus {
-    val candidates = listOf(
-        StudySource.MANUAL to pickActive(manual, now),
-        StudySource.TASKFLOW to pickActive(external, now),
-        StudySource.RULE to pickActive(rules.flatMap { ruleOccurrences(it, now, tzOffsetMinutes) }, now),
-    )
-    for ((source, session) in candidates) {
-        if (session != null) {
-            val label = session.label?.takeIf { it.isNotEmpty() } ?: source.defaultLabel
-            return StudyStatus(true, source, label, session.end)
-        }
+): StudyStatus = resolveSources(
+    now,
+    tzOffsetMinutes,
+    listOf(SessionListSource(StudySource.MANUAL, manual), SessionListSource(StudySource.TASKFLOW, external), RuleSource(rules)),
+)
+
+/** A rule window that is running, with the local date it started on (the exception that skips it). */
+data class RuleOccurrence(val ruleId: String, val date: String)
+
+/** Rule windows running at `now`, in rule order. Ending study early adds these as exceptions. */
+fun activeRuleOccurrences(rules: List<StudyRule>, now: Long, tzOffsetMinutes: Int): List<RuleOccurrence> {
+    val offsetMs = tzOffsetMinutes * MINUTE_MS
+    return rules.flatMap { rule ->
+        ruleOccurrences(rule, now, tzOffsetMinutes)
+            .filter { it.start <= now && now < it.end }
+            .map { RuleOccurrence(rule.id, formatLocalDate(Math.floorDiv(it.start + offsetMs, DAY_MS) * DAY_MS)) }
     }
-    return StudyStatus.NONE
+}
+
+/** Start and end in minutes after the start day's midnight; an end at or before the start is next day. */
+private fun windowMinutes(rule: StudyRule): Pair<Int, Int>? {
+    val start = parseHm(rule.start) ?: return null
+    val end = parseHm(rule.end) ?: return null
+    return start to if (end > start) end else end + 24 * 60
+}
+
+/**
+ * Editing a weekly rule. Weakens: removing it, dropping days, a shorter window, or skipping today or a
+ * session that is running. Adding a rule, more days, a longer window or skipping a later date does not.
+ */
+fun studyRuleChangeWeakens(old: StudyRule?, new: StudyRule?, now: Long, tzOffsetMinutes: Int): Boolean {
+    if (old == null) return false
+    if (new == null) return true
+    if (old.days.any { it !in new.days }) return true
+    val ow = windowMinutes(old)
+    val nw = windowMinutes(new)
+    if (ow != null && (nw == null || nw.first > ow.first || nw.second < ow.second)) return true
+    val offsetMs = tzOffsetMinutes * MINUTE_MS
+    val protectedDates = activeRuleOccurrences(listOf(old), now, tzOffsetMinutes).map { it.date }.toSet() +
+        formatLocalDate(Math.floorDiv(now + offsetMs, DAY_MS) * DAY_MS)
+    return new.exceptions.any { it !in old.exceptions && it in protectedDates }
+}
+
+const val STUDY_LABEL_MAX = 60
+private val DATE_REGEX = Regex("""^\d{4}-\d{2}-\d{2}$""")
+val MANUAL_STUDY_MINUTES = listOf(25, 50, 90)
+
+/** Cleans a rule typed by the user; null when it cannot be a rule (no day, bad time, empty window). */
+fun normalizeStudyRule(rule: StudyRule): StudyRule? {
+    val days = rule.days.filter { it in 1..7 }.distinct().sorted()
+    val start = parseHm(rule.start) ?: return null
+    val end = parseHm(rule.end) ?: return null
+    if (days.isEmpty() || start == end) return null
+    fun hm(m: Int) = "${(m / 60).toString().padStart(2, '0')}:${(m % 60).toString().padStart(2, '0')}"
+    val label = rule.label.orEmpty().trim().take(STUDY_LABEL_MAX).ifEmpty { null }
+    val exceptions = rule.exceptions.filter { DATE_REGEX.matches(it) }.distinct().sorted()
+    return StudyRule(rule.id, days, hm(start), hm(end), label, exceptions)
+}
+
+private val DAY_NAMES = listOf("", "T2", "T3", "T4", "T5", "T6", "T7", "CN")
+
+/** "T2–T6", "T2, T4, T6", "Mỗi ngày": consecutive weekdays collapse into a range. */
+fun formatStudyDays(days: List<Int>): String {
+    val sorted = days.filter { it in 1..7 }.distinct().sorted()
+    if (sorted.size == 7) return "Mỗi ngày"
+    val parts = mutableListOf<String>()
+    var i = 0
+    while (i < sorted.size) {
+        var j = i
+        while (j + 1 < sorted.size && sorted[j + 1] == sorted[j] + 1) j++
+        parts += if (j - i >= 2) "${DAY_NAMES[sorted[i]]}–${DAY_NAMES[sorted[j]]}" else sorted.subList(i, j + 1).joinToString(", ") { DAY_NAMES[it] }
+        i = j + 1
+    }
+    return parts.joinToString(", ")
+}
+
+/** "2026-10-14" → "14/10". */
+fun shortDate(date: String): String {
+    val parts = date.split("-")
+    return "${parts[2].toInt()}/${parts[1].toInt()}"
 }

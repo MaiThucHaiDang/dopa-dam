@@ -5,6 +5,11 @@
   box-sizing: border-box;
 }
 
+html {
+  /* Native controls (date and time pickers, scrollbars) in their dark variant. */
+  color-scheme: dark;
+}
+
 html,
 body {
   margin: 0;
@@ -111,6 +116,7 @@ select:focus-visible {
 input[type="text"],
 input[type="number"],
 input[type="time"],
+input[type="date"],
 select {
   font: inherit;
   color: var(--dd-text);

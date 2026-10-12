@@ -1,6 +1,7 @@
 package com.dang.dopadam.logic
 
 import com.dang.dopadam.core.Settings
+import com.dang.dopadam.core.StudyRule
 import com.dang.dopadam.core.StudySource
 import com.dang.dopadam.core.StudyStatus
 import com.dang.dopadam.data.SettingsCodec
@@ -108,6 +109,21 @@ class GuardLogicTest {
         assertEquals(Settings(), SettingsCodec.decode("not json"))
         assertEquals(Settings(), SettingsCodec.decode(null))
         assertEquals(Settings().lockSeconds, SettingsCodec.decode("""{"lockSeconds":[1,2]}""").lockSeconds)
+    }
+
+    @Test
+    fun studyRulesAndEndingEarly() {
+        val tz = 420
+        val rule = StudyRule("r1", listOf(1, 2, 3, 4, 5), "19:30", "22:00", "Giờ tự học", emptyList())
+        // now = Monday 20:00 +07, inside the window.
+        assertNull(checkStudyRuleChange(null, rule, false, false, now, tz))
+        assertEquals(ErrorCode.NEEDS_CONFIRM, checkStudyRuleChange(rule, null, false, false, now, tz))
+        assertEquals(ErrorCode.STUDY_LOCKED, checkStudyRuleChange(rule, rule.copy(end = "21:00"), true, true, now, tz))
+        assertNull(checkStudyRuleChange(rule, rule.copy(end = "23:00"), false, true, now, tz))
+        assertNull(checkStudyRuleChange(rule, rule.copy(label = "Ôn thi"), false, true, now, tz))
+        assertEquals(ErrorCode.INVALID, checkStudyStop(studyActive = false, confirmed = true))
+        assertEquals(ErrorCode.NEEDS_CONFIRM, checkStudyStop(studyActive = true, confirmed = false))
+        assertNull(checkStudyStop(studyActive = true, confirmed = true))
     }
 }
 

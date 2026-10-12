@@ -1,8 +1,12 @@
 // Pure state transitions for the standalone extension. Callers pass a mutable draft (see store.update).
 import {
   DAY_MS,
+  MINUTE_MS,
+  STUDY_LABEL_MAX,
+  activeRuleOccurrences,
   budgetStatus,
   classifyNumberChange,
+  classifyStudyRuleChange,
   classifyTagChange,
   computeLevel,
   dayKey,
@@ -10,6 +14,7 @@ import {
   isBlockedTag,
   matchDomainRule,
   normalizeDomainInput,
+  normalizeStudyRule,
   normalizeHost,
   parseAllowUrl,
   recentCount,
@@ -17,6 +22,7 @@ import {
   sameAllowEntry,
   type AllowEntry,
   type DomainRule,
+  type StudyRule,
   type StudyStatus,
   type Tag,
 } from "../core";
@@ -293,6 +299,61 @@ export function setProtection(draft: State, enabled: boolean, confirmed: boolean
     if (!confirmed) return { ok: false, error: "needs-confirm" };
   }
   draft.protectionEnabled = enabled;
+  return { ok: true };
+}
+
+// ---- Study mode --------------------------------------------------------------
+
+/** A manual study session from now (FR09). Starting one while studying only adds time. */
+export function startStudy(draft: State, minutes: number, label: string | null, now: number): Result {
+  if (!Number.isInteger(minutes) || minutes < 5 || minutes > 480) return { ok: false, error: "invalid" };
+  const clean = (label ?? "").trim().slice(0, STUDY_LABEL_MAX);
+  draft.study.manual.push({ id: crypto.randomUUID(), start: now, end: now + minutes * MINUTE_MS, label: clean || null });
+  return { ok: true };
+}
+
+/** Ends study now (FR14): running manual sessions end, running rule windows get an exception for their day. */
+export function stopStudy(draft: State, confirmed: boolean, now: number, tz: number): Result {
+  if (!studyStatus(draft, now, tz).active) return { ok: false, error: "invalid" };
+  if (!confirmed) return { ok: false, error: "needs-confirm" };
+  draft.study.manual = draft.study.manual.map((s) => (s.start <= now && now < s.end ? { ...s, end: now } : s));
+  for (const occurrence of activeRuleOccurrences(draft.study.rules, now, tz)) {
+    const rule = draft.study.rules.find((r) => r.id === occurrence.ruleId);
+    if (rule && !rule.exceptions.includes(occurrence.date)) rule.exceptions = [...rule.exceptions, occurrence.date].sort();
+  }
+  return { ok: true };
+}
+
+/** Adds (empty id) or changes a weekly rule. Weakening needs the confirmation and is locked while studying. */
+export function setStudyRule(
+  draft: State,
+  input: StudyRule,
+  confirmed: boolean,
+  now: number,
+  tz: number,
+): Result<{ rule: StudyRule }> {
+  const rule = normalizeStudyRule(input);
+  if (!rule) return { ok: false, error: "invalid" };
+  if (!rule.id) rule.id = crypto.randomUUID();
+  const index = draft.study.rules.findIndex((r) => r.id === rule.id);
+  const old = index >= 0 ? draft.study.rules[index] : null;
+  if (classifyStudyRuleChange(old, rule, now, tz) === "weaken") {
+    if (studyLocked(draft, now, tz)) return { ok: false, error: "study-locked" };
+    if (!confirmed) return { ok: false, error: "needs-confirm" };
+  }
+  if (index >= 0) draft.study.rules[index] = rule;
+  else draft.study.rules.push(rule);
+  return { ok: true, rule };
+}
+
+export function deleteStudyRule(draft: State, id: string, confirmed: boolean, now: number, tz: number): Result {
+  const old = draft.study.rules.find((r) => r.id === id);
+  if (!old) return { ok: true };
+  if (classifyStudyRuleChange(old, null, now, tz) === "weaken") {
+    if (studyLocked(draft, now, tz)) return { ok: false, error: "study-locked" };
+    if (!confirmed) return { ok: false, error: "needs-confirm" };
+  }
+  draft.study.rules = draft.study.rules.filter((r) => r.id !== id);
   return { ok: true };
 }
 

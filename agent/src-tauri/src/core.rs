@@ -295,21 +295,134 @@ fn pick_active(sessions: &[Session], now: i64) -> Option<&Session> {
     best
 }
 
-/// Combines study sources with priority manual > taskflow > rule.
-pub fn resolve_study(now: i64, tz: i64, manual: &[Session], rules: &[StudyRule], external: &[Session]) -> StudyStatus {
-    let occurrences: Vec<Session> = rules.iter().flat_map(|r| rule_occurrences(r, now, tz)).collect();
-    let candidates = [
-        ("manual", "Phiên học", pick_active(manual, now)),
-        ("taskflow", "Phiên TaskFlow", pick_active(external, now)),
-        ("rule", "Khung giờ học", pick_active(&occurrences, now)),
-    ];
-    for (source, default_label, session) in candidates {
-        if let Some(s) = session {
+/// Anything that can say "these are study sessions": manual sessions, the weekly rules, and later
+/// TaskFlow. Adding a source means writing one of these; the blocking side does not change.
+pub trait StudySessionSource {
+    /// "manual", "taskflow" or "rule".
+    fn kind(&self) -> &'static str;
+    fn sessions(&self, now: i64, tz: i64) -> Vec<Session>;
+}
+
+pub struct SessionList<'a>(pub &'static str, pub &'a [Session]);
+
+impl StudySessionSource for SessionList<'_> {
+    fn kind(&self) -> &'static str {
+        self.0
+    }
+    fn sessions(&self, _now: i64, _tz: i64) -> Vec<Session> {
+        self.1.to_vec()
+    }
+}
+
+pub struct RuleSource<'a>(pub &'a [StudyRule]);
+
+impl StudySessionSource for RuleSource<'_> {
+    fn kind(&self) -> &'static str {
+        "rule"
+    }
+    fn sessions(&self, now: i64, tz: i64) -> Vec<Session> {
+        self.0.iter().flat_map(|r| rule_occurrences(r, now, tz)).collect()
+    }
+}
+
+/// Studying when any source has a session running; the label comes from manual, then TaskFlow, then rules.
+pub fn resolve_sources(now: i64, tz: i64, sources: &[&dyn StudySessionSource]) -> StudyStatus {
+    for (kind, default_label) in [("manual", "Phiên học"), ("taskflow", "Phiên TaskFlow"), ("rule", "Khung giờ học")]
+    {
+        let sessions: Vec<Session> =
+            sources.iter().filter(|s| s.kind() == kind).flat_map(|s| s.sessions(now, tz)).collect();
+        if let Some(s) = pick_active(&sessions, now) {
             let label = s.label.clone().filter(|l| !l.is_empty()).unwrap_or_else(|| default_label.to_string());
-            return StudyStatus { active: true, source: Some(source.into()), label: Some(label), ends_at: Some(s.end) };
+            return StudyStatus { active: true, source: Some(kind.into()), label: Some(label), ends_at: Some(s.end) };
         }
     }
     StudyStatus::none()
+}
+
+/// Combines study sources with priority manual > taskflow > rule.
+pub fn resolve_study(now: i64, tz: i64, manual: &[Session], rules: &[StudyRule], external: &[Session]) -> StudyStatus {
+    resolve_sources(now, tz, &[&SessionList("manual", manual), &SessionList("taskflow", external), &RuleSource(rules)])
+}
+
+/// A rule window that is running, with the local date it started on (the exception that skips it).
+#[derive(Clone, Debug, PartialEq)]
+pub struct RuleOccurrence {
+    pub rule_id: String,
+    pub date: String,
+}
+
+/// Rule windows running at `now`, in rule order. Ending study early adds these as exceptions.
+pub fn active_rule_occurrences(rules: &[StudyRule], now: i64, tz: i64) -> Vec<RuleOccurrence> {
+    let offset = tz * MINUTE_MS;
+    rules
+        .iter()
+        .flat_map(|rule| {
+            rule_occurrences(rule, now, tz).into_iter().filter(|s| s.start <= now && now < s.end).map(|s| {
+                RuleOccurrence {
+                    rule_id: rule.id.clone(),
+                    date: format_local_date((s.start + offset).div_euclid(DAY_MS) * DAY_MS),
+                }
+            })
+        })
+        .collect()
+}
+
+/// Start and end in minutes after the start day's midnight; an end at or before the start is next day.
+fn window_minutes(rule: &StudyRule) -> Option<(i64, i64)> {
+    let (start, end) = (parse_hm(&rule.start)?, parse_hm(&rule.end)?);
+    Some((start, if end > start { end } else { end + 24 * 60 }))
+}
+
+/// Editing a weekly rule. Weakens: removing it, dropping days, a shorter window, or skipping today or a
+/// session that is running. Adding a rule, more days, a longer window or skipping a later date does not.
+pub fn study_rule_change_weakens(old: Option<&StudyRule>, new: Option<&StudyRule>, now: i64, tz: i64) -> bool {
+    let Some(old) = old else { return false };
+    let Some(new) = new else { return true };
+    if old.days.iter().any(|d| !new.days.contains(d)) {
+        return true;
+    }
+    if let Some((os, oe)) = window_minutes(old) {
+        match window_minutes(new) {
+            Some((ns, ne)) if ns <= os && ne >= oe => {}
+            _ => return true,
+        }
+    }
+    let mut protected: Vec<String> =
+        active_rule_occurrences(std::slice::from_ref(old), now, tz).into_iter().map(|o| o.date).collect();
+    protected.push(format_local_date((now + tz * MINUTE_MS).div_euclid(DAY_MS) * DAY_MS));
+    new.exceptions.iter().any(|d| !old.exceptions.contains(d) && protected.contains(d))
+}
+
+pub const STUDY_LABEL_MAX: usize = 60;
+pub const MANUAL_STUDY_MINUTES: [i64; 3] = [25, 50, 90];
+
+fn is_date(d: &str) -> bool {
+    let b = d.as_bytes();
+    b.len() == 10 && b.iter().enumerate().all(|(i, c)| if i == 4 || i == 7 { *c == b'-' } else { c.is_ascii_digit() })
+}
+
+/// Cleans a rule typed by the user; None when it cannot be a rule (no day, bad time, empty window).
+pub fn normalize_study_rule(rule: &StudyRule) -> Option<StudyRule> {
+    let mut days: Vec<i64> = rule.days.iter().copied().filter(|d| (1..=7).contains(d)).collect();
+    days.sort_unstable();
+    days.dedup();
+    let (start, end) = (parse_hm(&rule.start)?, parse_hm(&rule.end)?);
+    if days.is_empty() || start == end {
+        return None;
+    }
+    let hm = |m: i64| format!("{:02}:{:02}", m / 60, m % 60);
+    let label: String = rule.label.clone().unwrap_or_default().trim().chars().take(STUDY_LABEL_MAX).collect();
+    let mut exceptions: Vec<String> = rule.exceptions.iter().filter(|d| is_date(d)).cloned().collect();
+    exceptions.sort();
+    exceptions.dedup();
+    Some(StudyRule {
+        id: rule.id.clone(),
+        days,
+        start: hm(start),
+        end: hm(end),
+        label: (!label.is_empty()).then_some(label),
+        exceptions,
+    })
 }
 
 // ---- Warning delay -------------------------------------------------------------
@@ -548,6 +661,64 @@ mod tests {
             };
             assert_eq!(got, expected, "{}", c["name"]);
         }
+    }
+
+    #[test]
+    fn study_change_vectors() {
+        let v = load("study-change.json");
+        let rule = |k: &str| {
+            let r = &v["rules"][k];
+            StudyRule {
+                id: r["id"].as_str().unwrap().into(),
+                days: ints(&r["days"]),
+                start: r["start"].as_str().unwrap().into(),
+                end: r["end"].as_str().unwrap().into(),
+                label: opt_str(&r["label"]),
+                exceptions: strings(&r["exceptions"]),
+            }
+        };
+        for c in v["changeCases"].as_array().unwrap() {
+            let old = c["old"].as_str().map(rule);
+            let new = c["new"].as_str().map(rule);
+            let now = c["now"].as_i64().unwrap();
+            let tz = c["tzOffsetMinutes"].as_i64().unwrap();
+            let weakens = study_rule_change_weakens(old.as_ref(), new.as_ref(), now, tz);
+            assert_eq!(weakens, c["expected"] == "weaken", "{}", c["name"]);
+        }
+        for c in v["activeCases"].as_array().unwrap() {
+            let rules: Vec<StudyRule> = strings(&c["rules"]).iter().map(|k| rule(k)).collect();
+            let got =
+                active_rule_occurrences(&rules, c["now"].as_i64().unwrap(), c["tzOffsetMinutes"].as_i64().unwrap());
+            let expected: Vec<RuleOccurrence> = c["expected"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|o| RuleOccurrence {
+                    rule_id: o["ruleId"].as_str().unwrap().into(),
+                    date: o["date"].as_str().unwrap().into(),
+                })
+                .collect();
+            assert_eq!(got, expected, "{}", c["name"]);
+        }
+    }
+
+    #[test]
+    fn study_rules_are_normalized() {
+        let raw = StudyRule {
+            id: "r".into(),
+            days: vec![5, 1, 9, 1],
+            start: "7:05".into(),
+            end: "9:00".into(),
+            label: Some("  Ôn thi  ".into()),
+            exceptions: vec!["2026-10-14".into(), "x".into(), "2026-10-14".into()],
+        };
+        let r = normalize_study_rule(&raw).unwrap();
+        assert_eq!(r.days, vec![1, 5]);
+        assert_eq!((r.start.as_str(), r.end.as_str()), ("07:05", "09:00"));
+        assert_eq!(r.label.as_deref(), Some("Ôn thi"));
+        assert_eq!(r.exceptions, vec!["2026-10-14".to_string()]);
+        assert!(normalize_study_rule(&StudyRule { days: vec![], ..raw.clone() }).is_none());
+        assert!(normalize_study_rule(&StudyRule { end: "7:05".into(), ..raw }).is_none());
     }
 
     #[test]

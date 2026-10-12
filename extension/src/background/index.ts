@@ -402,7 +402,7 @@ async function optionsView(): Promise<OptionsView> {
     settings: state.settings,
     suggestions: DOMAIN_SUGGESTIONS,
     study: agent.connected && agent.config ? agent.config.study : L.studyStatus(state, now, tz),
-    studyRules: state.study.rules,
+    studyRules: agent.connected && agent.config ? (agent.config.studyRules ?? []) : state.study.rules,
     agent: agent.status,
   };
 }
@@ -491,9 +491,17 @@ async function handle(msg: Request, sender: chrome.runtime.MessageSender): Promi
       return mutate((d) => L.clearLog(d, msg.confirmed), false);
     }
     case "study:start":
+      if (agent.connected) return viaAgent({ type: "start_study", minutes: msg.minutes, label: msg.label });
+      return mutate((d, now) => L.startStudy(d, msg.minutes, msg.label, now), false);
     case "study:stop":
-    case "study:setRules":
-      return { ok: false, error: "invalid" };
+      if (agent.connected) return viaAgent({ type: "stop_study", confirmed: msg.confirmed });
+      return mutate((d, now, tz) => L.stopStudy(d, msg.confirmed, now, tz), false);
+    case "study:setRule":
+      if (agent.connected) return viaAgent({ type: "set_study_rule", rule: msg.rule, confirmed: msg.confirmed });
+      return mutate((d, now, tz) => L.setStudyRule(d, msg.rule, msg.confirmed, now, tz), false);
+    case "study:deleteRule":
+      if (agent.connected) return viaAgent({ type: "delete_study_rule", id: msg.id, confirmed: msg.confirmed });
+      return mutate((d, now, tz) => L.deleteStudyRule(d, msg.id, msg.confirmed, now, tz), false);
   }
 }
 

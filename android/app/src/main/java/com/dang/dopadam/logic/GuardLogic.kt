@@ -3,12 +3,14 @@ package com.dang.dopadam.logic
 
 import com.dang.dopadam.core.NumberField
 import com.dang.dopadam.core.Settings
+import com.dang.dopadam.core.StudyRule
 import com.dang.dopadam.core.StudyStatus
 import com.dang.dopadam.core.budgetStatus
 import com.dang.dopadam.core.computeLevel
 import com.dang.dopadam.core.effectiveDelay
 import com.dang.dopadam.core.numberChangeWeakens
 import com.dang.dopadam.core.recentCount
+import com.dang.dopadam.core.studyRuleChangeWeakens
 import com.dang.dopadam.core.tagChangeWeakens
 
 enum class ErrorCode(val message: String) {
@@ -111,6 +113,31 @@ fun checkFriction(old: Settings, new: Settings, confirmed: Boolean, studyActive:
             numberChangeWeakens(NumberField.DELAY_SECONDS, old.tagDelays[it] ?: 0, new.tagDelays[it] ?: 0)
         }
     return if (weakens && !confirmed) ErrorCode.NEEDS_CONFIRM else null
+}
+
+/**
+ * Adding or widening a weekly rule is always fine; anything that weakens it waits for the
+ * confirmation, and is locked while studying (ending study early goes through [checkStudyStop]).
+ */
+fun checkStudyRuleChange(
+    old: StudyRule?,
+    new: StudyRule?,
+    confirmed: Boolean,
+    studyActive: Boolean,
+    now: Long,
+    tzOffsetMinutes: Int,
+): ErrorCode? = when {
+    old == new || !studyRuleChangeWeakens(old, new, now, tzOffsetMinutes) -> null
+    studyActive -> ErrorCode.STUDY_LOCKED
+    !confirmed -> ErrorCode.NEEDS_CONFIRM
+    else -> null
+}
+
+/** Ending study before its time (FR14). */
+fun checkStudyStop(studyActive: Boolean, confirmed: Boolean): ErrorCode? = when {
+    !studyActive -> ErrorCode.INVALID
+    !confirmed -> ErrorCode.NEEDS_CONFIRM
+    else -> null
 }
 
 fun checkProtection(current: Boolean, enabled: Boolean, confirmed: Boolean, studyActive: Boolean): ErrorCode? = when {

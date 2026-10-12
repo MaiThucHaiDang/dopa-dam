@@ -73,3 +73,20 @@ Cần kiểm tra với project Supabase thật (làm theo mục "Đồng bộ v�
 - [ ] Tắt mạng: vẫn chặn bình thường; bật lại thì dữ liệu lúc offline được đẩy lên.
 - [ ] "Xóa dữ liệu trên server" phải qua bước chờ 60 giây và gõ câu xác nhận.
 
+## Giai đoạn 5: Chế độ Học
+
+Đã kiểm tra tự động:
+
+- [x] Lõi logic ba nền tảng cho kết quả giống nhau trên `study-change.json`: thêm hoặc kéo dài khung giờ không cần xác nhận; xóa, bớt ngày, rút ngắn, bỏ qua hôm nay hoặc bỏ qua phiên đang chạy thì cần; tìm đúng khung đang diễn ra (kể cả khung qua nửa đêm) để "Kết thúc sớm".
+- [x] Extension chạy riêng (`npm run check`, `npm run e2e`): bấm "Học 25 phút" trên popup thì trang cảnh báo hiện nhãn phiên học và chỉ cho vào 5 hoặc 10 phút; trong giờ học không đổi được tag; "Kết thúc sớm" hiện bước chờ 60 giây; thêm khung giờ ở trang cài đặt thì hiện trong danh sách.
+- [x] Agent (`cargo test`): bật tay, kết thúc sớm chỉ khi xác nhận, khung giờ khóa thay đổi làm yếu trong lúc chạy, kết thúc sớm thêm ngoại lệ cho hôm nay, xóa khung cần xác nhận; dữ liệu được đánh dấu để đồng bộ.
+- [x] Edge + agent (`node test/e2e/with-agent.mjs`): bật học từ extension được ghi vào agent; agent khóa tag trong giờ học; kết thúc sớm cần xác nhận; khung giờ thêm từ extension nằm trong agent và quay lại extension qua cấu hình.
+- [x] App Android build, lint và unit test đều qua (kiểm tra quy tắc khung giờ và kết thúc sớm).
+- [x] Trên máy ảo Android 14 (`python android/e2e/emulator_test.py`): bấm "Học 25 phút" ở tab Học thì app hiện "Đang học"; mở app gắn tag Giải trí thì cảnh báo khóa nút Vào 30 giây và hiện nhãn phiên học; "Kết thúc sớm" mở bước chờ 60 giây, bấm "Giữ nguyên bảo vệ" thì vẫn đang học. Trang Thống kê và mục Tài khoản hiển thị đúng.
+
+Cần kiểm tra trên thiết bị thật:
+
+- [ ] Bật "Học 25 phút" trên điện thoại, đã đăng nhập: trong khoảng 1 phút máy tính cũng vào giờ học (trang Tổng quan của agent hiện "Đang học"), và ngược lại.
+- [ ] Đặt khung giờ (ví dụ 5 phút sau giờ hiện tại): đến giờ thì cả hai thiết bị tự vào giờ học, kể cả khi điện thoại tắt mạng.
+- [ ] "Kết thúc sớm" trên một thiết bị thì thiết bị kia cũng thoát giờ học sau lần đồng bộ kế tiếp.
+

@@ -7,6 +7,7 @@ import {
   autoExit,
   budgetView,
   clearLog,
+  deleteStudyRule,
   evaluateUrl,
   interceptConfig,
   prune,
@@ -15,6 +16,10 @@ import {
   setDomainRule,
   setFriction,
   setProtection,
+  setStudyRule,
+  startStudy,
+  stopStudy,
+  studyStatus,
   takeExpiredWindows,
 } from "../src/background/logic";
 import { initialState, migrateState, type State } from "../src/background/state";
@@ -172,6 +177,47 @@ describe("options", () => {
     expect(clearLog(s, false)).toEqual({ ok: false, error: "needs-confirm" });
     expect(clearLog(s, true).ok).toBe(true);
     expect(s.events).toEqual([]);
+  });
+});
+
+describe("study mode", () => {
+  const weekdayEvening = { id: "", days: [1, 2, 3, 4, 5], start: "19:30", end: "22:00", label: "Giờ tự học", exceptions: [] };
+
+  it("starts a manual session and ends it early only with confirmation", () => {
+    expect(startStudy(s, 3, null, NOW)).toEqual({ ok: false, error: "invalid" });
+    expect(stopStudy(s, true, NOW, TZ)).toEqual({ ok: false, error: "invalid" });
+    expect(startStudy(s, 25, "  Ôn Hệ điều hành ", NOW).ok).toBe(true);
+    expect(studyStatus(s, NOW + MIN, TZ)).toEqual({ active: true, source: "manual", label: "Ôn Hệ điều hành", endsAt: NOW + 25 * MIN });
+    expect(stopStudy(s, false, NOW + 10 * MIN, TZ)).toEqual({ ok: false, error: "needs-confirm" });
+    expect(stopStudy(s, true, NOW + 10 * MIN, TZ).ok).toBe(true);
+    expect(studyStatus(s, NOW + 10 * MIN, TZ).active).toBe(false);
+    expect(s.study.manual[0].end).toBe(NOW + 10 * MIN);
+  });
+
+  it("adds weekly rules freely, locks weakening while they run, and ends early with an exception", () => {
+    const added = setStudyRule(s, { ...weekdayEvening, days: [5, 1, 2, 3, 4] }, false, NOW, TZ);
+    expect(added.ok).toBe(true);
+    const rule = s.study.rules[0];
+    expect(rule.id).not.toBe("");
+    expect(rule.days).toEqual([1, 2, 3, 4, 5]);
+    expect(studyStatus(s, NOW, TZ)).toMatchObject({ active: true, source: "rule", label: "Giờ tự học" });
+    expect(setStudyRule(s, { ...rule, end: "21:00" }, true, NOW, TZ)).toEqual({ ok: false, error: "study-locked" });
+    expect(deleteStudyRule(s, rule.id, true, NOW, TZ)).toEqual({ ok: false, error: "study-locked" });
+    expect(setStudyRule(s, { ...rule, end: "22:30" }, false, NOW, TZ).ok).toBe(true);
+    expect(stopStudy(s, true, NOW, TZ).ok).toBe(true);
+    expect(s.study.rules[0].exceptions).toEqual(["2026-10-12"]);
+    expect(studyStatus(s, NOW, TZ).active).toBe(false);
+    // Outside study: skipping a later day is free, deleting needs the confirmation.
+    expect(setStudyRule(s, { ...s.study.rules[0], exceptions: ["2026-10-12", "2026-10-14"] }, false, NOW, TZ).ok).toBe(true);
+    expect(deleteStudyRule(s, rule.id, false, NOW, TZ)).toEqual({ ok: false, error: "needs-confirm" });
+    expect(deleteStudyRule(s, rule.id, true, NOW, TZ).ok).toBe(true);
+    expect(s.study.rules).toEqual([]);
+  });
+
+  it("refuses rules that cannot be a window", () => {
+    expect(setStudyRule(s, { ...weekdayEvening, days: [] }, false, NOW, TZ)).toEqual({ ok: false, error: "invalid" });
+    expect(setStudyRule(s, { ...weekdayEvening, end: "19:30" }, false, NOW, TZ)).toEqual({ ok: false, error: "invalid" });
+    expect(setStudyRule(s, { ...weekdayEvening, start: "25:00" }, false, NOW, TZ)).toEqual({ ok: false, error: "invalid" });
   });
 });
 

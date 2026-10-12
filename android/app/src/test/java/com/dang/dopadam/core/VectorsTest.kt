@@ -123,4 +123,32 @@ class VectorsTest {
             assertEquals(c.getString("name"), expected, actual)
         }
     }
+
+    @Test
+    fun studyChange() {
+        val v = load("study-change.json")
+        val rules = v.getJSONObject("rules").let { o ->
+            o.keys().asSequence().associateWith { k ->
+                val r = o.getJSONObject(k)
+                StudyRule(
+                    r.getString("id"), r.getJSONArray("days").ints(), r.getString("start"), r.getString("end"),
+                    r.stringOrNull("label"), r.getJSONArray("exceptions").strings(),
+                )
+            }
+        }
+        for (c in v.getJSONArray("changeCases").objects()) {
+            val weakens = studyRuleChangeWeakens(
+                c.stringOrNull("old")?.let(rules::getValue),
+                c.stringOrNull("new")?.let(rules::getValue),
+                c.getLong("now"),
+                c.getInt("tzOffsetMinutes"),
+            )
+            assertEquals(c.getString("name"), c.getString("expected") == "weaken", weakens)
+        }
+        for (c in v.getJSONArray("activeCases").objects()) {
+            val expected = c.getJSONArray("expected").objects().map { RuleOccurrence(it.getString("ruleId"), it.getString("date")) }
+            val actual = activeRuleOccurrences(c.getJSONArray("rules").strings().map(rules::getValue), c.getLong("now"), c.getInt("tzOffsetMinutes"))
+            assertEquals(c.getString("name"), expected, actual)
+        }
+    }
 }

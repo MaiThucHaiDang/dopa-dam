@@ -1,6 +1,8 @@
 //! Commands called by the agent's windows (main, warning, toast).
 
-use crate::core::{effective_delay, now_ms, Settings, StudyStatus};
+use crate::core::{
+    effective_delay, format_local_date, local_tz_offset, now_ms, Settings, StudyRule, StudyStatus, DAY_MS, MINUTE_MS,
+};
 use crate::db::{AllowEntry, Rule, KIND_DOMAIN, KIND_EXE};
 use crate::guard::{self, Toast, WarningContext};
 use crate::logic::{Decision, ErrorCode};
@@ -194,6 +196,55 @@ pub fn add_allow_url(state: State<'_, Shared>, entry: AllowEntry, confirmed: boo
 #[tauri::command]
 pub fn remove_allow_url(state: State<'_, Shared>, entry: AllowEntry) -> CmdResult {
     state.store().remove_allow_url(&entry, now_ms());
+    state.changed();
+    Ok(())
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StudyView {
+    status: StudyStatus,
+    rules: Vec<StudyRule>,
+    /// Today's local date ("YYYY-MM-DD"), for the "skip a day" picker.
+    today: String,
+}
+
+#[tauri::command]
+pub fn get_study(state: State<'_, Shared>) -> StudyView {
+    let now = now_ms();
+    let store = state.store();
+    let local = now + local_tz_offset(now) * MINUTE_MS;
+    StudyView {
+        status: store.study_status(now),
+        rules: store.study_rules(),
+        today: format_local_date(local.div_euclid(DAY_MS) * DAY_MS),
+    }
+}
+
+#[tauri::command]
+pub fn start_study(state: State<'_, Shared>, minutes: i64, label: Option<String>) -> CmdResult {
+    state.store().start_study(minutes, label.as_deref(), now_ms())?;
+    state.changed();
+    Ok(())
+}
+
+#[tauri::command]
+pub fn stop_study(state: State<'_, Shared>, confirmed: bool) -> CmdResult {
+    state.store().stop_study(confirmed, now_ms())?;
+    state.changed();
+    Ok(())
+}
+
+#[tauri::command]
+pub fn set_study_rule(state: State<'_, Shared>, rule: StudyRule, confirmed: bool) -> CmdResult {
+    state.store().set_study_rule(&rule, confirmed, now_ms())?;
+    state.changed();
+    Ok(())
+}
+
+#[tauri::command]
+pub fn delete_study_rule(state: State<'_, Shared>, id: String, confirmed: bool) -> CmdResult {
+    state.store().delete_study_rule(&id, confirmed, now_ms())?;
     state.changed();
     Ok(())
 }

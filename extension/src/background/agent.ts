@@ -1,7 +1,7 @@
 // Connection to the DopaDam agent on Windows through native messaging (docs/thiet-ke-ky-thuat.md, section 3).
 // While connected the agent is the source of truth: counts, allow windows and settings live there,
 // and the extension mirrors the agent's configuration so it keeps blocking if the agent goes away.
-import type { AllowEntry, DomainRule, Settings, StudyStatus } from "../core";
+import type { AllowEntry, DomainRule, Settings, StudyRule, StudyStatus } from "../core";
 import type { BudgetView } from "./logic";
 import type { AllowWindow } from "./state";
 import type { AgentStatus } from "../shared/messages";
@@ -19,6 +19,8 @@ export interface AgentConfig {
   settings: Settings;
   allowWindows: AllowWindow[];
   study: StudyStatus;
+  /** Sent by agents from 0.1.0 with study mode; absent from older ones. */
+  studyRules?: StudyRule[];
   budget: BudgetView;
   protectionEnabled: boolean;
   summary: { warningsToday: number; exitsToday: number };

@@ -1,0 +1,51 @@
+{
+  "description": "Sửa khung giờ học. classifyStudyRuleChange: 'weaken' nghĩa là làm yếu bảo vệ, phải qua bước xác nhận FR14 (và bị khóa khi đang học). Thêm khung mới không làm yếu; xóa khung, bớt ngày, bắt đầu muộn hơn hoặc kết thúc sớm hơn thì làm yếu; thêm ngoại lệ cho hôm nay hoặc cho ngày của phiên đang diễn ra thì làm yếu, cho ngày mai trở đi thì không. activeRuleOccurrences: các khung đang diễn ra lúc now, kèm ngày bắt đầu của phiên (dùng làm ngoại lệ khi kết thúc sớm). 2026-10-12 là thứ 2.",
+  "rules": {
+    "base": { "id": "r1", "days": [1, 2, 3, 4, 5], "start": "19:30", "end": "22:00", "label": "Giờ tự học", "exceptions": [] },
+    "renamed": { "id": "r1", "days": [1, 2, 3, 4, 5], "start": "19:30", "end": "22:00", "label": "Ôn thi", "exceptions": [] },
+    "moreDays": { "id": "r1", "days": [1, 2, 3, 4, 5, 6], "start": "19:30", "end": "22:00", "label": "Giờ tự học", "exceptions": [] },
+    "fewerDays": { "id": "r1", "days": [1, 2, 3, 4], "start": "19:30", "end": "22:00", "label": "Giờ tự học", "exceptions": [] },
+    "startEarlier": { "id": "r1", "days": [1, 2, 3, 4, 5], "start": "19:00", "end": "22:00", "label": "Giờ tự học", "exceptions": [] },
+    "startLater": { "id": "r1", "days": [1, 2, 3, 4, 5], "start": "20:00", "end": "22:00", "label": "Giờ tự học", "exceptions": [] },
+    "endLater": { "id": "r1", "days": [1, 2, 3, 4, 5], "start": "19:30", "end": "22:30", "label": "Giờ tự học", "exceptions": [] },
+    "endEarlier": { "id": "r1", "days": [1, 2, 3, 4, 5], "start": "19:30", "end": "21:30", "label": "Giờ tự học", "exceptions": [] },
+    "pastMidnight": { "id": "r1", "days": [1, 2, 3, 4, 5], "start": "19:30", "end": "00:30", "label": "Giờ tự học", "exceptions": [] },
+    "wider": { "id": "r1", "days": [1, 2, 3, 4, 5, 6, 7], "start": "19:00", "end": "23:00", "label": null, "exceptions": [] },
+    "skipToday": { "id": "r1", "days": [1, 2, 3, 4, 5], "start": "19:30", "end": "22:00", "label": "Giờ tự học", "exceptions": ["2026-10-12"] },
+    "skipWednesday": { "id": "r1", "days": [1, 2, 3, 4, 5], "start": "19:30", "end": "22:00", "label": "Giờ tự học", "exceptions": ["2026-10-14"] },
+    "skipTodayAndWednesday": { "id": "r1", "days": [1, 2, 3, 4, 5], "start": "19:30", "end": "22:00", "label": "Giờ tự học", "exceptions": ["2026-10-12", "2026-10-14"] },
+    "overnight": { "id": "r2", "days": [1], "start": "23:00", "end": "01:00", "label": null, "exceptions": [] },
+    "overnightShorter": { "id": "r2", "days": [1], "start": "23:00", "end": "00:30", "label": null, "exceptions": [] },
+    "overnightSkipMonday": { "id": "r2", "days": [1], "start": "23:00", "end": "01:00", "label": null, "exceptions": ["2026-10-12"] },
+    "overnightSkipWednesday": { "id": "r2", "days": [1], "start": "23:00", "end": "01:00", "label": null, "exceptions": ["2026-10-14"] }
+  },
+  "changeCases": [
+    { "name": "thêm khung mới", "now": 1791774000000, "tzOffsetMinutes": 420, "old": null, "new": "base", "expected": "ok" },
+    { "name": "xóa khung", "now": 1791774000000, "tzOffsetMinutes": 420, "old": "base", "new": null, "expected": "weaken" },
+    { "name": "chỉ đổi nhãn", "now": 1791774000000, "tzOffsetMinutes": 420, "old": "base", "new": "renamed", "expected": "ok" },
+    { "name": "thêm ngày", "now": 1791774000000, "tzOffsetMinutes": 420, "old": "base", "new": "moreDays", "expected": "ok" },
+    { "name": "bớt ngày", "now": 1791774000000, "tzOffsetMinutes": 420, "old": "base", "new": "fewerDays", "expected": "weaken" },
+    { "name": "bắt đầu sớm hơn", "now": 1791774000000, "tzOffsetMinutes": 420, "old": "base", "new": "startEarlier", "expected": "ok" },
+    { "name": "bắt đầu muộn hơn", "now": 1791774000000, "tzOffsetMinutes": 420, "old": "base", "new": "startLater", "expected": "weaken" },
+    { "name": "kết thúc muộn hơn", "now": 1791774000000, "tzOffsetMinutes": 420, "old": "base", "new": "endLater", "expected": "ok" },
+    { "name": "kết thúc sớm hơn", "now": 1791774000000, "tzOffsetMinutes": 420, "old": "base", "new": "endEarlier", "expected": "weaken" },
+    { "name": "kéo dài qua nửa đêm", "now": 1791774000000, "tzOffsetMinutes": 420, "old": "base", "new": "pastMidnight", "expected": "ok" },
+    { "name": "rút ngắn về trước nửa đêm", "now": 1791774000000, "tzOffsetMinutes": 420, "old": "pastMidnight", "new": "base", "expected": "weaken" },
+    { "name": "rộng hơn mọi mặt", "now": 1791774000000, "tzOffsetMinutes": 420, "old": "base", "new": "wider", "expected": "ok" },
+    { "name": "khung qua đêm kết thúc sớm hơn", "now": 1791774000000, "tzOffsetMinutes": 420, "old": "overnight", "new": "overnightShorter", "expected": "weaken" },
+    { "name": "ngoại lệ hôm nay, phiên chưa bắt đầu", "now": 1791774000000, "tzOffsetMinutes": 420, "old": "base", "new": "skipToday", "expected": "weaken" },
+    { "name": "ngoại lệ hôm nay, phiên đang diễn ra", "now": 1791810000000, "tzOffsetMinutes": 420, "old": "base", "new": "skipToday", "expected": "weaken" },
+    { "name": "ngoại lệ cho thứ 4", "now": 1791774000000, "tzOffsetMinutes": 420, "old": "base", "new": "skipWednesday", "expected": "ok" },
+    { "name": "đã có ngoại lệ thứ 4, thêm hôm nay", "now": 1791774000000, "tzOffsetMinutes": 420, "old": "skipWednesday", "new": "skipTodayAndWednesday", "expected": "weaken" },
+    { "name": "bỏ ngoại lệ", "now": 1791774000000, "tzOffsetMinutes": 420, "old": "skipToday", "new": "base", "expected": "ok" },
+    { "name": "ngoại lệ cho phiên qua đêm đang diễn ra (ngày bắt đầu là hôm qua)", "now": 1791826200000, "tzOffsetMinutes": 420, "old": "overnight", "new": "overnightSkipMonday", "expected": "weaken" },
+    { "name": "ngoại lệ thứ 4 lúc 0:30 thứ 3", "now": 1791826200000, "tzOffsetMinutes": 420, "old": "overnight", "new": "overnightSkipWednesday", "expected": "ok" }
+  ],
+  "activeCases": [
+    { "name": "trong khung tối thứ 2", "now": 1791810000000, "tzOffsetMinutes": 420, "rules": ["base"], "expected": [{ "ruleId": "r1", "date": "2026-10-12" }] },
+    { "name": "buổi sáng chưa tới khung", "now": 1791774000000, "tzOffsetMinutes": 420, "rules": ["base", "overnight"], "expected": [] },
+    { "name": "khung qua đêm sau nửa đêm, ngày là ngày bắt đầu", "now": 1791826200000, "tzOffsetMinutes": 420, "rules": ["base", "overnight"], "expected": [{ "ruleId": "r2", "date": "2026-10-12" }] },
+    { "name": "ngày ngoại lệ không tính", "now": 1791810000000, "tzOffsetMinutes": 420, "rules": ["skipToday"], "expected": [] },
+    { "name": "hai khung cùng lúc", "now": 1791823200000, "tzOffsetMinutes": 420, "rules": ["pastMidnight", "overnight"], "expected": [{ "ruleId": "r1", "date": "2026-10-12" }, { "ruleId": "r2", "date": "2026-10-12" }] }
+  ]
+}

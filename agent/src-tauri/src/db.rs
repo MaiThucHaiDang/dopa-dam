@@ -1,10 +1,13 @@
 //! Local SQLite store (%APPDATA%\DopaDam\dopadam.db) and the operations on it.
 //! Every row that syncs carries updated_at and a dirty flag; deletions are soft (deleted = 1).
 
-use crate::core::{day_key, local_tz_offset, resolve_study, Session, Settings, StudyRule, StudyStatus, DAY_MS};
+use crate::core::{
+    active_rule_occurrences, day_key, local_tz_offset, normalize_study_rule, resolve_study, Session, Settings,
+    StudyRule, StudyStatus, DAY_MS, MINUTE_MS, STUDY_LABEL_MAX,
+};
 use crate::logic::{
-    check_app_delay, check_decision, check_friction, check_protection, check_tag_change, plan_warning, Decision,
-    DecisionCheck, ErrorCode, WarningPlan,
+    check_app_delay, check_decision, check_friction, check_protection, check_study_rule_change, check_study_stop,
+    check_tag_change, plan_warning, Decision, DecisionCheck, ErrorCode, WarningPlan,
 };
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
@@ -389,6 +392,87 @@ impl Store {
             &self.study_rules(),
             &self.sessions("taskflow", since),
         )
+    }
+
+    pub fn study_rule(&self, id: &str) -> Option<StudyRule> {
+        self.study_rules().into_iter().find(|r| r.id == id)
+    }
+
+    fn write_study_rule(&self, rule: &StudyRule, deleted: bool, now: i64) {
+        let days: Vec<String> = rule.days.iter().map(i64::to_string).collect();
+        let _ = self.conn.execute(
+            "INSERT OR REPLACE INTO study_rules(id, days, start, \"end\", label, exceptions, updated_at, deleted, dirty)
+             VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 1)",
+            params![rule.id, days.join(","), rule.start, rule.end, rule.label, rule.exceptions.join(","), now, deleted],
+        );
+    }
+
+    /// A manual study session from now (FR09). Starting one while studying is fine: it only adds time.
+    pub fn start_study(&self, minutes: i64, label: Option<&str>, now: i64) -> Res<Session> {
+        if !(5..=480).contains(&minutes) {
+            return Err(ErrorCode::Invalid);
+        }
+        let label: Option<String> =
+            label.map(|l| l.trim().chars().take(STUDY_LABEL_MAX).collect::<String>()).filter(|l| !l.is_empty());
+        let session =
+            Session { id: uuid::Uuid::new_v4().to_string(), start: now, end: now + minutes * MINUTE_MS, label };
+        let _ = self.conn.execute(
+            "INSERT INTO study_sessions(id, source, start, \"end\", label, updated_at, dirty) VALUES(?1, 'manual', ?2, ?3, ?4, ?2, 1)",
+            params![session.id, session.start, session.end, session.label],
+        );
+        Ok(session)
+    }
+
+    /// Ends study now (FR14): running manual sessions end, and running rule windows get an exception
+    /// for the day they started on.
+    pub fn stop_study(&self, confirmed: bool, now: i64) -> Res<()> {
+        if let Some(e) = check_study_stop(self.study_status(now).active, confirmed) {
+            return Err(e);
+        }
+        let _ = self.conn.execute(
+            "UPDATE study_sessions SET \"end\" = ?1, updated_at = ?1, dirty = 1
+             WHERE deleted = 0 AND source = 'manual' AND start <= ?1 AND \"end\" > ?1",
+            [now],
+        );
+        for occurrence in active_rule_occurrences(&self.study_rules(), now, local_tz_offset(now)) {
+            if let Some(mut rule) = self.study_rule(&occurrence.rule_id) {
+                if !rule.exceptions.contains(&occurrence.date) {
+                    rule.exceptions.push(occurrence.date);
+                    rule.exceptions.sort();
+                    self.write_study_rule(&rule, false, now);
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Adds (empty id) or changes a weekly rule.
+    pub fn set_study_rule(&self, rule: &StudyRule, confirmed: bool, now: i64) -> Res<StudyRule> {
+        let mut rule = normalize_study_rule(rule).ok_or(ErrorCode::Invalid)?;
+        if rule.id.is_empty() {
+            rule.id = uuid::Uuid::new_v4().to_string();
+        }
+        let old = self.study_rule(&rule.id);
+        let active = self.study_status(now).active;
+        if let Some(e) =
+            check_study_rule_change(old.as_ref(), Some(&rule), confirmed, active, now, local_tz_offset(now))
+        {
+            return Err(e);
+        }
+        if old.as_ref() != Some(&rule) {
+            self.write_study_rule(&rule, false, now);
+        }
+        Ok(rule)
+    }
+
+    pub fn delete_study_rule(&self, id: &str, confirmed: bool, now: i64) -> Res<()> {
+        let Some(old) = self.study_rule(id) else { return Ok(()) };
+        let active = self.study_status(now).active;
+        if let Some(e) = check_study_rule_change(Some(&old), None, confirmed, active, now, local_tz_offset(now)) {
+            return Err(e);
+        }
+        self.write_study_rule(&old, true, now);
+        Ok(())
     }
 
     // ---- Usage and budget -------------------------------------------------------------
@@ -800,6 +884,76 @@ mod tests {
         assert_eq!(t.add_allow_url(&link, false, NOW), Err(ErrorCode::NeedsConfirm));
         assert_eq!(t.add_allow_url(&link, true, NOW), Ok(()));
         assert_eq!(t.allow_entries(), vec![link]);
+    }
+
+    /// A rule window around NOW in local time, whatever the machine's time zone.
+    fn rule_around_now(minutes_before: i64, minutes_after: i64) -> StudyRule {
+        let local = (NOW + local_tz_offset(NOW) * MINUTE_MS).rem_euclid(DAY_MS) / MINUTE_MS;
+        let hm = |m: i64| {
+            let m = m.rem_euclid(24 * 60);
+            format!("{:02}:{:02}", m / 60, m % 60)
+        };
+        StudyRule {
+            id: String::new(),
+            days: (1..=7).collect(),
+            start: hm(local - minutes_before),
+            end: hm(local + minutes_after),
+            label: Some("Giờ tự học".into()),
+            exceptions: vec![],
+        }
+    }
+
+    #[test]
+    fn manual_study_starts_and_ends_early_only_with_confirmation() {
+        let s = store();
+        assert_eq!(s.start_study(2, None, NOW), Err(ErrorCode::Invalid));
+        assert_eq!(s.stop_study(true, NOW), Err(ErrorCode::Invalid));
+        let session = s.start_study(25, Some("  Ôn Hệ điều hành "), NOW).unwrap();
+        assert_eq!(session.end, NOW + 25 * MIN);
+        let st = s.study_status(NOW + MIN);
+        assert!(st.active);
+        assert_eq!(st.label.as_deref(), Some("Ôn Hệ điều hành"));
+        assert_eq!(st.ends_at, Some(NOW + 25 * MIN));
+        assert_eq!(s.stop_study(false, NOW + 10 * MIN), Err(ErrorCode::NeedsConfirm));
+        assert_eq!(s.stop_study(true, NOW + 10 * MIN), Ok(()));
+        assert!(!s.study_status(NOW + 10 * MIN).active);
+        let dirty: i64 = s
+            .conn()
+            .query_row(
+                "SELECT dirty FROM study_sessions WHERE id = ?1 AND \"end\" = ?2",
+                params![session.id, NOW + 10 * MIN],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(dirty, 1);
+    }
+
+    #[test]
+    fn weekly_rules_lock_and_end_early_with_an_exception() {
+        let s = store();
+        // Adding is fine without confirmation; a bad rule is refused.
+        assert_eq!(
+            s.set_study_rule(&StudyRule { days: vec![], ..rule_around_now(30, 30) }, false, NOW),
+            Err(ErrorCode::Invalid)
+        );
+        let rule = s.set_study_rule(&rule_around_now(30, 30), false, NOW).unwrap();
+        assert!(!rule.id.is_empty());
+        assert!(s.study_status(NOW).active);
+        // While it runs, weakening is locked, widening is not.
+        let shorter = StudyRule { end: rule_around_now(30, 10).end, ..rule.clone() };
+        assert_eq!(s.set_study_rule(&shorter, true, NOW), Err(ErrorCode::StudyLocked));
+        assert_eq!(s.delete_study_rule(&rule.id, true, NOW), Err(ErrorCode::StudyLocked));
+        let longer = StudyRule { end: rule_around_now(30, 40).end, ..rule.clone() };
+        assert!(s.set_study_rule(&longer, false, NOW).is_ok());
+        // Ending early adds today's exception, so the window is skipped.
+        assert_eq!(s.stop_study(false, NOW), Err(ErrorCode::NeedsConfirm));
+        assert_eq!(s.stop_study(true, NOW), Ok(()));
+        assert!(!s.study_status(NOW).active);
+        assert_eq!(s.study_rule(&rule.id).unwrap().exceptions.len(), 1);
+        // Outside study, deleting needs the confirmation.
+        assert_eq!(s.delete_study_rule(&rule.id, false, NOW), Err(ErrorCode::NeedsConfirm));
+        assert_eq!(s.delete_study_rule(&rule.id, true, NOW), Ok(()));
+        assert!(s.study_rules().is_empty());
     }
 
     #[test]

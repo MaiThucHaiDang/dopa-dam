@@ -20,9 +20,10 @@ export type Request =
   | { type: "options:setFriction"; lockSeconds: number[]; budgetMinutes: number; confirmed: boolean }
   | { type: "options:setProtection"; enabled: boolean; confirmed: boolean }
   | { type: "options:clearLog"; confirmed: boolean }
-  | { type: "study:start"; minutes: number; label: string }
+  | { type: "study:start"; minutes: number; label: string | null }
   | { type: "study:stop"; confirmed: boolean }
-  | { type: "study:setRules"; rules: StudyRule[]; confirmed: boolean }
+  | { type: "study:setRule"; rule: StudyRule; confirmed: boolean }
+  | { type: "study:deleteRule"; id: string; confirmed: boolean }
   | { type: "popup:get" };
 
 export type Failure = { ok: false; error: ErrorCode | "agent" };

@@ -1,6 +1,8 @@
 package com.dang.dopadam.data
 
 import com.dang.dopadam.core.DAY_MS
+import com.dang.dopadam.core.MINUTE_MS
+import com.dang.dopadam.core.STUDY_LABEL_MAX
 import com.dang.dopadam.core.Session
 import com.dang.dopadam.core.Settings
 import com.dang.dopadam.core.StudyRule
@@ -8,7 +10,9 @@ import com.dang.dopadam.core.StudyStatus
 import com.dang.dopadam.core.Tag
 import com.dang.dopadam.core.budgetStatus
 import com.dang.dopadam.core.dayKey
+import com.dang.dopadam.core.activeRuleOccurrences
 import com.dang.dopadam.core.localTzOffsetMinutes
+import com.dang.dopadam.core.normalizeStudyRule
 import com.dang.dopadam.core.resolveStudy
 import com.dang.dopadam.logic.Decision
 import com.dang.dopadam.logic.ErrorCode
@@ -17,12 +21,15 @@ import com.dang.dopadam.logic.checkAppDelay
 import com.dang.dopadam.logic.checkDecision
 import com.dang.dopadam.logic.checkFriction
 import com.dang.dopadam.logic.checkProtection
+import com.dang.dopadam.logic.checkStudyRuleChange
+import com.dang.dopadam.logic.checkStudyStop
 import com.dang.dopadam.logic.checkTagChange
 import com.dang.dopadam.logic.planWarning
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import java.util.UUID
 
 const val KIND_APP = "app"
 /** Long enough for the four-week statistics. */
@@ -232,6 +239,56 @@ class Repository(val db: AppDatabase, val prefs: Prefs) {
         return error
     }
 
+    // ---- Study mode -------------------------------------------------------------
+
+    fun observeStudyRules(): Flow<List<StudyRule>> = db.study().observeRules().map { list -> list.map { it.toRule() } }
+
+    suspend fun studyRules(): List<StudyRule> = db.study().rules().map { it.toRule() }
+
+    /** A manual study session from now (FR09). Starting one while studying only adds time. */
+    suspend fun startStudy(minutes: Int, label: String?, now: Long): ErrorCode? = mutex.withLock {
+        if (minutes !in 5..480) return@withLock ErrorCode.INVALID
+        val clean = label?.trim()?.take(STUDY_LABEL_MAX)?.ifEmpty { null }
+        db.study().upsertSession(
+            StudySessionEntity(UUID.randomUUID().toString(), "manual", now, now + minutes * MINUTE_MS, clean, null, now),
+        )
+        null
+    }
+
+    /** Ends study now (FR14): running manual sessions end, running rule windows get an exception for their day. */
+    suspend fun stopStudy(confirmed: Boolean, now: Long): ErrorCode? = mutex.withLock {
+        checkStudyStop(studyStatus(now).active, confirmed)?.let { return@withLock it }
+        for (s in db.study().sessionsEndingAfter(now)) {
+            if (s.source == "manual" && s.start <= now) db.study().upsertSession(s.copy(end = now, updatedAt = now, dirty = true))
+        }
+        for (occurrence in activeRuleOccurrences(studyRules(), now, localTzOffsetMinutes(now))) {
+            val rule = db.study().rule(occurrence.ruleId)?.toRule() ?: continue
+            if (occurrence.date !in rule.exceptions) {
+                db.study().upsertRule(rule.copy(exceptions = (rule.exceptions + occurrence.date).sorted()).toEntity(now))
+            }
+        }
+        null
+    }
+
+    /** Adds (empty id) or changes a weekly rule. */
+    suspend fun setStudyRule(input: StudyRule, confirmed: Boolean, now: Long): ErrorCode? = mutex.withLock {
+        val rule = normalizeStudyRule(input)?.let { if (it.id.isEmpty()) it.copy(id = UUID.randomUUID().toString()) else it }
+            ?: return@withLock ErrorCode.INVALID
+        val old = db.study().rule(rule.id)?.takeIf { !it.deleted }?.toRule()
+        val error = checkStudyRuleChange(old, rule, confirmed, studyStatus(now).active, now, localTzOffsetMinutes(now))
+        if (error != null || old == rule) return@withLock error
+        db.study().upsertRule(rule.toEntity(now))
+        null
+    }
+
+    suspend fun deleteStudyRule(id: String, confirmed: Boolean, now: Long): ErrorCode? = mutex.withLock {
+        val entity = db.study().rule(id)?.takeIf { !it.deleted } ?: return@withLock null
+        val error = checkStudyRuleChange(entity.toRule(), null, confirmed, studyStatus(now).active, now, localTzOffsetMinutes(now))
+        if (error != null) return@withLock error
+        db.study().upsertRule(entity.copy(deleted = true, updatedAt = now, dirty = true))
+        null
+    }
+
     suspend fun clearLog(confirmed: Boolean): ErrorCode? {
         if (!confirmed) return ErrorCode.NEEDS_CONFIRM
         db.events().deleteAll()
@@ -280,6 +337,16 @@ class Repository(val db: AppDatabase, val prefs: Prefs) {
         )
     }
 }
+
+fun StudyRule.toEntity(now: Long) = StudyRuleEntity(
+    id = id,
+    days = days.joinToString(","),
+    start = start,
+    end = end,
+    label = label,
+    exceptions = exceptions.joinToString(","),
+    updatedAt = now,
+)
 
 fun StudyRuleEntity.toRule() = StudyRule(
     id = id,

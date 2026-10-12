@@ -152,6 +152,25 @@ try {
     assert.equal(popup.exitsToday, 1);
   });
 
+  await test("study mode from the extension goes through the agent", async () => {
+    assert.deepEqual(await send({ type: "study:start", minutes: 25, label: "Ôn thi" }), { ok: true });
+    const sessions = query("SELECT source, label, dirty FROM study_sessions WHERE deleted = 0");
+    assert.deepEqual(sessions.map((s) => [s.source, s.label, s.dirty]), [["manual", "Ôn thi", 1]]);
+    await until(async () => (await send({ type: "popup:get" })).study.active, "study status from the agent");
+    // The agent locks tags during study, and ending early needs the confirmation.
+    const locked = await send({ type: "options:setDomainRule", pattern: "reddit.com", tag: "entertainment", confirmed: true });
+    assert.deepEqual(locked, { ok: false, error: "study-locked" });
+    assert.deepEqual(await send({ type: "study:stop", confirmed: false }), { ok: false, error: "needs-confirm" });
+    assert.deepEqual(await send({ type: "study:stop", confirmed: true }), { ok: true });
+    await until(async () => !(await send({ type: "popup:get" })).study.active, "study ended");
+    // A weekly rule added in the extension lands in the agent and comes back in the config.
+    const rule = { id: "", days: [6, 7], start: "08:00", end: "09:00", label: "Cuối tuần", exceptions: [] };
+    assert.deepEqual(await send({ type: "study:setRule", rule, confirmed: false }), { ok: true });
+    const rules = query("SELECT days, start, label FROM study_rules WHERE deleted = 0");
+    assert.deepEqual(rules.map((r) => [r.days, r.start, r.label]), [["6,7", "08:00", "Cuối tuần"]]);
+    await until(async () => (await send({ type: "options:get" })).studyRules.length === 1, "rules in the mirrored config");
+  });
+
   await test("without the agent the extension keeps blocking on its own", async () => {
     agentProc.kill();
     await until(async () => !(await send({ type: "popup:get" })).agent.connected, "disconnect", 15_000);

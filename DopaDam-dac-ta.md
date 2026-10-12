@@ -1,6 +1,6 @@
 # Đặc tả DopaDam — chặn mở app vô thức, siết chặt trong giờ học
 
-Đặc tả phiên bản 1 · Cập nhật: 12/10/2026 · Dang
+Đặc tả phiên bản 1 · Cập nhật: 12/10/2026 (khớp với mã nguồn v0.1.0) · Dang
 
 ## 1. Tổng quan
 
@@ -93,7 +93,7 @@ Mười bảy chức năng, trong đó FR15 và FR16 để sau v1. Cột Nền t
 | FR10 | Độ trễ cảnh báo: mỗi tag có một độ trễ mặc định, mỗi app có thể đặt độ trễ riêng ghi đè lên tag. Cảnh báo chỉ hiện sau khi app đã nằm ở phía trước đủ số giây đó, để không bị màn hình tải của game đè lên. Mặc định: Game 30 giây, các tag khác 0 giây (hiện ngay). Chi tiết ở mục 5. | Android, Windows |
 | FR11 | Đăng nhập bằng Google hoặc tài khoản email và mật khẩu tự tạo (mục 2); đồng bộ tag, cài đặt, Chế độ Học và nhật ký giữa điện thoại và máy tính. Không đăng nhập vẫn dùng đầy đủ trên một thiết bị; mất mạng vẫn chặn bình thường. | Android, Windows |
 | FR12 | Đồng bộ trong một máy tính: agent là nguồn dữ liệu chính; extension trên mọi profile Edge của máy đó nhận cấu hình và bộ đếm từ agent ngay lập tức; kiểm tra tương thích phiên bản giữa extension và agent (mục 8). Máy chưa cài agent thì extension chạy độc lập với cấu hình riêng. | Windows, Extension |
-| FR13 | Màn hình kiểm tra quyền: kiểm tra từng quyền (Trợ năng, hiển thị trên ứng dụng khác, truy cập dữ liệu sử dụng, thông báo, chạy nền, và các quyền riêng của Xiaomi ở mục 7), tự phát hiện quyền còn thiếu, nút mở thẳng đúng màn hình cài đặt. Mở lại được bất cứ lúc nào qua trang Hướng dẫn (mục 7). | Android, Windows |
+| FR13 | Màn hình kiểm tra quyền: kiểm tra từng quyền (Trợ năng, thông báo, chạy nền không bị giới hạn pin, và các bước riêng của Xiaomi ở mục 7), tự phát hiện quyền còn thiếu, nút mở thẳng đúng màn hình cài đặt. Màn hình cảnh báo trên Android là lớp phủ của chính dịch vụ Trợ năng nên không cần quyền "hiển thị trên ứng dụng khác", và thời gian dùng được đo từ sự kiện Trợ năng nên không cần quyền "truy cập dữ liệu sử dụng". Mở lại được bất cứ lúc nào qua trang Hướng dẫn (mục 7). | Android, Windows |
 | FR14 | Các thao tác làm yếu bảo vệ phải chờ 60 giây và gõ một câu xác nhận: tắt bảo vệ, gỡ tag Giải trí, giảm thông số cản trở, tăng độ trễ cảnh báo, tăng ngân sách ngày, thêm link được phép, kết thúc Chế độ Học trước giờ, xóa nhật ký. Agent cảnh báo khi extension ngừng phản hồi; app Android cảnh báo khi mất quyền Trợ năng. | Tất cả |
 | FR15 | Tự cập nhật (sau v1): app Android và agent tự kiểm tra bản mới và hướng dẫn cập nhật. | Android, Windows |
 | FR16 | Cổng nối TaskFlow (sau v1): đọc phiên học đã duyệt từ API của TaskFlow, làm nguồn thứ ba cho Chế độ Học. Lịch Google đi vào DopaDam qua đường này, vì TaskFlow đã kết nối sẵn với Google Calendar. | Tất cả |
@@ -183,7 +183,7 @@ Trang Hướng dẫn mở được bất cứ lúc nào từ menu, trên cả An
 | Phần | Nội dung |
 | --- | --- |
 | Kiểm tra tình trạng | Danh sách mọi quyền và thành phần, mỗi dòng có trạng thái đạt hoặc thiếu và nút "Sửa" mở thẳng đúng màn hình cài đặt. Trên Windows có thêm tình trạng agent và extension trên từng profile Edge. |
-| Hướng dẫn cho Xiaomi | Các bước cho HyperOS và MIUI: bật Autostart, đặt Tiết kiệm pin thành "Không giới hạn", bật "Hiển thị cửa sổ bật lên khi chạy nền", khóa app trong màn hình đa nhiệm, Allow restricted settings. Hãng khác để sau v1. |
+| Hướng dẫn cho Xiaomi | Các bước cho HyperOS và MIUI: Allow restricted settings (để bật được Trợ năng), bật Autostart, đặt Tiết kiệm pin thành "Không giới hạn", khóa app trong màn hình đa nhiệm. Hãng khác để sau v1. |
 | App hoạt động thế nào | Bốn cấp khóa nút Vào, ngân sách ngày, link được phép, Chế độ Học, lối thay thế vận động, cách đọc biểu đồ số giây đến lúc Thoát. |
 
 ## 8. Kiến trúc và công nghệ
@@ -214,13 +214,13 @@ Mỗi máy tự chặn bằng dữ liệu cục bộ, nên mất mạng vẫn ch
 
 | Thành phần | Công nghệ | Vai trò |
 | --- | --- | --- |
-| App Android | Kotlin, Jetpack Compose, AccessibilityService, Room, WorkManager, UsageStatsManager | Bắt sự kiện đổi cửa sổ để biết app vừa mở, hiện màn hình cảnh báo, đo thời gian dùng, đồng bộ nền |
+| App Android | Kotlin, Jetpack Compose, AccessibilityService (kèm lớp phủ của chính dịch vụ), Room, WorkManager, Credential Manager | Bắt sự kiện đổi cửa sổ để biết app vừa mở, hiện màn hình cảnh báo, đo thời gian dùng, đồng bộ nền |
 | Extension | TypeScript, Manifest V3, API webNavigation (gồm cả sự kiện chuyển trang bên trong trang như YouTube), chrome.storage, chrome.notifications; chạy trên Microsoft Edge | Chuyển tab sang trang cảnh báo của chính extension trước khi trang đích tải; kiểm tra link được phép; báo thời gian dùng theo tên miền cho agent |
 | Agent desktop | Tauri 2 (lõi Rust, giao diện React + TypeScript), Win32 SetWinEventHook, SQLite; chạy trên Windows 10 và 11 | Bắt cửa sổ vừa lên phía trước, hiện cửa sổ cảnh báo luôn nằm trên cùng, chạy cùng Windows ở khay hệ thống, chứa giao diện cấu hình và thống kê |
 | Lõi logic | Rust (agent), TypeScript (extension), Kotlin (Android); kiểm thử bằng một bộ test vector JSON dùng chung | Tính cấp cản trở, ngân sách ngày, độ trễ cảnh báo, và gộp các nguồn thành một trạng thái "đang học" duy nhất. Mỗi nền tảng hiện thực bằng ngôn ngữ của mình nhưng phải cho kết quả giống hệt nhau trên cùng bộ test vector |
 | Supabase | Postgres, Auth (Google và email + mật khẩu), Row Level Security | Đăng nhập và đồng bộ giữa các thiết bị; không chứa logic chặn |
 
-**Agent và extension là hai chương trình riêng.** Trình duyệt không cho app bên ngoài đọc URL đang mở, nên phần web phải do extension đảm nhận; ngược lại, extension không thấy được game hay app desktop, nên cần agent.
+**Agent và extension là hai chương trình riêng.** Trình duyệt không cho app bên ngoài đọc URL đang mở, nên phần web phải do extension đảm nhận; ngược lại, extension không thấy được game hay app desktop, nên cần agent. Cầu nối Native Messaging là chính file `dopadam.exe`: khi Edge gọi nó, chương trình chạy ở chế độ chuyển tiếp tin nhắn sang agent qua một named pipe, nên chỉ có một file chương trình để cài.
 
 **Đồng bộ trong một máy tính.** Agent là nguồn dữ liệu chính của máy: giữ tag, bộ đếm, khoảng được phép, trạng thái Chế độ Học và hàng đợi đồng bộ lên Supabase. Extension là một client mỏng, nối vào agent qua Native Messaging và nhận thay đổi ngay; nếu dùng nhiều profile Edge thì mỗi profile có một bản extension, tất cả dùng chung một bộ đếm. Khi agent tạm không chạy, extension tự tính bằng bản cấu hình gần nhất và vẫn chặn được. Máy chưa cài agent thì extension chạy độc lập với cấu hình và bộ đếm riêng, không đồng bộ lên server.
 
@@ -237,16 +237,17 @@ Tám thực thể, tất cả phục vụ phần chặn và Chế độ Học. M
 | Device | id, platform (android / windows / extension), profile Edge (với extension), phiên bản, tên, lần cuối hoạt động | Phát hiện thành phần bị tắt và lệch phiên bản |
 | TagRule | id, kind (app / domain / allow\_url), pattern (tên gói Android, tên file .exe, tên miền, hoặc video / playlist được phép), tag, độ trễ cảnh báo riêng (tùy chọn) | Độ trễ để trống thì dùng mặc định của tag; allow\_url là link được phép |
 | Settings | thời gian khóa nút Vào từng cấp, độ trễ cảnh báo mặc định theo tag, các mức khoảng được phép, ngân sách giải trí mỗi ngày | Một bản ghi cho mỗi tài khoản (hoặc mỗi thiết bị khi không đăng nhập) |
-| InterceptEvent | id, device\_id, đối tượng, tag, cấp, số giây khóa nút Vào, quyết định (vào / thoát / thay thế), số giây từ lúc hiện cảnh báo đến lúc bấm, study\_session\_id, thời điểm | Chỉ thêm, không sửa |
+| InterceptEvent | id, device\_id, đối tượng, tag, cấp, số giây khóa nút Vào, quyết định (vào / thoát / thay thế), thời điểm hiện cảnh báo và thời điểm bấm (hiệu hai số là số giây cân nhắc), nhãn phiên học nếu đang học | Chỉ thêm, không sửa |
 | AllowWindow | đối tượng, device\_id, hết hạn lúc | Theo máy, không đồng bộ lên server |
-| UsageDaily | ngày (tính từ 4 giờ sáng), device\_id, tag, số phút | Chỉ thêm, không sửa; dùng để tính ngân sách ngày |
-| StudyRule | id, khung giờ theo tuần, ngoại lệ ngày | Cấu hình Chế độ Học |
+| UsageDaily | ngày (tính từ 4 giờ sáng), device\_id, tag, số giây | Mỗi dòng (ngày, thiết bị, tag) chỉ do đúng thiết bị đó cộng dồn; dùng để tính ngân sách ngày |
+| StudyRule | id, các ngày trong tuần, giờ bắt đầu, giờ kết thúc, nhãn, ngoại lệ ngày | Cấu hình Chế độ Học; xóa là xóa mềm để lần xóa cũng đồng bộ được |
 | StudySession | id, nguồn (manual / rule / taskflow), bắt đầu, kết thúc, nhãn, external\_id (mã phiên bên TaskFlow) | Bản ghi mỗi lần vào Chế độ Học |
 
 **Quy tắc đồng bộ**
 
 - Bảng cấu hình (TagRule, Settings, StudyRule, StudySession): bản ghi có `updated_at` mới hơn thì thắng.
-- Bảng nhật ký (InterceptEvent, UsageDaily): chỉ thêm, không sửa, nên không bao giờ xung đột.
+- InterceptEvent chỉ thêm, không sửa; mỗi dòng UsageDaily chỉ có một thiết bị ghi. Vì vậy hai bảng này không bao giờ xung đột.
+- Tần suất: agent đồng bộ 30 giây một lần và vài giây sau mỗi thay đổi; điện thoại đồng bộ tối đa mỗi phút một lần khi màn hình bật, ngay sau mỗi thay đổi, và một lần nền mỗi 15 phút. Nhật ký trên agent và điện thoại được giữ 30 ngày (đủ cho biểu đồ 4 tuần).
 - Mọi bảng trên Supabase bật Row Level Security theo `user_id`, nên chỉ tài khoản đã đăng nhập mới đọc và ghi được dữ liệu của mình. Không đăng nhập thì dữ liệu chỉ nằm trên thiết bị, không gửi đi đâu.
 
 ## 10. Yêu cầu phi chức năng
@@ -278,7 +279,7 @@ Rủi ro lớn nhất: hệ điều hành của một số hãng âm thầm tắ
 | --- | --- | --- |
 | Xiaomi (cùng Huawei, Oppo…) diệt tiến trình nền để tiết kiệm pin; khi app bị buộc dừng, quyền Trợ năng bị tắt theo ([fish-app](https://github.com/ahpxex/fish-app), [AppBlock](https://appblock.app/my-accessibility-keeps-turning-off-what-can-i-do-2/)). Đây là rủi ro trực tiếp vì máy dùng cho v1 là Xiaomi | Điện thoại ngừng chặn | Hướng dẫn Xiaomi ở mục 7 (Autostart, bỏ giới hạn pin, khóa app trong đa nhiệm); foreground service có thông báo thường trực; app tự kiểm tra quyền và báo khi mất |
 | Từ Android 13, app cài ngoài cửa hàng có thể bị chặn bật Trợ năng ("Restricted setting") ([Esper](https://esper.io/blog/android-13-sideloading-restriction-harder-malware-abuse-accessibility-apis)); Android 15 siết thêm ([Android Authority](https://androidauthority.com/android-15-enhanced-confirmation-mode-3436697)) | Không bật được quyền cốt lõi | App info → menu ba chấm → Allow restricted settings ([Lawnchair docs](https://docs.lawnchair.app/troubleshooting/restricted-settings)) |
-| Máy Xiaomi cần thêm quyền hiển thị cửa sổ bật lên khi chạy nền ([Salfeld](https://salfeld.com/en/faq/android/xiaomi/)) | Cảnh báo không hiện | Đưa vào danh sách kiểm tra quyền |
+| Máy Xiaomi chặn app mở cửa sổ bật lên khi chạy nền nếu chưa cấp quyền riêng ([Salfeld](https://salfeld.com/en/faq/android/xiaomi/)) | Cảnh báo không hiện | Màn hình cảnh báo là lớp phủ của dịch vụ Trợ năng, không phải cửa sổ hay Activity mở từ nền, nên không cần quyền này; nếu trên máy thật vẫn không hiện thì thêm bước bật quyền vào trang Hướng dẫn |
 | Google bắt buộc xác minh nhà phát triển cho app cài ngoài Play, mở rộng toàn cầu từ 2027 ([Android Authority](https://androidauthority.com/android-sideloading-developer-verification-first-wave-rollout-3717921)) | Có thể phải đổi cách cài APK lên điện thoại | Cài qua ADB từ máy tính; nếu cách này cũng bị ảnh hưởng thì đăng ký tài khoản phân phối giới hạn miễn phí trên Android Developer Console ([Android Developers](https://developer.android.com/developer-verification/guides/limited-distribution)) |
 | Edge thỉnh thoảng nhắc tắt extension cài ở chế độ nhà phát triển | Lỡ tay tắt extension | Agent cảnh báo khi extension ngừng gửi tín hiệu |
 | Game đang tải hoặc chạy toàn màn hình đè lên cửa sổ cảnh báo | Cảnh báo không hiện | Độ trễ cảnh báo (FR10), mặc định 30 giây cho tag Game, chỉnh được theo từng app; nếu vẫn bị che, agent thu nhỏ game trước khi hiện cảnh báo |

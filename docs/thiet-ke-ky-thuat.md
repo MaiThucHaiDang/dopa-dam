@@ -26,6 +26,7 @@ Mỗi nền tảng hiện thực các hàm dưới đây bằng ngôn ngữ củ
 | `budgetStatus(usedMinutes, budgetMinutes)` | `budgetMinutes ≤ 0` nghĩa là tắt ngân sách: không bao giờ vượt, `remaining = null`. Ngược lại `over = used ≥ budget`, `remaining = max(0, budget - used)` | `budget.json` |
 | `effectiveDelay(appDelay, tag, tagDelays)` | `appDelay` (nếu có) ghi đè, nếu không thì `tagDelays[tag]`, nếu không có thì 0; kẹp trong 0–120 giây | `delay.json` |
 | `resolveStudy(now, tzOffsetMinutes, manual, rules, external)` | Xem mục 2.1 | `study.json` |
+| `activeRuleOccurrences(rules, now, tzOffsetMinutes)`, `classifyStudyRuleChange(old, new, now, tzOffsetMinutes)` | Xem mục 2.1 và 2.3 | `study-change.json` |
 | `matchDomainTag(host, rules)` | Luật khớp khi `host == pattern` hoặc `host` kết thúc bằng `"." + pattern`; nhiều luật khớp thì luật dài nhất thắng; không khớp trả về `null` | `domain.json` |
 | `parseAllowUrl(text)`, `isAllowedUrl(url, allowList)` | Xem mục 2.2 (chỉ extension dùng) | `allow-url.json` |
 | `classifyTagChange(old, new)`, `classifyNumberChange(field, old, new)` | Thay đổi làm yếu bảo vệ trả về `"weaken"` (cần bước xác nhận FR14), còn lại `"ok"`. Xem mục 2.3 | `friction.json` |
@@ -36,6 +37,9 @@ Mỗi nền tảng hiện thực các hàm dưới đây bằng ngôn ngữ củ
 - Khung giờ cố định: `{id, days, start, end, label, exceptions}`. `days` theo ISO (1 = thứ 2 … 7 = chủ nhật), `start`/`end` dạng `HH:MM` theo giờ địa phương. Nếu `end ≤ start` thì khung kéo qua nửa đêm. Mỗi ngày `D` có thứ nằm trong `days` và không nằm trong `exceptions` sinh ra một lần xuất hiện từ `D start` đến `end` (cùng ngày, hoặc ngày hôm sau nếu qua nửa đêm). Ngoại lệ tính theo ngày bắt đầu.
 - Nhãn trống hoặc `null` thì dùng nhãn mặc định: "Khung giờ học" (khung giờ), "Phiên học" (bật tay), "Phiên TaskFlow" (TaskFlow).
 - Đang học khi có ít nhất một phiên hiệu lực. Phiên dùng để hiển thị chọn theo nguồn: bật tay > TaskFlow > khung giờ; cùng nguồn thì chọn phiên kết thúc muộn nhất. Kết quả: `{active, source, label, endsAt}`; khi không học thì `source`, `label`, `endsAt` là `null`.
+- Mỗi nguồn cài interface `StudySessionSource` (`kind` + `sessions(now, tzOffsetMinutes)`); `resolveSources` gộp danh sách nguồn theo thứ tự ưu tiên trên, `resolveStudy` chỉ là cách gọi tắt với ba nguồn. Nối TaskFlow sau v1 là viết thêm một nguồn `taskflow`, phần chặn không đổi.
+- `activeRuleOccurrences` trả về các khung đang diễn ra lúc `now` kèm ngày bắt đầu của lần xuất hiện đó (`{ruleId, date}`). "Kết thúc sớm" dùng nó: phiên bật tay đang chạy được đặt `end = now`, còn khung giờ đang chạy được thêm ngoại lệ cho ngày đó.
+- Phiên bật tay dài 5–480 phút (giao diện có sẵn 25, 50, 90 phút), nhãn tối đa 60 ký tự. Bật thêm phiên trong lúc đang học là được, vì chỉ có thể kéo dài giờ học.
 
 ### 2.2 Link được phép
 
@@ -52,7 +56,9 @@ Mỗi nền tảng hiện thực các hàm dưới đây bằng ngôn ngữ củ
 - Mã tag: `entertainment` (Giải trí), `game`, `work` (Công việc), `study` (Học tập), `communication` (Liên lạc), `utility` (Tiện ích), `ignore` (Không theo dõi).
 - Tag: `"weaken"` khi tag cũ là Giải trí hoặc Game và tag mới không thuộc hai tag này (kể cả xóa luật), hoặc khi đổi Giải trí → Game (vì Game có độ trễ). Game → Giải trí và mọi trường hợp khác là `"ok"`.
 - Số: `lockSeconds` giảm, `budgetMinutes` tăng hoặc chuyển về ≤ 0 (tắt), `delaySeconds` tăng → `"weaken"`. Ngược lại `"ok"`.
-- Luôn cần xác nhận: tắt bảo vệ, thêm link được phép, kết thúc Chế độ Học trước giờ, thêm ngoại lệ cho ngày đang có phiên, xóa nhật ký.
+- Khung giờ học (`classifyStudyRuleChange`): thêm khung mới, thêm ngày, bắt đầu sớm hơn, kết thúc muộn hơn, đổi nhãn, bỏ ngoại lệ, hoặc thêm ngoại lệ cho ngày mai trở đi là `"ok"`. Xóa khung, bớt ngày, bắt đầu muộn hơn, kết thúc sớm hơn, hoặc thêm ngoại lệ cho hôm nay hay cho ngày của phiên đang diễn ra là `"weaken"`. So sánh khung tính theo phút kể từ nửa đêm của ngày bắt đầu (khung qua nửa đêm cộng thêm 24 giờ vào giờ kết thúc).
+- Luôn cần xác nhận: tắt bảo vệ, thêm link được phép, kết thúc Chế độ Học trước giờ, xóa nhật ký.
+- Trong giờ học: đổi tag, mức cản trở, ngân sách, độ trễ, tắt bảo vệ và mọi thay đổi `"weaken"` của khung giờ đều bị khóa (`study-locked`), kể cả khi đã xác nhận. Vẫn làm được: thêm link được phép (có xác nhận), thay đổi làm mạnh bảo vệ, và "Kết thúc sớm" (có xác nhận).
 - Bước xác nhận: chờ 60 giây rồi gõ đúng câu `tôi chọn giảm bảo vệ`.
 
 ## 3. Giao thức agent ↔ extension
@@ -69,7 +75,7 @@ Edge (extension) ──stdio, khung 4 byte độ dài──▶ dopadam.exe (ch�
 | --- | --- | --- |
 | ext → agent | `hello` | `protocol`, `extVersion`, `profileId` |
 | agent → ext | `welcome` | `protocol`, `agentVersion`, `compatible`. Lệch giao thức thì extension chạy riêng, agent báo lệch phiên bản |
-| agent → ext | `config` | Ảnh chụp đầy đủ: `domainRules`, `allowUrls`, `settings`, `allowWindows`, `study`, `budget`, `protectionEnabled`, `summary` (số lần chặn và Thoát hôm nay). Gửi sau `welcome` và mỗi khi có thay đổi |
+| agent → ext | `config` | Ảnh chụp đầy đủ: `domainRules`, `allowUrls`, `settings`, `allowWindows`, `study`, `studyRules`, `budget`, `protectionEnabled`, `summary` (số lần chặn và Thoát hôm nay). Gửi sau `welcome` và mỗi khi có thay đổi |
 | ext → agent | `warning_request` | `requestId`, `eventId` (do trang cảnh báo tạo, nên tải lại trang không bị đếm hai lần), `object` (tên miền khớp luật), `url` |
 | agent → ext | `warning_context` | `requestId`, `skip` (đang được phép thì mở thẳng), `eventId`, `level`, `lockSeconds`, `allowOptions`, `n`, `shownAt`, `decision`, `budget`, `study`, `activities` |
 | ext → agent | `decision` | `requestId`, `eventId`, `decision` (`enter` / `exit` / `alternative`), `allowMinutes`, `activity`, `activityMinutes` |
@@ -78,6 +84,10 @@ Edge (extension) ──stdio, khung 4 byte độ dài──▶ dopadam.exe (ch�
 | ext → agent | `add_allow_url`, `remove_allow_url` | `requestId`, `entry` (`{kind, id}` hoặc `{kind, value}`), `confirmed` |
 | ext → agent | `set_friction` | `requestId`, `lockSeconds`, `budgetMinutes`, `confirmed` |
 | ext → agent | `set_protection`, `clear_log` | `requestId`, `enabled` (với `set_protection`), `confirmed` |
+| ext → agent | `start_study` | `requestId`, `minutes`, `label` |
+| ext → agent | `stop_study` | `requestId`, `confirmed` |
+| ext → agent | `set_study_rule` | `requestId`, `rule` (`{id, days, start, end, label, exceptions}`; `id` rỗng là thêm mới), `confirmed` |
+| ext → agent | `delete_study_rule` | `requestId`, `id`, `confirmed` |
 
 Khi agent đang chạy, mọi số đếm, khoảng được phép và nhật ký nằm ở agent; agent tự kiểm tra lại quy tắc giảm bảo vệ và khóa cấu hình trong giờ học. Extension giữ bản sao cấu hình gần nhất trong `chrome.storage.local` để vẫn chặn được khi mất kết nối.
 
@@ -85,9 +95,9 @@ Khi agent đang chạy, mọi số đếm, khoảng được phép và nhật k�
 
 | Nền tảng | Nơi lưu |
 | --- | --- |
-| Extension | `chrome.storage.local` (cấu hình, nhật ký 7 ngày gần nhất, thời gian dùng theo ngày) |
-| Android | Room (`dopadam.db`); phiên đăng nhập mã hóa bằng khóa trong Android Keystore |
-| Agent | SQLite tại `%APPDATA%\DopaDam\dopadam.db`; phiên đăng nhập trong Windows Credential Manager |
+| Extension | `chrome.storage.local` (cấu hình, phiên học và khung giờ học, nhật ký 14 ngày gần nhất, thời gian dùng theo ngày) |
+| Android | Room (`dopadam.db`, nhật ký 30 ngày); phiên đăng nhập mã hóa bằng khóa trong Android Keystore |
+| Agent | SQLite tại `%APPDATA%\DopaDam\dopadam.db` (nhật ký 30 ngày); phiên đăng nhập trong Windows Credential Manager |
 
 ## 5. Đồng bộ qua Supabase
 
@@ -95,7 +105,7 @@ Cấu trúc bảng nằm ở `supabase/migrations/`; `supabase/test/schema.test.
 
 **Bảng và khóa.** Bảng `devices`, `tag_rules`, `settings`, `study_rules`, `study_sessions`, `usage_daily`, `intercept_events`. Khóa chính là `(user_id, id)`; `user_id` mặc định là `auth.uid()`. Thời gian là số mili giây (`bigint`), riêng `server_updated_at` là `timestamptz` do trigger đặt bằng `clock_timestamp()` mỗi lần ghi. Mỗi bảng có `schema_version` để sau này đổi cấu trúc mà không làm hỏng bản cũ.
 
-**Định danh.** `id` của tag là cố định theo nội dung (`app:<tên gói>`, `domain:<tên miền>`, `program:<tên exe>`, `url:<link>`), nên hai thiết bị gắn tag cho cùng một đối tượng sẽ ghi vào cùng một dòng thay vì tạo hai dòng. `usage_daily` có `id = ngày:thiết bị:tag` và chỉ thiết bị đó ghi. Sự kiện chặn và phiên học dùng UUID do thiết bị tạo. Xóa là xóa mềm (`deleted = true`) để lần xóa cũng đồng bộ được.
+**Định danh.** `id` của tag là cố định theo nội dung (`kind:pattern`: `app:<tên gói>` trên Android, `exe:<tên chương trình>` và `domain:<tên miền>` ở agent, `allow_url:<link>` cho link được phép), nên hai thiết bị gắn tag cho cùng một đối tượng sẽ ghi vào cùng một dòng thay vì tạo hai dòng. `usage_daily` có `id = ngày|thiết bị|tag` và chỉ thiết bị đó ghi. Sự kiện chặn và phiên học dùng UUID do thiết bị tạo. Xóa là xóa mềm (`deleted = true`) để lần xóa cũng đồng bộ được.
 
 **Quy tắc trên server.**
 
@@ -126,4 +136,4 @@ Cấu trúc bảng nằm ở `supabase/migrations/`; `supabase/test/schema.test.
 
 **Không cấu hình hoặc chưa đăng nhập.** Thiếu URL hoặc anon key (trong `agent/src-tauri/config.local.json` hoặc `android/secrets.properties`), hoặc chưa đăng nhập, thì mọi phần đồng bộ tắt; từng thiết bị vẫn chạy đầy đủ với dữ liệu của riêng nó.
 
-**Giữ dữ liệu.** Nhật ký chặn và thời gian dùng trên từng thiết bị được giữ 30 ngày (đủ cho biểu đồ 4 tuần); trên server dữ liệu được giữ đến khi người dùng bấm "Xóa dữ liệu trên server".
+**Giữ dữ liệu.** Nhật ký chặn và thời gian dùng được giữ 30 ngày trên agent và Android (đủ cho biểu đồ 4 tuần), 14 ngày trong extension (khi chạy riêng, không có agent); trên server dữ liệu được giữ đến khi người dùng bấm "Xóa dữ liệu trên server".

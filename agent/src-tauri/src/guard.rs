@@ -64,6 +64,8 @@ pub struct Guard {
     pub last_prune: i64,
     pub edge_unlinked_since: Option<i64>,
     pub edge_notice_sent: bool,
+    /// Study state last pushed to the extensions: (active, ends at).
+    pub last_study: Option<(bool, Option<i64>)>,
     pub toast: Option<Toast>,
     next_toast: u64,
 }
@@ -391,6 +393,20 @@ fn slow_tick(state: &Shared, now: i64) {
             g.tracker.forget(pid);
         }
     }
+    // Weekly study hours start and end with the clock, not with a change: refresh the extensions
+    // (their popup and options show the study state) and the agent's own windows.
+    let study = state.store().study_status(now);
+    let study_changed = {
+        let mut g = state.guard();
+        let key = Some((study.active, study.ends_at));
+        let changed = g.last_study != key;
+        g.last_study = key;
+        changed
+    };
+    if study_changed {
+        state.refreshed();
+    }
+
     // Edge running while the extension is not connected: the web is not protected.
     let edge_running = win::running_exes().iter().any(|e| e == "msedge.exe");
     let linked = state.connected_extensions() > 0;

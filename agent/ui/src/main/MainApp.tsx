@@ -1,4 +1,4 @@
-// The agent's main window: overview, programs, websites, settings, guide.
+// The agent's main window: overview, study mode, stats, programs, websites, settings, guide.
 import { createContext, useContext, useEffect, useState } from "react";
 import { onEvent } from "../api";
 import { AppsPage } from "./AppsPage";
@@ -8,11 +8,13 @@ import { QuitPage } from "./QuitPage";
 import { SettingsPage } from "./SettingsPage";
 import { SitesPage } from "./SitesPage";
 import { StatsPage } from "./StatsPage";
+import { StudyPage } from "./StudyPage";
 
-export type Route = "/" | "/stats" | "/apps" | "/sites" | "/settings" | "/guide" | "/quit";
+export type Route = "/" | "/study" | "/stats" | "/apps" | "/sites" | "/settings" | "/guide" | "/quit";
 
 const NAV: { route: Route; label: string }[] = [
   { route: "/", label: "Tổng quan" },
+  { route: "/study", label: "Chế độ Học" },
   { route: "/stats", label: "Thống kê" },
   { route: "/apps", label: "Chương trình" },
   { route: "/sites", label: "Trang web" },
@@ -65,6 +67,7 @@ export function MainApp() {
           </nav>
           <main className="content">
             {route === "/" && <OverviewPage />}
+            {route === "/study" && <StudyPage />}
             {route === "/stats" && <StatsPage />}
             {route === "/apps" && <AppsPage />}
             {route === "/sites" && <SitesPage />}

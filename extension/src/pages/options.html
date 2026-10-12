@@ -23,6 +23,40 @@
       <p id="agent-line" class="notice hidden"></p>
       <p id="error" class="notice hidden" role="alert"></p>
 
+      <section class="card" id="study">
+        <h2>Chế độ Học</h2>
+        <p class="muted">
+          Trong giờ học, nút Vào khóa lâu hơn, chỉ cho vào 5 hoặc 10 phút, và tag cùng mức cản trở bị khóa. Khi extension
+          đã nối với agent, giờ học dùng chung với agent (và với điện thoại nếu đã đăng nhập).
+        </p>
+        <p id="study-status"></p>
+        <form id="study-start" class="row">
+          <input id="study-label" type="text" maxlength="60" placeholder="Học gì? vd: Ôn Hệ điều hành" aria-label="Nhãn phiên học" />
+          <span id="study-buttons" class="row"></span>
+        </form>
+        <div class="row">
+          <button id="study-stop" class="btn-quiet hidden" type="button">Kết thúc sớm</button>
+        </div>
+        <h3>Khung giờ cố định</h3>
+        <p class="muted">
+          Thêm khung hoặc kéo dài thì không cần xác nhận; xóa, rút ngắn hoặc bỏ qua hôm nay thì phải xác nhận, và bị khóa
+          khi đang học.
+        </p>
+        <table class="list">
+          <tbody id="study-rules"></tbody>
+        </table>
+        <form id="add-rule" class="grid-form">
+          <fieldset class="weekdays" id="rule-days">
+            <legend>Ngày trong tuần</legend>
+          </fieldset>
+          <label>Từ <input id="rule-start" type="time" value="19:30" required /></label>
+          <label>Đến <input id="rule-end" type="time" value="22:00" required /></label>
+          <label>Nhãn (không bắt buộc) <input id="rule-label" type="text" maxlength="60" /></label>
+          <div><button class="btn-primary" type="submit">Thêm khung giờ</button></div>
+        </form>
+        <p class="faint">Giờ kết thúc sớm hơn giờ bắt đầu nghĩa là khung kéo qua nửa đêm.</p>
+      </section>
+
       <section class="card">
         <h2>Trang web</h2>
         <p class="muted">Trang gắn tag Giải trí hoặc Game sẽ bị chặn trước khi tải. Áp dụng cho mọi tên miền con.</p>

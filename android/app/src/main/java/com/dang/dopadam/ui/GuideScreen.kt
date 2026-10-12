@@ -153,5 +153,23 @@ fun GuideScreen() {
             Muted("\"Làm việc khác\" chọn nhảy dây, hít đất hoặc đọc sách trong 2–10 phút, hết giờ có thông báo nhắc quay lại việc đang làm.")
             Muted("Giảm bảo vệ (bỏ tag Giải trí, giảm thời gian khóa, tắt bảo vệ…) phải chờ 60 giây rồi gõ \"tôi chọn giảm bảo vệ\".")
         }
+
+        SectionCard("Chế độ Học") {
+            Muted(
+                "Bật tay 25, 50 hoặc 90 phút kèm nhãn, hoặc đặt khung giờ cố định theo tuần (ví dụ T2–T6, 19:30–22:00). " +
+                    "Trong giờ học, nút Vào khóa 30 giây, chỉ cho vào 5 hoặc 10 phút, và tag cùng các cài đặt bị khóa.",
+            )
+            Muted(
+                "Kết thúc sớm, xóa hoặc rút ngắn khung giờ, hay bỏ qua hôm nay đều phải qua bước chờ 60 giây. " +
+                    "Đã đăng nhập thì bật ở điện thoại hay máy tính, thiết bị còn lại cũng vào giờ học trong khoảng một phút.",
+            )
+        }
+
+        SectionCard("Đọc trang Thống kê") {
+            Muted(
+                "\"Số giây trung bình đến lúc bấm Thoát\" là chỉ số chính: con số giảm dần nghĩa là bạn dừng lại nhanh hơn. " +
+                    "Biểu đồ lần bị chặn cho thấy tỉ lệ Thoát so với Vào; biểu đồ thời gian theo tag có đường gạch là ngân sách giải trí mỗi ngày.",
+            )
+        }
     }
 }
