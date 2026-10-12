@@ -91,9 +91,39 @@ Khi agent đang chạy, mọi số đếm, khoảng được phép và nhật k�
 
 ## 5. Đồng bộ qua Supabase
 
-- Mỗi bảng có `id` (UUID do thiết bị tạo), `user_id`, `updated_at` (thời điểm thay đổi theo đồng hồ thiết bị, dùng cho "bản mới hơn thắng"), `server_updated_at` (do trigger đặt, dùng làm con trỏ kéo về) và `schema_version`.
-- Đẩy lên: upsert qua PostgREST (`Prefer: resolution=merge-duplicates`). Trigger `BEFORE UPDATE` bỏ qua bản ghi có `updated_at` cũ hơn bản đang có.
-- Kéo về: `server_updated_at > con trỏ` cho từng bảng, sắp xếp tăng dần.
-- `intercept_events` chỉ thêm. `usage_daily` mỗi dòng thuộc đúng một thiết bị (`id = ngày|thiết bị|tag`), chỉ thiết bị đó ghi, nên không xung đột.
-- Tần suất: agent 30 giây một lần khi có mạng; Android mỗi 60 giây khi màn hình bật, cộng một lần đồng bộ nền qua WorkManager mỗi 15 phút.
-- Chưa cấu hình Supabase (thiếu URL hoặc anon key) hoặc chưa đăng nhập thì mọi phần đồng bộ tắt, ứng dụng vẫn chạy đầy đủ trên từng thiết bị.
+Cấu trúc bảng nằm ở `supabase/migrations/`; `supabase/test/schema.test.mjs` chạy chính file đó trong PGlite để kiểm tra quy tắc, `supabase/test/mock-server.mjs` dựng một server giả (phần GoTrue và PostgREST mà DopaDam gọi) trên cùng cấu trúc bảng để test đồng bộ đầu-cuối.
+
+**Bảng và khóa.** Bảng `devices`, `tag_rules`, `settings`, `study_rules`, `study_sessions`, `usage_daily`, `intercept_events`. Khóa chính là `(user_id, id)`; `user_id` mặc định là `auth.uid()`. Thời gian là số mili giây (`bigint`), riêng `server_updated_at` là `timestamptz` do trigger đặt bằng `clock_timestamp()` mỗi lần ghi. Mỗi bảng có `schema_version` để sau này đổi cấu trúc mà không làm hỏng bản cũ.
+
+**Định danh.** `id` của tag là cố định theo nội dung (`app:<tên gói>`, `domain:<tên miền>`, `program:<tên exe>`, `url:<link>`), nên hai thiết bị gắn tag cho cùng một đối tượng sẽ ghi vào cùng một dòng thay vì tạo hai dòng. `usage_daily` có `id = ngày:thiết bị:tag` và chỉ thiết bị đó ghi. Sự kiện chặn và phiên học dùng UUID do thiết bị tạo. Xóa là xóa mềm (`deleted = true`) để lần xóa cũng đồng bộ được.
+
+**Quy tắc trên server.**
+
+- Trigger `keep_newest` (trước khi cập nhật): giữ nguyên dòng cũ nếu bản gửi lên có `updated_at` nhỏ hơn, nên "bản mới hơn thắng" kể cả khi thiết bị gửi muộn.
+- `intercept_events` chỉ thêm: trigger chặn mọi lệnh sửa.
+- RLS `own_rows` cho vai trò `authenticated`: chỉ đọc/ghi được dòng có `user_id = auth.uid()`. Vai trò `anon` không có quyền gì trên các bảng.
+- Hàm `delete_my_data()` (gọi qua RPC) xóa toàn bộ dữ liệu của tài khoản đang đăng nhập.
+- Khóa `service_role` không bao giờ nằm trong ứng dụng; ứng dụng chỉ dùng anon key cộng phiên đăng nhập.
+
+**Một vòng đồng bộ** (giống nhau ở agent `sync.rs` và Android `SyncEngine.kt`):
+
+1. Đẩy các dòng có cờ "chưa đồng bộ" theo từng bảng, mỗi lần tối đa 500 dòng, bằng upsert `?on_conflict=user_id,id` (`Prefer: resolution=merge-duplicates`; riêng sự kiện chặn là `ignore-duplicates`). Đẩy xong mới xóa cờ, nên lỗi giữa chừng thì lần sau đẩy lại. Sự kiện chưa có lựa chọn được giữ lại 10 phút rồi mới đẩy.
+2. Ghi dòng `devices` của máy này (tên, phiên bản, `last_seen`).
+3. Kéo về từng bảng: `server_updated_at > con trỏ − 5 phút`, sắp xếp tăng dần, mỗi trang 1000 dòng. Lùi 5 phút để không sót dòng được ghi trễ với dấu thời gian sớm hơn; dòng kéo lại lần hai bị bỏ qua nhờ so `updated_at`. Dòng `usage_daily` của chính máy này không bao giờ bị ghi đè bằng bản trên server.
+4. Hết hạn phiên (HTTP 401) thì làm mới bằng refresh token rồi chạy lại một lần.
+
+**Đăng nhập.**
+
+| Cách | Agent | Android |
+| --- | --- | --- |
+| Email + mật khẩu | `grant_type=password`, tạo tài khoản qua `/signup` | Như agent |
+| Google | Mở trình duyệt tới `/authorize?provider=google` với PKCE (S256); Supabase trả về `dopadam://auth-callback?code=…`, Windows chuyển link đó cho agent (giao thức `dopadam://` đăng ký trong HKCU, plugin single-instance), agent đổi `code` lấy phiên (`grant_type=pkce`) | Credential Manager lấy ID token Google (kèm nonce đã băm SHA-256), đổi lấy phiên bằng `grant_type=id_token` |
+| Lưu phiên | Refresh token trong Windows Credential Manager | Refresh token mã hóa AES-GCM bằng khóa trong Android Keystore |
+
+Đổi sang tài khoản khác thì con trỏ được xóa và mọi dữ liệu trên máy được đánh dấu "chưa đồng bộ", để tài khoản mới nhận đủ dữ liệu của máy này.
+
+**Tần suất.** Agent đồng bộ 30 giây một lần, và khoảng 5 giây sau mỗi thay đổi trên máy. Android đồng bộ khi mở app, tối đa mỗi phút một lần trong lúc dịch vụ bảo vệ chạy, cộng một lần nền qua WorkManager mỗi 15 phút khi có mạng. Extension không tự đồng bộ: khi agent đang chạy, extension dùng cấu hình và ghi nhật ký qua agent, nên dữ liệu trình duyệt đi theo agent lên server.
+
+**Không cấu hình hoặc chưa đăng nhập.** Thiếu URL hoặc anon key (trong `agent/src-tauri/config.local.json` hoặc `android/secrets.properties`), hoặc chưa đăng nhập, thì mọi phần đồng bộ tắt; từng thiết bị vẫn chạy đầy đủ với dữ liệu của riêng nó.
+
+**Giữ dữ liệu.** Nhật ký chặn và thời gian dùng trên từng thiết bị được giữ 30 ngày (đủ cho biểu đồ 4 tuần); trên server dữ liệu được giữ đến khi người dùng bấm "Xóa dữ liệu trên server".

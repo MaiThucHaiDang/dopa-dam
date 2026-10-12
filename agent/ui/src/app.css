@@ -272,3 +272,91 @@ code {
   margin: 0;
   font-size: var(--dd-font-small);
 }
+
+/* Charts: categorical slots validated against the dark surface (dataviz validate_palette, all checks pass). */
+:root {
+  --dd-series-1: #3987e5;
+  --dd-series-2: #d95926;
+  --dd-series-3: #199e70;
+  --dd-series-4: #c98500;
+  --dd-series-5: #d55181;
+}
+
+.chart-card h2 {
+  font-size: var(--dd-font-large);
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--dd-space-md);
+  color: var(--dd-text-muted);
+  font-size: var(--dd-font-small);
+}
+
+.swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  margin-right: 6px;
+  vertical-align: baseline;
+}
+
+.chart-wrap {
+  position: relative;
+}
+
+.chart-wrap svg {
+  display: block;
+  overflow: visible;
+}
+
+.chart-wrap .grid {
+  stroke: var(--dd-border);
+  stroke-width: 1;
+}
+
+.chart-wrap .axis {
+  fill: var(--dd-text-faint);
+  font-size: 11px;
+}
+
+.chart-wrap .reference {
+  stroke: var(--dd-text-muted);
+  stroke-width: 1.5;
+  stroke-dasharray: 5 4;
+}
+
+.chart-wrap .crosshair {
+  stroke: var(--dd-text-faint);
+  stroke-width: 1;
+}
+
+.tooltip {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  min-width: 210px;
+  background: var(--dd-surface-raised);
+  border: 1px solid var(--dd-border);
+  border-radius: var(--dd-radius-md);
+  padding: 8px 10px;
+  font-size: var(--dd-font-small);
+  pointer-events: none;
+  display: grid;
+  gap: 2px;
+}
+
+.tooltip-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 6px;
+  align-items: center;
+  color: var(--dd-text-muted);
+}
+
+.tooltip-value {
+  color: var(--dd-text);
+  font-variant-numeric: tabular-nums;
+}

@@ -100,6 +100,33 @@ export interface Toast {
   action: string | null;
 }
 
+export interface DayStat {
+  day: string;
+  enter: number;
+  exit: number;
+  alternative: number;
+  exitSecondsSum: number;
+  exitCount: number;
+  minutes: Record<string, number>;
+}
+
+export interface AccountStatus {
+  configured: boolean;
+  signedIn: boolean;
+  email: string | null;
+  lastSync: number | null;
+  syncing: boolean;
+  lastError: string | null;
+}
+
+export interface DeviceRow {
+  platform: string;
+  name: string;
+  version: string;
+  lastSeen: number;
+  thisDevice: boolean;
+}
+
 export const api = {
   overview: () => invoke<Overview>("get_overview"),
   listApps: () => invoke<AppRow[]>("list_apps"),
@@ -129,6 +156,15 @@ export const api = {
   toastCurrent: () => invoke<Toast | null>("toast_current"),
   toastDismiss: (open: string | null) => invoke<void>("toast_dismiss", { open }),
   quitAgent: (confirmed: boolean) => invoke<void>("quit_agent", { confirmed }),
+  stats: (days: number) => invoke<DayStat[]>("get_stats", { days }),
+  account: () => invoke<AccountStatus>("account_status"),
+  signIn: (email: string, password: string) => invoke<void>("account_sign_in", { email, password }),
+  signUp: (email: string, password: string) => invoke<"signed-in" | "confirm-email">("account_sign_up", { email, password }),
+  signInGoogle: () => invoke<void>("account_google"),
+  signOut: () => invoke<void>("account_sign_out"),
+  syncNow: () => invoke<{ pushed: number; pulled: number; changed: number }>("sync_now"),
+  devices: () => invoke<DeviceRow[]>("account_devices"),
+  deleteServerData: (confirmed: boolean) => invoke<void>("delete_server_data", { confirmed }),
 };
 
 export function onEvent<T>(name: string, handler: (payload: T) => void): Promise<UnlistenFn> {

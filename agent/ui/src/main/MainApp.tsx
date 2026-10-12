@@ -7,11 +7,13 @@ import { OverviewPage } from "./OverviewPage";
 import { QuitPage } from "./QuitPage";
 import { SettingsPage } from "./SettingsPage";
 import { SitesPage } from "./SitesPage";
+import { StatsPage } from "./StatsPage";
 
-export type Route = "/" | "/apps" | "/sites" | "/settings" | "/guide" | "/quit";
+export type Route = "/" | "/stats" | "/apps" | "/sites" | "/settings" | "/guide" | "/quit";
 
 const NAV: { route: Route; label: string }[] = [
   { route: "/", label: "Tổng quan" },
+  { route: "/stats", label: "Thống kê" },
   { route: "/apps", label: "Chương trình" },
   { route: "/sites", label: "Trang web" },
   { route: "/settings", label: "Cài đặt" },
@@ -63,6 +65,7 @@ export function MainApp() {
           </nav>
           <main className="content">
             {route === "/" && <OverviewPage />}
+            {route === "/stats" && <StatsPage />}
             {route === "/apps" && <AppsPage />}
             {route === "/sites" && <SitesPage />}
             {route === "/settings" && <SettingsPage />}

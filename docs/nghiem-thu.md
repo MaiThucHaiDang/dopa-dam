@@ -55,3 +55,21 @@ Cần kiểm tra trên máy (lúc không dùng máy cho việc khác, vì sẽ c
 - [ ] Cài bộ cài NSIS, khởi động lại máy: DopaDam tự chạy ở khay hệ thống.
 - [ ] Gắn tag Game cho một game: cảnh báo hiện sau độ trễ (mặc định 30 giây), không bị game che.
 - [ ] Mở Edge (đã cài extension): trang Tổng quan của agent báo "Đã nối"; Edge và Chrome… gắn tag Giải trí thì bị chặn như chương trình thường.
+
+## Giai đoạn 4: Đồng bộ, tài khoản và thống kê
+
+Đã kiểm tra tự động:
+
+- [x] Cấu trúc bảng Supabase chạy thật trong PGlite (`cd supabase; npm test`): mỗi tài khoản chỉ thấy dữ liệu của mình (RLS), `anon` không đọc/ghi được gì, bản cũ hơn không ghi đè bản mới hơn, nhật ký chặn không sửa được, `delete_my_data()` xóa sạch dữ liệu của đúng tài khoản gọi.
+- [x] Agent với server giả (`cargo test -- --ignored`, cần `mock-server.mjs` đang chạy): tạo tài khoản, đăng nhập sai mật khẩu ra thông báo tiếng Việt, làm mới phiên, hai máy đẩy và kéo dữ liệu qua lại, "bản mới hơn thắng", tài khoản khác không thấy gì, xóa dữ liệu trên server, phiên hết hạn trả về lỗi đúng.
+- [x] Android với server giả và với server giả lập trong bộ nhớ (`SyncEngineTest`): tag đi qua lại giữa hai máy và bản mới hơn thắng, nhật ký chặn chỉ thêm, dòng thời gian dùng của máy này không bị bản trên server ghi đè, kéo theo từng trang 1000 dòng và lùi con trỏ 5 phút, lỗi 401 không làm mất dữ liệu chưa đẩy.
+- [x] Trang Thống kê và mục Tài khoản trên agent hiển thị không lỗi (dữ liệu giả); app Android build, lint và unit test đều qua.
+
+Cần kiểm tra với project Supabase thật (làm theo mục "Đồng bộ và đăng nhập" trong README):
+
+- [ ] Tạo tài khoản email trên agent, đăng nhập cùng tài khoản trên điện thoại: tag gắn ở máy này hiện ở máy kia trong vòng 1 phút.
+- [ ] Đăng nhập bằng Google trên agent (mở trình duyệt, quay lại app qua `dopadam://`) và trên điện thoại (chọn tài khoản Google).
+- [ ] Trang Thống kê trên cả hai thiết bị gộp lần chặn của cả điện thoại và máy tính.
+- [ ] Tắt mạng: vẫn chặn bình thường; bật lại thì dữ liệu lúc offline được đẩy lên.
+- [ ] "Xóa dữ liệu trên server" phải qua bước chờ 60 giây và gõ câu xác nhận.
+

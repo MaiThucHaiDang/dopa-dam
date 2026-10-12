@@ -59,11 +59,16 @@ android {
     testOptions {
         unitTests.all {
             it.systemProperty("dopadam.vectors", rootProject.file("../shared/test-vectors").absolutePath)
+            // Optional end-to-end sync test: node supabase/test/mock-server.mjs, then set this to its URL.
+            System.getenv("DOPADAM_MOCK_SUPABASE")?.let { url -> it.systemProperty("dopadam.mockSupabase", url) }
+            it.outputs.upToDateWhen { System.getenv("DOPADAM_MOCK_SUPABASE") == null }
         }
     }
     lint {
         abortOnError = true
         checkReleaseBuilds = true
+        // Library versions are pinned to what compileSdk 35 and AGP 8.7 support; newer ones need SDK 36.
+        disable += "GradleDependency"
     }
 }
 

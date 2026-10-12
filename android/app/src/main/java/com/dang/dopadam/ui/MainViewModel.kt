@@ -134,4 +134,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun clearLog() = submit("Xóa toàn bộ nhật ký chặn và thời gian dùng trên điện thoại.") { confirmed ->
         repo.clearLog(confirmed)
     }
+
+    /** Deletes the account's data on the server and the log here, then signs out (after the confirmation). */
+    fun deleteServerData() = submit("Xóa toàn bộ dữ liệu của tài khoản trên server và nhật ký trên điện thoại, rồi đăng xuất.") { confirmed ->
+        if (!confirmed) {
+            ErrorCode.NEEDS_CONFIRM
+        } else {
+            (getApplication<DopaDamApp>()).sync.deleteServerData()?.let { _message.value = it }
+            null
+        }
+    }
 }

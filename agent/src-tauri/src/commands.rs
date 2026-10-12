@@ -13,12 +13,18 @@ use tauri::{Emitter, Manager, State};
 #[derive(Debug, Serialize)]
 pub struct CmdError {
     code: ErrorCode,
-    message: &'static str,
+    message: String,
 }
 
 impl From<ErrorCode> for CmdError {
     fn from(code: ErrorCode) -> Self {
-        CmdError { code, message: code.message() }
+        CmdError { code, message: code.message().to_string() }
+    }
+}
+
+impl From<String> for CmdError {
+    fn from(message: String) -> Self {
+        CmdError { code: ErrorCode::Invalid, message }
     }
 }
 
@@ -297,4 +303,134 @@ pub fn quit_agent(state: State<'_, Shared>, confirmed: bool) -> CmdResult {
     guard::flush_usage(&state, now_ms());
     state.app.exit(0);
     Ok(())
+}
+
+// ---- Account and sync -------------------------------------------------------
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AccountStatus {
+    configured: bool,
+    signed_in: bool,
+    email: Option<String>,
+    last_sync: Option<i64>,
+    syncing: bool,
+    last_error: Option<String>,
+}
+
+#[tauri::command]
+pub fn account_status(state: State<'_, Shared>) -> AccountStatus {
+    let session = state.session();
+    let info = state.sync_info().clone();
+    AccountStatus {
+        configured: state.api.is_some(),
+        signed_in: session.is_some(),
+        email: session.and_then(|s| s.stored.email),
+        last_sync: state.store().kv_get("lastSync").and_then(|v| v.parse().ok()),
+        syncing: info.syncing,
+        last_error: info.last_error,
+    }
+}
+
+fn api(state: &Shared) -> Result<std::sync::Arc<crate::sync::Api>, String> {
+    state.api.clone().ok_or_else(|| "Chưa cấu hình server đồng bộ (xem README, mục Supabase).".to_string())
+}
+
+fn check_credentials(email: &str, password: &str) -> Result<(), String> {
+    if !email.contains('@') || email.trim().len() < 5 {
+        return Err("Email không hợp lệ.".into());
+    }
+    if password.chars().count() < 6 {
+        return Err("Mật khẩu cần ít nhất 6 ký tự.".into());
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn account_sign_in(state: State<'_, Shared>, email: String, password: String) -> Result<(), String> {
+    check_credentials(&email, &password)?;
+    let session = api(&state)?.sign_in(email.trim(), &password, now_ms()).await?;
+    crate::syncrun::sign_in_with(&state, session);
+    Ok(())
+}
+
+/// "signed-in" when the account is usable at once, "confirm-email" when Supabase sent a confirmation email.
+#[tauri::command]
+pub async fn account_sign_up(state: State<'_, Shared>, email: String, password: String) -> Result<String, String> {
+    check_credentials(&email, &password)?;
+    match api(&state)?.sign_up(email.trim(), &password, now_ms()).await? {
+        Some(session) => {
+            crate::syncrun::sign_in_with(&state, session);
+            Ok("signed-in".into())
+        }
+        None => Ok("confirm-email".into()),
+    }
+}
+
+#[tauri::command]
+pub fn account_google(state: State<'_, Shared>) -> Result<(), String> {
+    let api = api(&state)?;
+    let verifier = crate::sync::new_verifier();
+    let url = api.google_url(&crate::sync::pkce_challenge(&verifier));
+    *state.pkce.lock().unwrap_or_else(|e| e.into_inner()) = Some(verifier);
+    crate::win::open_url(&url);
+    Ok(())
+}
+
+#[tauri::command]
+pub fn account_sign_out(state: State<'_, Shared>) {
+    crate::syncrun::sign_out(&state);
+}
+
+#[tauri::command]
+pub async fn sync_now(state: State<'_, Shared>) -> Result<crate::sync::Report, String> {
+    crate::syncrun::run_sync(&state).await
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DeviceRow {
+    platform: String,
+    name: String,
+    version: String,
+    last_seen: i64,
+    this_device: bool,
+}
+
+#[tauri::command]
+pub async fn account_devices(state: State<'_, Shared>) -> Result<Vec<DeviceRow>, String> {
+    let api = api(&state)?;
+    let token = state.session().map(|s| s.access_token).ok_or("Chưa đăng nhập.")?;
+    let me = state.store().device_id();
+    let rows = api.pull("devices", None, &token).await.map_err(|e| e.to_string())?;
+    Ok(rows
+        .into_iter()
+        .map(|r| DeviceRow {
+            platform: r["platform"].as_str().unwrap_or("").into(),
+            name: r["name"].as_str().unwrap_or("").into(),
+            version: r["version"].as_str().unwrap_or("").into(),
+            last_seen: r["last_seen"].as_i64().unwrap_or(0),
+            this_device: r["id"].as_str() == Some(me.as_str()),
+        })
+        .collect())
+}
+
+/// Deletes the account's data on the server and the log on this computer, then signs out.
+#[tauri::command]
+pub async fn delete_server_data(state: State<'_, Shared>, confirmed: bool) -> CmdResult {
+    if !confirmed {
+        return Err(ErrorCode::NeedsConfirm.into());
+    }
+    let api = api(&state)?;
+    let token = state.session().map(|s| s.access_token).ok_or_else(|| "Chưa đăng nhập.".to_string())?;
+    api.rpc("delete_my_data", &token).await.map_err(|e| e.to_string())?;
+    state.store().clear_log(true)?;
+    crate::syncrun::sign_out(&state);
+    state.refreshed();
+    Ok(())
+}
+
+#[tauri::command]
+pub fn get_stats(state: State<'_, Shared>, days: Option<i64>) -> Vec<crate::db::DayStat> {
+    state.store().stats(now_ms(), days.unwrap_or(28).clamp(1, 30))
 }

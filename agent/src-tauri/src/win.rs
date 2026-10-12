@@ -356,3 +356,14 @@ impl EncodeWideNull for std::ffi::OsStr {
         self.encode_wide().chain(std::iter::once(0)).collect()
     }
 }
+
+/// Opens a URL in the default browser.
+pub fn open_url(url: &str) {
+    use windows::Win32::UI::Shell::ShellExecuteW;
+    use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
+    let wide: Vec<u16> = url.encode_utf16().chain(std::iter::once(0)).collect();
+    let verb: Vec<u16> = "open".encode_utf16().chain(std::iter::once(0)).collect();
+    unsafe {
+        ShellExecuteW(None, PCWSTR(verb.as_ptr()), PCWSTR(wide.as_ptr()), None, None, SW_SHOWNORMAL);
+    }
+}

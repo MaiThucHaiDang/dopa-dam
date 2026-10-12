@@ -200,6 +200,9 @@ class GuardService : AccessibilityService() {
         }
         foreground?.let { evaluate(it, now) }
         if (now - lastFlush >= 60_000) flushUsage(now)
+        // While the phone is in use, sync about once a minute (the worker covers the rest).
+        val app = application as DopaDamApp
+        app.appScope.launch { app.sync.maybeSync() }
     }
 
     /** Adds the time since the last flush to the tag of the app in front (not while the warning covers it). */

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, type Overview, type Settings } from "../api";
 import { ErrorBanner, useSubmit } from "../components/Confirm";
+import { AccountSection } from "./AccountSection";
 import { useRefresh } from "./MainApp";
 
 const LEVELS = ["Cấp 0 · lần đầu trong giờ", "Cấp 1 · lần 2–3", "Cấp 2 · từ lần 4", "Cấp 3 · đang học hoặc vượt ngân sách"];
@@ -92,6 +93,8 @@ export function SettingsPage() {
           </div>
         </form>
       </section>
+
+      <AccountSection />
 
       <section className="card">
         <h2>Bảo vệ</h2>

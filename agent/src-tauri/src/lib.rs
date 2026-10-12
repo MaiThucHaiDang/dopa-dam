@@ -1,5 +1,6 @@
 //! DopaDam agent for Windows: tray app that guards desktop programs and bridges the Edge extension.
 
+pub mod account;
 pub mod commands;
 pub mod core;
 pub mod db;
@@ -9,6 +10,9 @@ pub mod logic;
 pub mod nmhost;
 pub mod pipe;
 pub mod state;
+pub mod sync;
+pub mod syncrun;
+pub mod syncstore;
 pub mod win;
 
 use state::{AppState, Shared};
@@ -109,9 +113,13 @@ fn build_tray(app: &tauri::AppHandle) -> tauri::Result<()> {
 pub fn run() {
     let start_hidden = std::env::args().any(|a| a == "--hidden");
     tauri::Builder::default()
-        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+        .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
             let state = app.state::<Shared>();
-            commands::show_main(&state, None);
+            // A second launch is either the user opening DopaDam again or the browser returning a sign-in.
+            match args.iter().find(|a| a.starts_with("dopadam://")) {
+                Some(url) => syncrun::handle_deep_link(&state, url),
+                None => commands::show_main(&state, None),
+            }
         }))
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
@@ -141,6 +149,16 @@ pub fn run() {
             }
             if let Err(e) = nmhost::register(&dir) {
                 eprintln!("DopaDam: native messaging host not registered: {e}");
+            }
+            // Test runs (own data folder) leave the dopadam:// handler of a real install alone.
+            if std::env::var_os("DOPADAM_DATA_DIR").is_none() {
+                if let Err(e) = nmhost::register_protocol() {
+                    eprintln!("DopaDam: dopadam:// not registered: {e}");
+                }
+            }
+            syncrun::spawn_loop(state.clone());
+            if let Some(url) = std::env::args().find(|a| a.starts_with("dopadam://")) {
+                syncrun::handle_deep_link(&state, &url);
             }
 
             // Start-menu programs for the app list (slow COM calls: off the main thread).
@@ -199,6 +217,15 @@ pub fn run() {
             commands::toast_current,
             commands::toast_dismiss,
             commands::quit_agent,
+            commands::account_status,
+            commands::account_sign_in,
+            commands::account_sign_up,
+            commands::account_google,
+            commands::account_sign_out,
+            commands::sync_now,
+            commands::account_devices,
+            commands::delete_server_data,
+            commands::get_stats,
         ])
         .run(tauri::generate_context!())
         .expect("error while running DopaDam");

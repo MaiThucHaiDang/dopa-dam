@@ -2,6 +2,7 @@ package com.dang.dopadam.data
 
 import androidx.room.Dao
 import androidx.room.Query
+import androidx.room.Transaction
 import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 
@@ -107,6 +108,9 @@ interface UsageDao {
     @Query("UPDATE usage_daily SET dirty = 0 WHERE id = :id AND updatedAt = :updatedAt")
     suspend fun markClean(id: String, updatedAt: Long)
 
+    @Query("SELECT day, tag, SUM(seconds) AS seconds FROM usage_daily WHERE day >= :fromDay GROUP BY day, tag")
+    suspend fun sumsFrom(fromDay: String): List<DayTagSeconds>
+
     @Query("DELETE FROM usage_daily WHERE day < :beforeDay")
     suspend fun deleteBefore(beforeDay: String)
 
@@ -172,4 +176,38 @@ interface StudyDao {
 
     @Query("UPDATE study_sessions SET dirty = 0 WHERE id = :id AND updatedAt = :updatedAt")
     suspend fun markSessionClean(id: String, updatedAt: Long)
+}
+
+data class DayTagSeconds(val day: String, val tag: String, val seconds: Double)
+
+/** Used when switching accounts: every local row is pushed again to the new account. */
+@Dao
+abstract class SyncMaintenanceDao {
+    @Query("UPDATE tag_rules SET dirty = 1")
+    protected abstract suspend fun rules()
+
+    @Query("UPDATE settings SET dirty = 1")
+    protected abstract suspend fun settings()
+
+    @Query("UPDATE study_rules SET dirty = 1")
+    protected abstract suspend fun studyRules()
+
+    @Query("UPDATE study_sessions SET dirty = 1")
+    protected abstract suspend fun studySessions()
+
+    @Query("UPDATE usage_daily SET dirty = 1")
+    protected abstract suspend fun usage()
+
+    @Query("UPDATE intercept_events SET dirty = 1")
+    protected abstract suspend fun events()
+
+    @Transaction
+    open suspend fun markAllDirty() {
+        rules()
+        settings()
+        studyRules()
+        studySessions()
+        usage()
+        events()
+    }
 }

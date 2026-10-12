@@ -66,6 +66,35 @@ cd ..\..\extension; npm run build; node test\e2e\with-agent.mjs   # Edge + agent
 python agent\e2e\desktop_test.py             # bật cảnh báo thật trên Notepad (sẽ hiện cửa sổ lên màn hình)
 ```
 
+## Đồng bộ và đăng nhập (Supabase)
+
+Không bắt buộc: chưa cấu hình thì mỗi thiết bị vẫn chạy đầy đủ với dữ liệu riêng. Cần làm một lần:
+
+1. **Tạo project Supabase** (gói miễn phí). Vào **SQL Editor**, dán toàn bộ `supabase/migrations/20261012000000_init.sql` và chạy.
+2. **Đăng nhập bằng email:** **Authentication → Sign In / Providers → Email** đang bật sẵn. Nếu không muốn bước xác nhận qua email, tắt **Confirm email**.
+3. **Đăng nhập bằng Google** (tùy chọn):
+   - Google Cloud Console → **APIs & Services → Credentials**, tạo **OAuth client ID** loại *Web application*, thêm *Authorized redirect URI* `https://<project>.supabase.co/auth/v1/callback`.
+   - Tạo thêm một OAuth client loại *Android*: package `com.dang.dopadam`, SHA-1 lấy bằng `keytool -list -v -keystore %USERPROFILE%\.android\debug.keystore -alias androiddebugkey -storepass android` (APK release cũng ký bằng khóa này).
+   - Supabase → **Providers → Google**: bật, dán Client ID và Client secret của client *Web*.
+   - Supabase → **Authentication → URL Configuration → Redirect URLs**: thêm `dopadam://auth-callback` (agent nhận kết quả đăng nhập Google qua link này).
+4. **Điền khóa vào hai file cục bộ** (đã nằm trong `.gitignore`, không commit), lấy ở **Project Settings → API**. Chỉ dùng *anon key*, không bao giờ dùng *service_role key*:
+   - Agent: chép `agent/src-tauri/config.local.example.json` thành `config.local.json`, điền `supabaseUrl` và `supabaseAnonKey`.
+   - Android: chép `android/secrets.properties.example` thành `secrets.properties`, điền `SUPABASE_URL`, `SUPABASE_ANON_KEY` và `GOOGLE_WEB_CLIENT_ID` (Client ID của client *Web*).
+5. Build lại agent và app Android, rồi đăng nhập cùng một tài khoản ở **Cài đặt → Tài khoản và đồng bộ** trên cả hai.
+
+Kiểm tra cho người phát triển (không cần project thật):
+
+```powershell
+# Cửa sổ 1, từ thư mục gốc của repo:
+cd supabase; npm install; npm test        # cấu trúc bảng, RLS, "bản mới hơn thắng", nhật ký chỉ thêm
+node test\mock-server.mjs 54329           # server giả, để chạy
+
+# Cửa sổ 2, từ thư mục gốc của repo:
+$env:DOPADAM_MOCK_SUPABASE = "http://127.0.0.1:54329"
+cd agent\src-tauri; cargo test -- --ignored; cd ..\..   # agent: đăng ký, đăng nhập, đẩy/kéo giữa hai máy, xóa dữ liệu
+.\android\build.ps1 testDebugUnitTest                   # Android: như trên, qua SupabaseApi thật
+```
+
 ## Token giao diện và biểu tượng
 
 ```bash

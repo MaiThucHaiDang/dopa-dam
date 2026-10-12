@@ -45,6 +45,19 @@ pub struct Event {
     pub activity_minutes: Option<i64>,
 }
 
+#[derive(Clone, Debug, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DayStat {
+    pub day: String,
+    pub enter: i64,
+    pub exit: i64,
+    pub alternative: i64,
+    /// Sum and count of the seconds from showing the warning to choosing Thoát (for averages).
+    pub exit_seconds_sum: f64,
+    pub exit_count: i64,
+    pub minutes: std::collections::BTreeMap<String, f64>,
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AllowWindow {
@@ -531,6 +544,44 @@ impl Store {
         (todays.len() as i64, todays.iter().filter(|e| e.decision.as_deref() == Some("exit")).count() as i64)
     }
 
+    /// Per day for the last `days` days (oldest first): decisions, seconds until Thoát, minutes per tag.
+    /// Counts every device that synced, so the charts show the whole picture.
+    pub fn stats(&self, now: i64, days: i64) -> Vec<DayStat> {
+        let tz = local_tz_offset(now);
+        let mut out: Vec<DayStat> =
+            (0..days).rev().map(|d| DayStat { day: day_key(now - d * DAY_MS, tz), ..DayStat::default() }).collect();
+        let index = |day: &str, out: &Vec<DayStat>| out.iter().position(|s| s.day == day);
+        for e in self.events_since(now - (days + 1) * DAY_MS) {
+            let Some(i) = index(&day_key(e.shown_at, tz), &out) else { continue };
+            let st = &mut out[i];
+            match e.decision.as_deref() {
+                Some("enter") => st.enter += 1,
+                Some("alternative") => st.alternative += 1,
+                Some("exit") => {
+                    st.exit += 1;
+                    if let Some(at) = e.decided_at {
+                        st.exit_seconds_sum += ((at - e.shown_at).max(0)) as f64 / 1000.0;
+                        st.exit_count += 1;
+                    }
+                }
+                _ => {}
+            }
+        }
+        let first = out.first().map(|s| s.day.clone()).unwrap_or_default();
+        if let Ok(mut stmt) =
+            self.conn().prepare("SELECT day, tag, SUM(seconds) FROM usage_daily WHERE day >= ?1 GROUP BY day, tag")
+        {
+            let rows =
+                stmt.query_map([first], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?, r.get::<_, f64>(2)?)));
+            for (day, tag, secs) in rows.into_iter().flatten().flatten() {
+                if let Some(i) = index(&day, &out) {
+                    out[i].minutes.insert(tag, secs / 60.0);
+                }
+            }
+        }
+        out
+    }
+
     // ---- Allow windows ------------------------------------------------------------------
 
     pub fn allow_windows(&self) -> Vec<AllowWindow> {
@@ -767,6 +818,23 @@ mod tests {
         assert!(!f.matches("https://www.facebook.com/groups/lophoc2"));
         assert_eq!(AllowEntry::from_pattern(&f.to_pattern()), Some(f));
         assert_eq!(serde_json::to_string(&v).unwrap(), r#"{"kind":"video","id":"abc123"}"#);
+    }
+
+    #[test]
+    fn stats_per_day() {
+        let s = store();
+        s.record_warning("a", "x.exe", "game", NOW);
+        s.decide("a", Decision::Exit, None, None, None, NOW + 4000).unwrap();
+        s.record_warning("b", "x.exe", "game", NOW + MIN);
+        s.decide("b", Decision::Enter, Some(5), None, None, NOW + MIN + 31_000).unwrap();
+        s.add_usage("game", 600.0, NOW);
+        let st = s.stats(NOW + 2 * MIN, 7);
+        assert_eq!(st.len(), 7);
+        let today = st.last().unwrap();
+        assert_eq!((today.enter, today.exit, today.exit_count), (1, 1, 1));
+        assert!((today.exit_seconds_sum - 4.0).abs() < 1e-9);
+        assert!((today.minutes["game"] - 10.0).abs() < 1e-9);
+        assert_eq!(st[0].enter + st[0].exit, 0);
     }
 
     #[test]

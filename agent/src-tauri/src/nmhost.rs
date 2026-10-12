@@ -42,6 +42,21 @@ pub fn register(data_dir: &Path) -> Result<PathBuf, String> {
     Ok(manifest)
 }
 
+/// Registers dopadam:// for the current user so the browser can hand the Google sign-in back to the agent.
+pub fn register_protocol() -> Result<(), String> {
+    let exe = host_exe().ok_or("Không xác định được đường dẫn của dopadam.exe")?;
+    let exe = exe.to_string_lossy().to_string();
+    let hkcu = winreg::RegKey::predef(winreg::enums::HKEY_CURRENT_USER);
+    let (root, _) = hkcu.create_subkey(r"Software\Classes\dopadam").map_err(|e| e.to_string())?;
+    root.set_value("", &"URL:DopaDam".to_string()).map_err(|e| e.to_string())?;
+    root.set_value("URL Protocol", &String::new()).map_err(|e| e.to_string())?;
+    let (icon, _) = root.create_subkey("DefaultIcon").map_err(|e| e.to_string())?;
+    icon.set_value("", &format!("{exe},0")).map_err(|e| e.to_string())?;
+    let (cmd, _) = root.create_subkey(r"shell\open\command").map_err(|e| e.to_string())?;
+    cmd.set_value("", &format!("\"{exe}\" \"%1\"")).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 pub fn is_registered() -> bool {
     let hkcu = winreg::RegKey::predef(winreg::enums::HKEY_CURRENT_USER);
     hkcu.open_subkey(REGISTRY_KEYS[0]).and_then(|k| k.get_value::<String, _>("")).is_ok_and(|p| Path::new(&p).exists())

@@ -25,6 +25,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun usage(): UsageDao
     abstract fun allowWindows(): AllowWindowDao
     abstract fun study(): StudyDao
+    abstract fun syncMaintenance(): SyncMaintenanceDao
 
     companion object {
         fun open(context: Context): AppDatabase =

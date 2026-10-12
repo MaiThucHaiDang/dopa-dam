@@ -9,6 +9,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Settings
@@ -33,12 +34,14 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.dang.dopadam.ui.AccountSection
 import com.dang.dopadam.ui.AppsScreen
 import com.dang.dopadam.ui.ConfirmWeakeningDialog
 import com.dang.dopadam.ui.GuideScreen
 import com.dang.dopadam.ui.MainViewModel
 import com.dang.dopadam.ui.OverviewScreen
 import com.dang.dopadam.ui.SettingsScreen
+import com.dang.dopadam.ui.StatsScreen
 import com.dang.dopadam.ui.theme.DopaTheme
 import com.dang.dopadam.ui.theme.Tokens
 
@@ -47,6 +50,7 @@ private data class Tab(val route: String, val label: String, val icon: ImageVect
 @Suppress("DEPRECATION") // Icons.Filled.List is fine for a simple list glyph.
 private val TABS = listOf(
     Tab(MainActivity.ROUTE_OVERVIEW, "Tổng quan", Icons.Filled.Home),
+    Tab(MainActivity.ROUTE_STATS, "Thống kê", Icons.Filled.DateRange),
     Tab(MainActivity.ROUTE_APPS, "Ứng dụng", Icons.Filled.List),
     Tab(MainActivity.ROUTE_SETTINGS, "Cài đặt", Icons.Filled.Settings),
 )
@@ -73,6 +77,7 @@ class MainActivity : ComponentActivity() {
     companion object {
         const val EXTRA_ROUTE = "route"
         const val ROUTE_OVERVIEW = "overview"
+        const val ROUTE_STATS = "stats"
         const val ROUTE_APPS = "apps"
         const val ROUTE_SETTINGS = "settings"
         const val ROUTE_GUIDE = "guide"
@@ -127,8 +132,11 @@ private fun App(vm: MainViewModel, requestedRoute: String?, onRouteHandled: () -
             composable(MainActivity.ROUTE_OVERVIEW) {
                 OverviewScreen(vm, openGuide = { nav.navigate(MainActivity.ROUTE_GUIDE) }, openApps = { nav.goTab(MainActivity.ROUTE_APPS) })
             }
+            composable(MainActivity.ROUTE_STATS) { StatsScreen() }
             composable(MainActivity.ROUTE_APPS) { AppsScreen(vm) }
-            composable(MainActivity.ROUTE_SETTINGS) { SettingsScreen(vm, openGuide = { nav.navigate(MainActivity.ROUTE_GUIDE) }) }
+            composable(MainActivity.ROUTE_SETTINGS) {
+                SettingsScreen(vm, openGuide = { nav.navigate(MainActivity.ROUTE_GUIDE) }, accountSection = { AccountSection(vm) })
+            }
             composable(MainActivity.ROUTE_GUIDE) { GuideScreen() }
         }
     }

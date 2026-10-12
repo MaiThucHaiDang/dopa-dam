@@ -6,10 +6,12 @@ use crate::guard::Guard;
 use serde::Serialize;
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 use tauri::{AppHandle, Emitter};
 use tokio::sync::mpsc::UnboundedSender;
+
+use crate::sync::{Api, Session};
 
 pub const PROTOCOL: i64 = 1;
 pub const AGENT_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -29,6 +31,21 @@ pub struct AppState {
     pub guard: Mutex<Guard>,
     pub clients: Mutex<HashMap<u64, Client>>,
     next_client: AtomicU64,
+    /// Present when Supabase is configured (config.local.json at build time).
+    pub api: Option<Arc<Api>>,
+    pub session: Mutex<Option<Session>>,
+    /// PKCE verifier of a Google sign-in waiting for the browser to come back.
+    pub pkce: Mutex<Option<String>>,
+    pub sync_info: Mutex<SyncInfo>,
+    /// Set by local changes so the sync loop pushes them within seconds.
+    pub sync_soon: AtomicBool,
+}
+
+#[derive(Clone, Debug, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SyncInfo {
+    pub syncing: bool,
+    pub last_error: Option<String>,
 }
 
 pub type Shared = Arc<AppState>;
@@ -86,11 +103,33 @@ impl AppState {
             guard: Mutex::new(Guard::default()),
             clients: Mutex::new(HashMap::new()),
             next_client: AtomicU64::new(1),
+            api: crate::sync::config().map(|c| Arc::new(Api::new(c))),
+            session: Mutex::new(None),
+            pkce: Mutex::new(None),
+            sync_info: Mutex::new(SyncInfo::default()),
+            sync_soon: AtomicBool::new(true),
         })
     }
 
     pub fn store(&self) -> MutexGuard<'_, Store> {
         self.store.lock().unwrap_or_else(|e| e.into_inner())
+    }
+
+    /// The store's mutex itself, for the sync engine (which locks it between network calls).
+    pub fn store_mutex(&self) -> &Mutex<Store> {
+        &self.store
+    }
+
+    pub fn session(&self) -> Option<Session> {
+        self.session.lock().unwrap_or_else(|e| e.into_inner()).clone()
+    }
+
+    pub fn set_session(&self, session: Option<Session>) {
+        *self.session.lock().unwrap_or_else(|e| e.into_inner()) = session;
+    }
+
+    pub fn sync_info(&self) -> MutexGuard<'_, SyncInfo> {
+        self.sync_info.lock().unwrap_or_else(|e| e.into_inner())
     }
 
     pub fn guard(&self) -> MutexGuard<'_, Guard> {
@@ -142,8 +181,14 @@ impl AppState {
         }
     }
 
-    /// Pushes the new configuration to every extension and tells the agent's own windows to refresh.
+    /// A local change: refresh everyone and push it to the server soon.
     pub fn changed(&self) {
+        self.sync_soon.store(true, Ordering::Relaxed);
+        self.refreshed();
+    }
+
+    /// Pushes the new configuration to every extension and tells the agent's own windows to refresh.
+    pub fn refreshed(&self) {
         let json = self.config_message();
         for c in self.clients.lock().unwrap_or_else(|e| e.into_inner()).values() {
             if c.compatible {

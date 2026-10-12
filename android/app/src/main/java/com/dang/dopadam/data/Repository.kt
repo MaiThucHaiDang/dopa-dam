@@ -25,9 +25,20 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 const val KIND_APP = "app"
-const val RETENTION_DAYS = 14
+/** Long enough for the four-week statistics. */
+const val RETENTION_DAYS = 30
 
 fun ruleId(kind: String, pattern: String) = "$kind:$pattern"
+
+data class DayStat(
+    val day: String,
+    val enter: Int = 0,
+    val exit: Int = 0,
+    val alternative: Int = 0,
+    val exitSecondsSum: Double = 0.0,
+    val exitCount: Int = 0,
+    val minutes: Map<String, Double> = emptyMap(),
+)
 
 data class BudgetView(val usedMinutes: Double, val budgetMinutes: Int, val remainingMinutes: Double?, val over: Boolean)
 
@@ -139,6 +150,37 @@ class Repository(val db: AppDatabase, val prefs: Prefs) {
     suspend fun removeAllowWindow(obj: String) = db.allowWindows().delete(obj)
 
     suspend fun markHeadsUpSent(window: AllowWindowEntity) = db.allowWindows().upsert(window.copy(headsUpSent = true))
+
+    // ---- Statistics -----------------------------------------------------------
+
+    /** Per day for the last `days` days (oldest first), counting every synced device. */
+    suspend fun stats(now: Long, days: Int): List<DayStat> {
+        val tz = localTzOffsetMinutes(now)
+        val out = (days - 1 downTo 0).map { DayStat(dayKey(now - it * DAY_MS, tz)) }.toMutableList()
+        val index = out.withIndex().associate { (i, d) -> d.day to i }
+        for (e in db.events().since(now - (days + 1) * DAY_MS)) {
+            val i = index[dayKey(e.shownAt, tz)] ?: continue
+            val d = out[i]
+            out[i] = when (e.decision) {
+                "enter" -> d.copy(enter = d.enter + 1)
+                "alternative" -> d.copy(alternative = d.alternative + 1)
+                "exit" -> {
+                    val secs = e.decidedAt?.let { (it - e.shownAt).coerceAtLeast(0) / 1000.0 }
+                    d.copy(
+                        exit = d.exit + 1,
+                        exitSecondsSum = d.exitSecondsSum + (secs ?: 0.0),
+                        exitCount = d.exitCount + if (secs != null) 1 else 0,
+                    )
+                }
+                else -> d
+            }
+        }
+        for (row in db.usage().sumsFrom(out.first().day)) {
+            val i = index[row.day] ?: continue
+            out[i] = out[i].copy(minutes = out[i].minutes + (row.tag to row.seconds / 60.0))
+        }
+        return out
+    }
 
     // ---- Usage ----------------------------------------------------------------
 
