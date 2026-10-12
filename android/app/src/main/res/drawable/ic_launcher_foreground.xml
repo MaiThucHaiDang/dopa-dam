@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Same drawing as shared/brand/make_icons.py, placed in the adaptive icon safe zone. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="@color/dd_accent"
+        android:pathData="M32.22,50.04 L57.30,50.04 L57.30,71.16 L32.22,71.16 Z M32.22,50.04 A4.12,2.64 0 1,1 40.47,50.04 A4.12,2.64 0 1,1 32.22,50.04 Z M40.47,50.04 A4.12,2.64 0 1,1 48.72,50.04 A4.12,2.64 0 1,1 40.47,50.04 Z M48.72,50.04 A4.12,2.64 0 1,1 56.97,50.04 A4.12,2.64 0 1,1 48.72,50.04 Z M73.14,68.85 L79.08,68.85 L79.08,71.16 L73.14,71.16 Z" />
+    <path
+        android:fillColor="@color/dd_text"
+        android:pathData="M55.98,39.48 L61.92,39.48 L73.80,71.16 L55.98,71.16 Z" />
+    <path
+        android:fillColor="@color/dd_border"
+        android:pathData="M30.24,71.16 L79.08,71.16 L79.08,74.46 L30.24,74.46 Z" />
+</vector>

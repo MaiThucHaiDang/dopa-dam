@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">DopaDam</string>
+    <string name="accessibility_label">DopaDam bảo vệ</string>
+    <string name="accessibility_description">DopaDam dùng quyền Trợ năng chỉ để biết app nào vừa được mở, rồi hiện màn hình cảnh báo trước các app bạn gắn tag Giải trí hoặc Game. DopaDam không đọc nội dung màn hình, tin nhắn hay mật khẩu.</string>
+    <string name="channel_guard">Bảo vệ đang chạy</string>
+    <string name="channel_alerts">Nhắc nhở</string>
+</resources>

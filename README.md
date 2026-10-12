@@ -30,6 +30,21 @@ npm run e2e        # chạy thử đầu-cuối trong Microsoft Edge (chế đ�
 
 Cài vào Edge: mở `edge://extensions`, bật **Chế độ nhà phát triển**, chọn **Load unpacked** và trỏ tới thư mục `extension/dist`. ID của extension cố định là `oaidmfkacjppoliemldjfbpnilmeejid` (nhờ trường `key` trong manifest), agent dùng ID này để nhận kết nối.
 
+## App Android
+
+Cần JDK 17 và Android SDK (platform 35). Build bằng script, script tự tìm JDK Temurin 17 trong `%LOCALAPPDATA%\Programs\Eclipse Adoptium` nếu chưa đặt `JAVA_HOME`:
+
+```powershell
+.\android\build.ps1                      # unit test + APK release (ký bằng khóa debug của máy)
+.\android\build.ps1 assembleDebug        # chỉ APK debug
+```
+
+Vì sao có `build.ps1`: các công cụ Java trên Windows không đọc được đường dẫn có chữ có dấu (ví dụ `D:\Học\...`), nên script tạm ánh xạ repo sang một ổ đĩa ảo (lệnh `subst`) trong lúc build rồi gỡ ra. Nếu repo nằm ở đường dẫn chỉ có chữ không dấu thì cũng có thể chạy thẳng `android\gradlew.bat`.
+
+Cài lên điện thoại: `adb install -r android\app\build\outputs\apk\release\app-release.apk` (hoặc chép file APK sang điện thoại rồi mở), sau đó mở DopaDam → **Hướng dẫn và kiểm tra quyền**.
+
+Kiểm thử trên máy ảo hoặc điện thoại thật đang cắm cáp: `python android/e2e/emulator_test.py --shots <thư mục ảnh>`.
+
 ## Token giao diện và biểu tượng
 
 ```bash

@@ -24,3 +24,18 @@ Cần kiểm tra trên máy thật:
 - [ ] Mở YouTube, Facebook, TikTok: không thấy thumbnail nào trước màn hình cảnh báo.
 - [ ] Khoảng được phép: thông báo "Còn 1 phút" hiện đúng lúc, hết giờ thì tab đang mở chuyển sang cảnh báo.
 - [ ] Bật "Cho phép trong InPrivate" cho extension và thử mở trang bị chặn trong cửa sổ InPrivate.
+
+## Giai đoạn 2: App Android
+
+Đã kiểm tra tự động (`.\android\build.ps1 testDebugUnitTest lintDebug assembleRelease`):
+
+- [x] Lõi logic Kotlin cho kết quả đúng với toàn bộ test vector dùng chung; logic quyết định (thời gian khóa, khoảng được phép, làm việc khác, giảm bảo vệ) và bộ đếm độ trễ của game có unit test riêng.
+- [x] Android Lint không còn lỗi; APK release được ký và có đủ khai báo (dịch vụ Trợ năng có quyền `BIND_ACCESSIBILITY_SERVICE`, không xin quyền đọc nội dung màn hình).
+- [x] Trên máy ảo Android 14 (`python android/e2e/emulator_test.py`): bật Trợ năng, gán tag Giải trí cho một app qua giao diện, mở app đó thì lớp phủ cảnh báo hiện ra; nút Back là Thoát và đưa về màn hình chính; lần chặn và lựa chọn Thoát được đếm đúng; mở lại thì cảnh báo hiện lại với cấp cao hơn (khóa 10 giây).
+
+Cần kiểm tra trên điện thoại thật (Xiaomi):
+
+- [ ] Cài APK, làm đủ các bước trong trang Hướng dẫn (Trợ năng, thông báo, pin, Autostart, khóa trong đa nhiệm).
+- [ ] Chạy 7 ngày liền mà quyền Trợ năng không bị tắt.
+- [ ] Mở YouTube/TikTok: cảnh báo hiện ra kịp, video phía sau tạm dừng tiếng.
+- [ ] Game có độ trễ 30 giây: cảnh báo hiện sau khi game tải xong, không bị game che.

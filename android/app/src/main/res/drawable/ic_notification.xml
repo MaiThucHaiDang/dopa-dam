@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Small notification icon: a white silhouette of the dam and its reservoir. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M18,52 L52,52 L52,82 L18,82 Z M50,30 L60,30 L82,82 L50,82 Z M14,84 L94,84 L94,90 L14,90 Z" />
+</vector>

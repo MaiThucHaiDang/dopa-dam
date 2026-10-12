@@ -62,10 +62,24 @@ function kotlin() {
   return lines.join("\n");
 }
 
+function androidColors() {
+  const lines = [
+    '<?xml version="1.0" encoding="utf-8"?>',
+    `<!-- ${HEADER} -->`,
+    '<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="UnusedResources">',
+  ];
+  for (const [k, v] of Object.entries(tokens.color)) {
+    lines.push(`    <color name="dd_${kebab(k).replace(/-/g, "_")}">#FF${v.slice(1).toUpperCase()}</color>`);
+  }
+  lines.push("</resources>", "");
+  return lines.join("\n");
+}
+
 const outputs = [
   ["extension/src/ui/tokens.css", css()],
   ["agent/ui/src/tokens.css", css()],
   ["android/app/src/main/java/com/dang/dopadam/ui/theme/Tokens.kt", kotlin()],
+  ["android/app/src/main/res/values/dd_colors.xml", androidColors()],
 ];
 
 let failed = false;
