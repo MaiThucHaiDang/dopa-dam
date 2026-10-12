@@ -6,6 +6,15 @@ DopaDam chen một khoảng dừng ngắn giữa cú bấm vô thức và nội 
 - Thiết kế kỹ thuật: [docs/thiet-ke-ky-thuat.md](docs/thiet-ke-ky-thuat.md)
 - Checklist nghiệm thu: [docs/nghiem-thu.md](docs/nghiem-thu.md)
 
+## Cài lần đầu, theo thứ tự
+
+1. **Agent Windows:** build bộ cài (mục Agent Windows bên dưới), cài và chạy một lần. Agent tự chạy cùng Windows và tự đăng ký cầu nối với Edge.
+2. **Extension Edge:** build rồi "Load unpacked" thư mục `extension/dist`, khởi động lại Edge. Trang Tổng quan của agent sẽ báo "Đã nối".
+3. **App Android:** build APK, cài lên điện thoại, mở **Hướng dẫn và kiểm tra quyền** và làm hết các bước (Trợ năng, thông báo, pin, các bước của Xiaomi).
+4. **Đồng bộ (tùy chọn):** làm theo mục "Đồng bộ và đăng nhập" để điện thoại và máy tính dùng chung tag, bộ đếm và Chế độ Học. Bỏ qua bước này thì mỗi thiết bị vẫn chạy đầy đủ với dữ liệu riêng.
+
+Những gì cần tự kiểm tra trên máy thật (điện thoại Xiaomi, game toàn màn hình, project Supabase thật) nằm trong [docs/nghiem-thu.md](docs/nghiem-thu.md).
+
 ## Cấu trúc
 
 | Thư mục | Thành phần |
