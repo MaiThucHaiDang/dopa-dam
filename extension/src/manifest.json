@@ -1,0 +1,53 @@
+{
+  "manifest_version": 3,
+  "name": "DopaDam",
+  "version": "0.0.0",
+  "description": "Chen một khoảng dừng ngắn trước khi mở trang giải trí, siết chặt hơn trong giờ học.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAnLHdpBpLEC0uyrtCpXNqly4j7ne+iFNKKSwRsPLwXVYBVTCrnj5jAh2VFdfnYzCPJUiuOUv6h/z0V+C0X1T5IcvXLbiU/60UQ9tWk1MuW2fnkKvOvqeCSKXXL/RnfivkUxyc9KjPbIeWEJUiSkqbShcW7iw1otnPPn5ZXF+q3OsRGcfnxYtcB7Q1n4sQbAgcLtE8pGD6DLvLLOoyaQOfkOFXh4sviZ3POMG3g2npZe4pFx/eXJNnYrOSl68XN6FST7o87AQjMgwyecbMoSfoA+cnmr3TsMaNxiSb8upW6e9j/N5dFjaU8xH7cwTpAkgAH6tj7KD+P8xiAUMoVqYECQIDAQAB",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "action": {
+    "default_title": "DopaDam",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png"
+    }
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "permissions": [
+    "declarativeNetRequestWithHostAccess",
+    "storage",
+    "tabs",
+    "webNavigation",
+    "alarms",
+    "notifications",
+    "idle",
+    "nativeMessaging"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "warning.html"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    }
+  ],
+  "minimum_chrome_version": "120"
+}

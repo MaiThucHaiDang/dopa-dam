@@ -17,6 +17,19 @@ DopaDam chen một khoảng dừng ngắn giữa cú bấm vô thức và nội 
 | `shared/` | Token giao diện, biểu tượng và bộ test vector dùng chung |
 | `docs/` | Tài liệu kỹ thuật |
 
+## Extension Edge
+
+Cần Node.js 20 trở lên.
+
+```bash
+cd extension
+npm install
+npm run check      # kiểm tra kiểu + unit test + build ra extension/dist
+npm run e2e        # chạy thử đầu-cuối trong Microsoft Edge (chế độ ẩn)
+```
+
+Cài vào Edge: mở `edge://extensions`, bật **Chế độ nhà phát triển**, chọn **Load unpacked** và trỏ tới thư mục `extension/dist`. ID của extension cố định là `oaidmfkacjppoliemldjfbpnilmeejid` (nhờ trường `key` trong manifest), agent dùng ID này để nhận kết nối.
+
 ## Token giao diện và biểu tượng
 
 ```bash

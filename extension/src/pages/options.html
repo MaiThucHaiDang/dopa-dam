@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>DopaDam · Cài đặt</title>
+    <link rel="icon" href="icons/icon-32.png" />
+    <link rel="stylesheet" href="tokens.css" />
+    <link rel="stylesheet" href="base.css" />
+    <link rel="stylesheet" href="options.css" />
+  </head>
+  <body>
+    <main class="page">
+      <header class="page-header">
+        <img src="icons/icon-48.png" alt="" width="40" height="40" />
+        <div>
+          <h1>DopaDam</h1>
+          <p class="muted" id="status-line">&nbsp;</p>
+        </div>
+      </header>
+
+      <p id="study-lock" class="notice hidden"></p>
+      <p id="agent-line" class="notice hidden"></p>
+      <p id="error" class="notice hidden" role="alert"></p>
+
+      <section class="card">
+        <h2>Trang web</h2>
+        <p class="muted">Trang gắn tag Giải trí hoặc Game sẽ bị chặn trước khi tải. Áp dụng cho mọi tên miền con.</p>
+        <form id="add-domain" class="row">
+          <input id="domain-input" type="text" placeholder="vd: instagram.com" aria-label="Tên miền" />
+          <select id="domain-tag" aria-label="Tag"></select>
+          <button class="btn-primary" type="submit">Thêm</button>
+        </form>
+        <div id="suggestions" class="suggestions"></div>
+        <table class="list">
+          <thead>
+            <tr><th>Tên miền</th><th>Tag</th><th></th></tr>
+          </thead>
+          <tbody id="domain-list"></tbody>
+        </table>
+      </section>
+
+      <section class="card">
+        <h2>Link được phép</h2>
+        <p class="muted">
+          Video hoặc playlist YouTube (hay một đường dẫn cụ thể) dùng để học thì không bị chặn. Bấm sang video khác vẫn bị
+          chặn như thường. Thêm link cần xác nhận, kể cả trong giờ học.
+        </p>
+        <form id="add-allow" class="row">
+          <input id="allow-input" type="text" placeholder="Dán link video hoặc playlist" aria-label="Link được phép" />
+          <button class="btn-primary" type="submit">Thêm</button>
+        </form>
+        <ul id="allow-list" class="plain-list"></ul>
+      </section>
+
+      <section class="card">
+        <h2>Mức cản trở</h2>
+        <p class="muted">Số giây khóa nút Vào ở mỗi cấp và ngân sách giải trí mỗi ngày. Tăng thì áp dụng ngay, giảm thì cần xác nhận.</p>
+        <form id="friction" class="grid-form">
+          <label>Cấp 0 · lần đầu trong giờ <input type="number" min="0" max="300" data-level="0" /></label>
+          <label>Cấp 1 · lần 2–3 <input type="number" min="0" max="300" data-level="1" /></label>
+          <label>Cấp 2 · từ lần 4 <input type="number" min="0" max="300" data-level="2" /></label>
+          <label>Cấp 3 · đang học hoặc vượt ngân sách <input type="number" min="0" max="300" data-level="3" /></label>
+          <label>Ngân sách mỗi ngày (phút, 0 = tắt) <input id="budget-input" type="number" min="0" max="1440" /></label>
+          <div><button class="btn-primary" type="submit">Lưu</button></div>
+        </form>
+      </section>
+
+      <section class="card">
+        <h2>Bảo vệ và nhật ký</h2>
+        <div class="row">
+          <button id="toggle-protection" class="btn-secondary"></button>
+          <button id="clear-log" class="btn-quiet">Xóa nhật ký</button>
+        </div>
+      </section>
+    </main>
+    <script src="options.js"></script>
+  </body>
+</html>

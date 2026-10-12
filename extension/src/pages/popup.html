@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <title>DopaDam</title>
+    <link rel="stylesheet" href="tokens.css" />
+    <link rel="stylesheet" href="base.css" />
+    <style>
+      body {
+        width: 320px;
+      }
+      main {
+        padding: var(--dd-space-md);
+        display: grid;
+        gap: var(--dd-space-md);
+      }
+      header {
+        display: flex;
+        gap: var(--dd-space-sm);
+        align-items: center;
+      }
+      dl {
+        margin: 0;
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 6px var(--dd-space-md);
+      }
+      dt {
+        color: var(--dd-text-muted);
+      }
+      dd {
+        margin: 0;
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+      p {
+        margin: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <img src="icons/icon-32.png" alt="" width="28" height="28" />
+        <h1 style="font-size: var(--dd-font-large)">DopaDam</h1>
+      </header>
+      <p id="protection" class="muted"></p>
+      <p id="study" class="chip hidden"></p>
+      <dl>
+        <dt>Bị chặn hôm nay</dt>
+        <dd id="warnings">0</dd>
+        <dt>Chọn Thoát</dt>
+        <dd id="exits">0</dd>
+        <dt>Giải trí hôm nay</dt>
+        <dd id="budget">0 phút</dd>
+      </dl>
+      <p id="agent" class="faint"></p>
+      <button id="open-options" class="btn-secondary">Mở cài đặt</button>
+    </main>
+    <script src="popup.js"></script>
+  </body>
+</html>

@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>DopaDam</title>
+    <link rel="icon" href="icons/icon-32.png" />
+    <link rel="stylesheet" href="tokens.css" />
+    <link rel="stylesheet" href="base.css" />
+    <link rel="stylesheet" href="warning.css" />
+  </head>
+  <body>
+    <main class="screen">
+      <p class="meta" id="meta">&nbsp;</p>
+
+      <section id="choice" class="hidden">
+        <h1 class="question">Bạn mở <span id="host"></span> để làm gì?</h1>
+        <p class="muted subtitle">Dành vài giây trả lời câu hỏi này trong đầu.</p>
+
+        <div class="primary-actions">
+          <button id="exit" class="btn-primary exit" autofocus>Thoát</button>
+          <p class="faint">Enter hoặc Esc cũng là Thoát</p>
+          <button id="show-alternative" class="btn-link">Làm việc khác thay vì vào</button>
+        </div>
+
+        <div class="enter-area">
+          <button id="enter" class="btn-quiet enter" tabindex="-1" disabled>Vào</button>
+          <div id="allow-options" class="allow-options hidden">
+            <p class="faint">Vào trong bao lâu?</p>
+            <div id="allow-buttons" class="allow-buttons"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="alternative" class="hidden">
+        <h1 class="question">Làm gì thay vào đó?</h1>
+        <div id="activities" class="activities" role="radiogroup" aria-label="Hoạt động"></div>
+        <label class="minutes">
+          Trong
+          <select id="activity-minutes"></select>
+          phút
+        </label>
+        <div class="row">
+          <button id="start-activity" class="btn-primary">Bắt đầu</button>
+          <button id="back" class="btn-secondary">Quay lại</button>
+        </div>
+      </section>
+
+      <section id="timer" class="hidden">
+        <h1 class="question" id="timer-title"></h1>
+        <p class="clock" id="clock">0:00</p>
+        <p class="muted" id="timer-note">Đóng tab này cũng được, hết giờ DopaDam sẽ nhắc.</p>
+        <button id="close-tab" class="btn-secondary hidden">Đóng tab</button>
+      </section>
+
+      <section id="message" class="hidden">
+        <h1 class="question" id="message-title"></h1>
+        <p class="muted" id="message-body"></p>
+      </section>
+
+      <footer class="footer">
+        <span id="budget"></span>
+        <span id="study" class="chip hidden"></span>
+      </footer>
+    </main>
+    <script src="warning.js"></script>
+  </body>
+</html>

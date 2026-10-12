@@ -1,0 +1,131 @@
+body {
+  min-height: 100vh;
+}
+
+.screen {
+  min-height: 100vh;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: var(--dd-space-xl) var(--dd-space-md);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--dd-space-lg);
+}
+
+.meta {
+  color: var(--dd-text-muted);
+  margin: 0;
+}
+
+section {
+  display: grid;
+  gap: var(--dd-space-lg);
+}
+
+.question {
+  font-size: var(--dd-font-hero);
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+
+.subtitle {
+  margin: calc(-1 * var(--dd-space-sm)) 0 0;
+  font-size: var(--dd-font-large);
+}
+
+.primary-actions {
+  display: grid;
+  justify-items: start;
+  gap: var(--dd-space-sm);
+}
+
+.primary-actions p {
+  margin: 0;
+}
+
+.exit {
+  font-size: var(--dd-font-title);
+  padding: 16px 56px;
+  border-radius: var(--dd-radius-lg);
+}
+
+.enter-area {
+  display: grid;
+  justify-items: start;
+  gap: var(--dd-space-sm);
+  margin-top: var(--dd-space-md);
+}
+
+.enter {
+  font-size: var(--dd-font-small);
+  padding: 6px 14px;
+  min-width: 96px;
+}
+
+.allow-options p {
+  margin: 0 0 var(--dd-space-xs);
+}
+
+.allow-buttons,
+.activities,
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--dd-space-sm);
+}
+
+.allow-buttons button {
+  font-size: var(--dd-font-small);
+  padding: 6px 14px;
+}
+
+.activities button {
+  font-size: var(--dd-font-large);
+  padding: 14px 22px;
+}
+
+.activities button[aria-checked="true"] {
+  background: var(--dd-accent-soft);
+  border-color: var(--dd-accent);
+}
+
+.minutes {
+  display: flex;
+  align-items: center;
+  gap: var(--dd-space-sm);
+  color: var(--dd-text-muted);
+}
+
+.clock {
+  margin: 0;
+  font-size: 72px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--dd-space-sm) var(--dd-space-md);
+  align-items: center;
+  color: var(--dd-text-muted);
+  font-size: var(--dd-font-small);
+  border-top: 1px solid var(--dd-border);
+  padding-top: var(--dd-space-md);
+}
+
+@media (max-width: 480px) {
+  .question {
+    font-size: var(--dd-font-title);
+  }
+  .exit {
+    width: 100%;
+  }
+  .primary-actions {
+    justify-items: stretch;
+  }
+  .primary-actions .btn-link {
+    justify-self: start;
+  }
+}
