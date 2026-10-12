@@ -1,0 +1,30 @@
+{
+  "description": "computeLevel: cấp cản trở theo số lần bị chặn trong 60 phút (n), phiên học và ngân sách ngày. Ca nào có settings riêng thì dùng settings đó thay cho mặc định.",
+  "defaultSettings": {
+    "lockSeconds": [5, 10, 20, 30],
+    "allowOptionsNormal": [5, 15, 30],
+    "allowOptionsRestricted": [5, 10]
+  },
+  "cases": [
+    { "name": "lần đầu trong giờ", "input": { "n": 0, "inStudy": false, "overBudget": false }, "expected": { "level": 0, "lockSeconds": 5, "allowOptions": [5, 15, 30] } },
+    { "name": "lần thứ 2", "input": { "n": 1, "inStudy": false, "overBudget": false }, "expected": { "level": 1, "lockSeconds": 10, "allowOptions": [5, 15, 30] } },
+    { "name": "lần thứ 3", "input": { "n": 2, "inStudy": false, "overBudget": false }, "expected": { "level": 1, "lockSeconds": 10, "allowOptions": [5, 15, 30] } },
+    { "name": "lần thứ 4", "input": { "n": 3, "inStudy": false, "overBudget": false }, "expected": { "level": 2, "lockSeconds": 20, "allowOptions": [5, 15, 30] } },
+    { "name": "mở rất nhiều", "input": { "n": 25, "inStudy": false, "overBudget": false }, "expected": { "level": 2, "lockSeconds": 20, "allowOptions": [5, 15, 30] } },
+    { "name": "đang học, lần đầu", "input": { "n": 0, "inStudy": true, "overBudget": false }, "expected": { "level": 3, "lockSeconds": 30, "allowOptions": [5, 10] } },
+    { "name": "vượt ngân sách, lần đầu", "input": { "n": 0, "inStudy": false, "overBudget": true }, "expected": { "level": 3, "lockSeconds": 30, "allowOptions": [5, 10] } },
+    { "name": "đang học và vượt ngân sách", "input": { "n": 5, "inStudy": true, "overBudget": true }, "expected": { "level": 3, "lockSeconds": 30, "allowOptions": [5, 10] } },
+    {
+      "name": "thông số tự chỉnh",
+      "settings": { "lockSeconds": [3, 6, 9, 45], "allowOptionsNormal": [10, 20], "allowOptionsRestricted": [3] },
+      "input": { "n": 2, "inStudy": false, "overBudget": false },
+      "expected": { "level": 1, "lockSeconds": 6, "allowOptions": [10, 20] }
+    },
+    {
+      "name": "thông số tự chỉnh, đang học",
+      "settings": { "lockSeconds": [3, 6, 9, 45], "allowOptionsNormal": [10, 20], "allowOptionsRestricted": [3] },
+      "input": { "n": 0, "inStudy": true, "overBudget": false },
+      "expected": { "level": 3, "lockSeconds": 45, "allowOptions": [3] }
+    }
+  ]
+}

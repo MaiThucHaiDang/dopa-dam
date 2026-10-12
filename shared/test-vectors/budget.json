@@ -1,0 +1,12 @@
+{
+  "description": "budgetStatus: budgetMinutes <= 0 nghĩa là tắt ngân sách (không bao giờ vượt, remainingMinutes = null). Ngược lại over = used >= budget, remainingMinutes = max(0, budget - used).",
+  "cases": [
+    { "name": "chưa dùng", "usedMinutes": 0, "budgetMinutes": 90, "expected": { "over": false, "remainingMinutes": 90 } },
+    { "name": "còn 1 phút", "usedMinutes": 89, "budgetMinutes": 90, "expected": { "over": false, "remainingMinutes": 1 } },
+    { "name": "còn nửa phút", "usedMinutes": 89.5, "budgetMinutes": 90, "expected": { "over": false, "remainingMinutes": 0.5 } },
+    { "name": "vừa hết", "usedMinutes": 90, "budgetMinutes": 90, "expected": { "over": true, "remainingMinutes": 0 } },
+    { "name": "đã vượt", "usedMinutes": 120, "budgetMinutes": 90, "expected": { "over": true, "remainingMinutes": 0 } },
+    { "name": "tắt ngân sách bằng 0", "usedMinutes": 500, "budgetMinutes": 0, "expected": { "over": false, "remainingMinutes": null } },
+    { "name": "tắt ngân sách bằng số âm", "usedMinutes": 10, "budgetMinutes": -1, "expected": { "over": false, "remainingMinutes": null } }
+  ]
+}

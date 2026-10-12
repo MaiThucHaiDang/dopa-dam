@@ -1,0 +1,16 @@
+{
+  "description": "recentCount: số mốc t thỏa now - 3600000 < t <= now. now = 2026-10-12 20:00 (+07:00).",
+  "cases": [
+    { "name": "chưa có lần nào", "now": 1791810000000, "timestamps": [], "expected": 0 },
+    { "name": "đúng 60 phút trước thì không tính", "now": 1791810000000, "timestamps": [1791806400000], "expected": 0 },
+    { "name": "59 phút 59.999 giây trước thì tính", "now": 1791810000000, "timestamps": [1791806400001], "expected": 1 },
+    { "name": "đúng thời điểm hiện tại thì tính", "now": 1791810000000, "timestamps": [1791810000000], "expected": 1 },
+    { "name": "mốc ở tương lai (lệch đồng hồ) thì không tính", "now": 1791810000000, "timestamps": [1791810000001], "expected": 0 },
+    {
+      "name": "trộn nhiều mốc",
+      "now": 1791810000000,
+      "timestamps": [1791809400000, 1791806460000, 1791806340000, 1791802800000, 1791810000000],
+      "expected": 3
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "description": "effectiveDelay: độ trễ riêng của app (nếu có, kể cả 0) ghi đè độ trễ mặc định của tag; tag không có trong bảng thì 0; kết quả kẹp trong 0..120 giây.",
+  "cases": [
+    { "name": "game dùng mặc định của tag", "appDelaySeconds": null, "tag": "game", "tagDelays": { "game": 30, "entertainment": 0 }, "expected": 30 },
+    { "name": "giải trí hiện ngay", "appDelaySeconds": null, "tag": "entertainment", "tagDelays": { "game": 30, "entertainment": 0 }, "expected": 0 },
+    { "name": "app đặt riêng 45 giây", "appDelaySeconds": 45, "tag": "game", "tagDelays": { "game": 30, "entertainment": 0 }, "expected": 45 },
+    { "name": "app đặt riêng 0 giây", "appDelaySeconds": 0, "tag": "game", "tagDelays": { "game": 30, "entertainment": 0 }, "expected": 0 },
+    { "name": "tag không có trong bảng", "appDelaySeconds": null, "tag": "work", "tagDelays": { "game": 30, "entertainment": 0 }, "expected": 0 },
+    { "name": "kẹp tối đa 120", "appDelaySeconds": 500, "tag": "game", "tagDelays": { "game": 30 }, "expected": 120 },
+    { "name": "kẹp tối thiểu 0", "appDelaySeconds": -5, "tag": "game", "tagDelays": { "game": 30 }, "expected": 0 },
+    { "name": "mặc định của tag cũng bị kẹp", "appDelaySeconds": null, "tag": "game", "tagDelays": { "game": 200 }, "expected": 120 }
+  ]
+}

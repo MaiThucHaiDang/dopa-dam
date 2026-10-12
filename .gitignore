@@ -1,0 +1,39 @@
+# Node
+node_modules/
+dist/
+*.tsbuildinfo
+.vite/
+
+# Rust / Tauri
+target/
+agent/src-tauri/gen/
+
+# Android / Gradle
+.gradle/
+android/**/build/
+android/local.properties
+android/.idea/
+android/.kotlin/
+*.iml
+*.apk
+*.aab
+captures/
+
+# Secrets and local config (copy the *.example files)
+.env
+.env.*
+!.env.example
+**/secrets.properties
+agent/src-tauri/config.local.json
+extension/src/config.local.ts
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.vscode/
+*.log
+
+# Test output
+playwright-report/
+test-results/
+.e2e-profile/

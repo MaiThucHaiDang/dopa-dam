@@ -1,0 +1,13 @@
+{
+  "description": "dayKey: ngày địa phương của (t - 4 giờ), dạng YYYY-MM-DD. tzOffsetMinutes là số phút lệch so với UTC (Việt Nam: 420).",
+  "cases": [
+    { "name": "4 giờ sáng là ngày mới", "t": 1791752400000, "tzOffsetMinutes": 420, "expected": "2026-10-12" },
+    { "name": "3:59:59 vẫn là ngày hôm trước", "t": 1791752399000, "tzOffsetMinutes": 420, "expected": "2026-10-11" },
+    { "name": "0:30 sáng vẫn thuộc ngày hôm trước", "t": 1791826200000, "tzOffsetMinutes": 420, "expected": "2026-10-12" },
+    { "name": "20:00 tối", "t": 1791810000000, "tzOffsetMinutes": 420, "expected": "2026-10-12" },
+    { "name": "múi giờ UTC, 13:00", "t": 1791810000000, "tzOffsetMinutes": 0, "expected": "2026-10-12" },
+    { "name": "múi giờ UTC, 21:00 ngày 11", "t": 1791752400000, "tzOffsetMinutes": 0, "expected": "2026-10-11" },
+    { "name": "múi giờ âm (UTC-5)", "t": 1791752400000, "tzOffsetMinutes": -300, "expected": "2026-10-11" },
+    { "name": "qua năm mới lúc 3 giờ sáng vẫn là năm cũ", "t": 1798747200000, "tzOffsetMinutes": 420, "expected": "2026-12-31" }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "description": "matchDomainTag: luật khớp khi host == pattern hoặc host kết thúc bằng '.' + pattern; luật dài nhất thắng; host so sánh không phân biệt hoa thường; không khớp trả về null.",
+  "rules": [
+    { "pattern": "youtube.com", "tag": "entertainment" },
+    { "pattern": "music.youtube.com", "tag": "study" },
+    { "pattern": "facebook.com", "tag": "entertainment" },
+    { "pattern": "tiktok.com", "tag": "entertainment" }
+  ],
+  "cases": [
+    { "host": "youtube.com", "expected": "entertainment" },
+    { "host": "www.youtube.com", "expected": "entertainment" },
+    { "host": "m.youtube.com", "expected": "entertainment" },
+    { "host": "music.youtube.com", "expected": "study" },
+    { "host": "a.music.youtube.com", "expected": "study" },
+    { "host": "notyoutube.com", "expected": null },
+    { "host": "youtube.com.evil.net", "expected": null },
+    { "host": "WWW.FaceBook.com", "expected": "entertainment" },
+    { "host": "example.org", "expected": null }
+  ]
+}

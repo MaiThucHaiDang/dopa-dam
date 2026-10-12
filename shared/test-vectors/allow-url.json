@@ -1,0 +1,46 @@
+{
+  "description": "parseAllowUrl và isAllowedUrl (chỉ extension dùng). Xem docs/thiet-ke-ky-thuat.md mục 2.2.",
+  "parseCases": [
+    { "input": "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "expected": { "kind": "video", "id": "dQw4w9WgXcQ" } },
+    { "input": "https://youtu.be/dQw4w9WgXcQ?t=42", "expected": { "kind": "video", "id": "dQw4w9WgXcQ" } },
+    { "input": "https://m.youtube.com/watch?v=abc123&list=PL1", "expected": { "kind": "video", "id": "abc123" } },
+    { "input": "https://www.youtube.com/playlist?list=PLx9", "expected": { "kind": "playlist", "id": "PLx9" } },
+    { "input": "youtube.com/watch?v=abc", "expected": { "kind": "video", "id": "abc" } },
+    { "input": "  https://www.youtube.com/watch?v=abc  ", "expected": { "kind": "video", "id": "abc" } },
+    { "input": "https://www.youtube.com/shorts/abc", "expected": null },
+    { "input": "https://www.youtube.com/", "expected": null },
+    { "input": "https://www.youtube.com/@kenhbaigiang", "expected": null },
+    { "input": "https://www.facebook.com/groups/lophoc/", "expected": { "kind": "prefix", "value": "facebook.com/groups/lophoc" } },
+    { "input": "https://www.facebook.com/", "expected": null },
+    { "input": "https://docs.google.com/document/d/abc/edit#heading=h.1", "expected": { "kind": "prefix", "value": "docs.google.com/document/d/abc/edit" } },
+    { "input": "HTTPS://WWW.Example.com/Path/", "expected": { "kind": "prefix", "value": "example.com/Path" } },
+    { "input": "https://site.com/page?id=5", "expected": { "kind": "prefix", "value": "site.com/page?id=5" } },
+    { "input": "not a url", "expected": null },
+    { "input": "ftp://x.com/a", "expected": null },
+    { "input": "", "expected": null }
+  ],
+  "allowList": [
+    { "kind": "video", "id": "abc123" },
+    { "kind": "playlist", "id": "PL1" },
+    { "kind": "prefix", "value": "facebook.com/groups/lophoc" }
+  ],
+  "matchCases": [
+    { "url": "https://www.youtube.com/watch?v=abc123", "expected": true },
+    { "url": "https://www.youtube.com/watch?v=abc123&t=30s", "expected": true },
+    { "url": "https://www.youtube.com/watch?v=zzz&list=PL1&index=3", "expected": true },
+    { "url": "https://www.youtube.com/watch?v=zzz", "expected": false },
+    { "url": "https://www.youtube.com/playlist?list=PL1", "expected": true },
+    { "url": "https://youtu.be/abc123", "expected": true },
+    { "url": "https://youtu.be/zzz?list=PL1", "expected": true },
+    { "url": "https://www.youtube.com/shorts/abc123", "expected": false },
+    { "url": "https://m.youtube.com/watch?v=abc123", "expected": true },
+    { "url": "https://www.youtube.com/watch?v=abc1234", "expected": false },
+    { "url": "https://www.youtube.com/results?search_query=abc123", "expected": false },
+    { "url": "https://evil.com/watch?v=abc123", "expected": false },
+    { "url": "https://www.facebook.com/groups/lophoc", "expected": true },
+    { "url": "https://www.facebook.com/groups/lophoc/posts/1", "expected": true },
+    { "url": "https://www.facebook.com/groups/lophoc?ref=x", "expected": true },
+    { "url": "https://www.facebook.com/groups/lophoc2", "expected": false },
+    { "url": "https://www.facebook.com/", "expected": false }
+  ]
+}

@@ -1,0 +1,27 @@
+/* Generated from shared/design-tokens/tokens.json. Do not edit by hand. */
+:root {
+  --dd-bg: #0F1114;
+  --dd-surface: #171A1F;
+  --dd-surface-raised: #1F232A;
+  --dd-border: #2E333B;
+  --dd-text: #F3EFE6;
+  --dd-text-muted: #B0ACA3;
+  --dd-text-faint: #8C8981;
+  --dd-accent: #5BB5A8;
+  --dd-accent-text: #0F1114;
+  --dd-accent-soft: #1B3531;
+  --dd-font-small: 14px;
+  --dd-font-base: 16px;
+  --dd-font-large: 20px;
+  --dd-font-title: 28px;
+  --dd-font-hero: 36px;
+  --dd-radius-sm: 6px;
+  --dd-radius-md: 10px;
+  --dd-radius-lg: 16px;
+  --dd-space-xs: 4px;
+  --dd-space-sm: 8px;
+  --dd-space-md: 16px;
+  --dd-space-lg: 24px;
+  --dd-space-xl: 40px;
+  color-scheme: dark;
+}

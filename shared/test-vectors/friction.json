@@ -1,0 +1,30 @@
+{
+  "description": "classifyTagChange và classifyNumberChange: 'weaken' nghĩa là thay đổi làm yếu bảo vệ, phải qua bước xác nhận FR14. null nghĩa là không có luật.",
+  "tagCases": [
+    { "old": "entertainment", "new": "study", "expected": "weaken" },
+    { "old": "entertainment", "new": null, "expected": "weaken" },
+    { "old": "entertainment", "new": "game", "expected": "weaken" },
+    { "old": "game", "new": "ignore", "expected": "weaken" },
+    { "old": "game", "new": null, "expected": "weaken" },
+    { "old": "game", "new": "entertainment", "expected": "ok" },
+    { "old": "entertainment", "new": "entertainment", "expected": "ok" },
+    { "old": null, "new": "entertainment", "expected": "ok" },
+    { "old": "study", "new": "entertainment", "expected": "ok" },
+    { "old": "work", "new": "study", "expected": "ok" },
+    { "old": null, "new": null, "expected": "ok" }
+  ],
+  "numberCases": [
+    { "field": "lockSeconds", "old": 10, "new": 5, "expected": "weaken" },
+    { "field": "lockSeconds", "old": 10, "new": 15, "expected": "ok" },
+    { "field": "lockSeconds", "old": 10, "new": 10, "expected": "ok" },
+    { "field": "budgetMinutes", "old": 90, "new": 120, "expected": "weaken" },
+    { "field": "budgetMinutes", "old": 90, "new": 60, "expected": "ok" },
+    { "field": "budgetMinutes", "old": 90, "new": 0, "expected": "weaken" },
+    { "field": "budgetMinutes", "old": 90, "new": -5, "expected": "weaken" },
+    { "field": "budgetMinutes", "old": 0, "new": 90, "expected": "ok" },
+    { "field": "budgetMinutes", "old": 0, "new": 0, "expected": "ok" },
+    { "field": "delaySeconds", "old": 30, "new": 60, "expected": "weaken" },
+    { "field": "delaySeconds", "old": 30, "new": 0, "expected": "ok" },
+    { "field": "delaySeconds", "old": 30, "new": 30, "expected": "ok" }
+  ]
+}

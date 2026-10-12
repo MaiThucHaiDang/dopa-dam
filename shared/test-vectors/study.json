@@ -1,0 +1,37 @@
+{
+  "description": "resolveStudy: gộp phiên bật tay (manual), phiên TaskFlow (external) và khung giờ cố định (rules). Ưu tiên manual > external > rule; cùng nguồn thì phiên kết thúc muộn nhất. Nhãn mặc định: rule 'Khung giờ học', manual 'Phiên học', external 'Phiên TaskFlow'. 2026-10-12 là thứ 2. nowIso chỉ để đọc cho dễ.",
+  "rules": {
+    "weekdayEvening": { "id": "r1", "days": [1, 2, 3, 4, 5], "start": "19:30", "end": "22:00", "label": "Giờ tự học", "exceptions": [] },
+    "weekdayEveningSkipToday": { "id": "r1", "days": [1, 2, 3, 4, 5], "start": "19:30", "end": "22:00", "label": "Giờ tự học", "exceptions": ["2026-10-12"] },
+    "mondayOvernight": { "id": "r2", "days": [1], "start": "23:00", "end": "01:00", "label": null, "exceptions": [] },
+    "mondayOvernightSkip": { "id": "r2", "days": [1], "start": "23:00", "end": "01:00", "label": null, "exceptions": ["2026-10-12"] },
+    "tuesdayOvernight": { "id": "r3", "days": [2], "start": "23:00", "end": "01:00", "label": "", "exceptions": [] },
+    "utcNoon": { "id": "r4", "days": [1], "start": "12:00", "end": "14:00", "label": "Ca trưa", "exceptions": [] }
+  },
+  "sessions": {
+    "manualA": { "id": "m1", "start": 1791810000000, "end": 1791811500000, "label": "Ôn Hệ điều hành" },
+    "manualB": { "id": "m2", "start": 1791808800000, "end": 1791812400000, "label": "Làm bài tập" },
+    "manualNoLabel": { "id": "m3", "start": 1791810000000, "end": 1791811500000, "label": "" },
+    "taskflowA": { "id": "t1", "start": 1791806400000, "end": 1791813600000, "label": "Đồ án TaskFlow" }
+  },
+  "cases": [
+    { "name": "trong khung giờ tối thứ 2", "nowIso": "2026-10-12T20:00+07:00", "now": 1791810000000, "tzOffsetMinutes": 420, "manual": [], "external": [], "rules": ["weekdayEvening"], "expected": { "active": true, "source": "rule", "label": "Giờ tự học", "endsAt": 1791817200000 } },
+    { "name": "trước giờ bắt đầu 1 phút", "nowIso": "2026-10-12T19:29+07:00", "now": 1791808140000, "tzOffsetMinutes": 420, "manual": [], "external": [], "rules": ["weekdayEvening"], "expected": { "active": false, "source": null, "label": null, "endsAt": null } },
+    { "name": "đúng giờ bắt đầu thì tính", "nowIso": "2026-10-12T19:30+07:00", "now": 1791808200000, "tzOffsetMinutes": 420, "manual": [], "external": [], "rules": ["weekdayEvening"], "expected": { "active": true, "source": "rule", "label": "Giờ tự học", "endsAt": 1791817200000 } },
+    { "name": "đúng giờ kết thúc thì không tính", "nowIso": "2026-10-12T22:00+07:00", "now": 1791817200000, "tzOffsetMinutes": 420, "manual": [], "external": [], "rules": ["weekdayEvening"], "expected": { "active": false, "source": null, "label": null, "endsAt": null } },
+    { "name": "chủ nhật không nằm trong ngày áp dụng", "nowIso": "2026-10-18T20:00+07:00", "now": 1792328400000, "tzOffsetMinutes": 420, "manual": [], "external": [], "rules": ["weekdayEvening"], "expected": { "active": false, "source": null, "label": null, "endsAt": null } },
+    { "name": "ngày ngoại lệ", "nowIso": "2026-10-12T20:00+07:00", "now": 1791810000000, "tzOffsetMinutes": 420, "manual": [], "external": [], "rules": ["weekdayEveningSkipToday"], "expected": { "active": false, "source": null, "label": null, "endsAt": null } },
+    { "name": "khung qua nửa đêm, trước nửa đêm", "nowIso": "2026-10-12T23:30+07:00", "now": 1791822600000, "tzOffsetMinutes": 420, "manual": [], "external": [], "rules": ["mondayOvernight"], "expected": { "active": true, "source": "rule", "label": "Khung giờ học", "endsAt": 1791828000000 } },
+    { "name": "khung qua nửa đêm, sau nửa đêm", "nowIso": "2026-10-13T00:30+07:00", "now": 1791826200000, "tzOffsetMinutes": 420, "manual": [], "external": [], "rules": ["mondayOvernight"], "expected": { "active": true, "source": "rule", "label": "Khung giờ học", "endsAt": 1791828000000 } },
+    { "name": "ngoại lệ tính theo ngày bắt đầu", "nowIso": "2026-10-13T00:30+07:00", "now": 1791826200000, "tzOffsetMinutes": 420, "manual": [], "external": [], "rules": ["mondayOvernightSkip"], "expected": { "active": false, "source": null, "label": null, "endsAt": null } },
+    { "name": "khung thứ 3 chưa bắt đầu lúc 0:30 thứ 3", "nowIso": "2026-10-13T00:30+07:00", "now": 1791826200000, "tzOffsetMinutes": 420, "manual": [], "external": [], "rules": ["tuesdayOvernight"], "expected": { "active": false, "source": null, "label": null, "endsAt": null } },
+    { "name": "khung theo múi giờ UTC", "nowIso": "2026-10-12T13:00Z", "now": 1791810000000, "tzOffsetMinutes": 0, "manual": [], "external": [], "rules": ["utcNoon"], "expected": { "active": true, "source": "rule", "label": "Ca trưa", "endsAt": 1791813600000 } },
+    { "name": "bật tay ưu tiên hơn khung giờ", "nowIso": "2026-10-12T20:10+07:00", "now": 1791810600000, "tzOffsetMinutes": 420, "manual": ["manualA"], "external": [], "rules": ["weekdayEvening"], "expected": { "active": true, "source": "manual", "label": "Ôn Hệ điều hành", "endsAt": 1791811500000 } },
+    { "name": "phiên bật tay vừa hết thì quay về khung giờ", "nowIso": "2026-10-12T20:25+07:00", "now": 1791811500000, "tzOffsetMinutes": 420, "manual": ["manualA"], "external": [], "rules": ["weekdayEvening"], "expected": { "active": true, "source": "rule", "label": "Giờ tự học", "endsAt": 1791817200000 } },
+    { "name": "TaskFlow ưu tiên hơn khung giờ", "nowIso": "2026-10-12T20:10+07:00", "now": 1791810600000, "tzOffsetMinutes": 420, "manual": [], "external": ["taskflowA"], "rules": ["weekdayEvening"], "expected": { "active": true, "source": "taskflow", "label": "Đồ án TaskFlow", "endsAt": 1791813600000 } },
+    { "name": "bật tay ưu tiên hơn TaskFlow", "nowIso": "2026-10-12T20:10+07:00", "now": 1791810600000, "tzOffsetMinutes": 420, "manual": ["manualA"], "external": ["taskflowA"], "rules": ["weekdayEvening"], "expected": { "active": true, "source": "manual", "label": "Ôn Hệ điều hành", "endsAt": 1791811500000 } },
+    { "name": "hai phiên bật tay chồng nhau thì lấy phiên kết thúc muộn hơn", "nowIso": "2026-10-12T20:10+07:00", "now": 1791810600000, "tzOffsetMinutes": 420, "manual": ["manualA", "manualB"], "external": [], "rules": [], "expected": { "active": true, "source": "manual", "label": "Làm bài tập", "endsAt": 1791812400000 } },
+    { "name": "phiên bật tay không có nhãn", "nowIso": "2026-10-12T20:10+07:00", "now": 1791810600000, "tzOffsetMinutes": 420, "manual": ["manualNoLabel"], "external": [], "rules": [], "expected": { "active": true, "source": "manual", "label": "Phiên học", "endsAt": 1791811500000 } },
+    { "name": "không có nguồn nào", "nowIso": "2026-10-12T20:10+07:00", "now": 1791810600000, "tzOffsetMinutes": 420, "manual": [], "external": [], "rules": [], "expected": { "active": false, "source": null, "label": null, "endsAt": null } }
+  ]
+}
