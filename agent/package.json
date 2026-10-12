@@ -1,0 +1,27 @@
+{
+  "name": "dopadam-agent",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build:ui": "tsc --noEmit && vite build",
+    "tauri": "tauri",
+    "test": "vitest run",
+    "check": "tsc --noEmit && vitest run && vite build"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "2.12.0",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "2.12.0",
+    "@types/react": "18.3.18",
+    "@types/react-dom": "18.3.5",
+    "@vitejs/plugin-react": "4.3.4",
+    "typescript": "5.9.3",
+    "vite": "6.0.7",
+    "vitest": "3.2.4"
+  }
+}

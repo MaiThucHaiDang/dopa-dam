@@ -1,13 +1,26 @@
 // Background service worker: owns the state, keeps the blocking rules in sync and answers the pages.
-import { dayKey, isAllowedUrl, localTzOffset, matchDomainRule, type StudyStatus } from "../core";
+// With the Windows agent connected, counts, decisions and settings go through the agent and the local
+// state mirrors the agent's configuration; without it, everything runs here.
+import {
+  dayKey,
+  isAllowedUrl,
+  localTzOffset,
+  matchDomainRule,
+  normalizeDomainInput,
+  parseAllowUrl,
+  type AllowEntry,
+  type StudyStatus,
+} from "../core";
 import type {
   DecideResponse,
+  Failure,
   OptionsView,
   PopupView,
   Request,
   SimpleResponse,
   WarningInit,
 } from "../shared/messages";
+import { AgentBridge, type AgentConfig, type AgentResult, type WarningContext } from "./agent";
 import * as L from "./logic";
 import { buildDnrRules } from "./rules";
 import { ACTIVITIES, DOMAIN_SUGGESTIONS, type AllowWindow, type State, type WarningEvent } from "./state";
@@ -28,6 +41,34 @@ function clock() {
 
 function warningUrlFor(target: string): string {
   return `${WARNING_PAGE}#${target}`;
+}
+
+// ---- Agent -----------------------------------------------------------------
+
+/** Mirrors the agent's configuration so blocking keeps working if the agent disappears. */
+async function mirrorAgentConfig(cfg: AgentConfig): Promise<void> {
+  const windows = await updateState((d) => {
+    d.domainRules = cfg.domainRules;
+    d.allowUrls = cfg.allowUrls;
+    d.settings = { ...d.settings, ...cfg.settings };
+    d.protectionEnabled = cfg.protectionEnabled;
+    // Website allow windows live in the agent; programs' windows (*.exe) are not ours.
+    d.allowWindows = cfg.allowWindows.filter((w) => !w.object.endsWith(".exe"));
+    return d.allowWindows;
+  });
+  await applyRules();
+  for (const w of windows) scheduleWindowAlarms(w);
+}
+
+const agent = new AgentBridge(mirrorAgentConfig);
+
+async function ensureAgent(): Promise<void> {
+  if (!agent.connected) agent.connect((await readState()).profileId);
+}
+
+function agentFailure(res: AgentResult | null): Failure | null {
+  if (res === null) return { ok: false, error: "agent" };
+  return res.ok ? null : { ok: false, error: (res.error as Failure["error"]) ?? "invalid" };
 }
 
 // ---- Blocking rules --------------------------------------------------------
@@ -98,9 +139,10 @@ async function expireWindows(): Promise<void> {
 
 // ---- Usage sampling --------------------------------------------------------
 
-/** Every minute, attribute the elapsed time to the tag of the active tab of the focused window. */
+/** Every minute, attribute the elapsed time to the site of the active tab of the focused window. */
 async function tick(): Promise<void> {
   const { now, tz } = clock();
+  void ensureAgent();
   let url: string | null = null;
   try {
     const [win, idle] = await Promise.all([chrome.windows.getLastFocused({ populate: true }), chrome.idle.queryState(120)]);
@@ -110,15 +152,25 @@ async function tick(): Promise<void> {
   } catch {
     // No browser window has focus (e.g. all minimized).
   }
-  await updateState((d) => {
+  const viaAgent = agent.connected;
+  const sample = await updateState((d) => {
     const last = d.lastTickAt;
     d.lastTickAt = now;
-    if (url && last !== null && now > last) {
-      const tag = usageTag(d, url);
-      if (tag) L.addUsage(d, dayKey(now, tz), tag, Math.min(now - last, 120_000) / 1000);
-    }
     L.prune(d, now, tz);
+    if (!url || last === null || now <= last) return null;
+    const seconds = Math.min(now - last, 120_000) / 1000;
+    if (viaAgent) return { seconds };
+    const tag = usageTag(d, url);
+    if (tag) L.addUsage(d, dayKey(now, tz), tag, seconds);
+    return null;
   });
+  if (sample && url) {
+    try {
+      agent.send({ type: "usage", domain: new URL(url).hostname, url, seconds: sample.seconds });
+    } catch {
+      // Not a URL with a host.
+    }
+  }
   await expireWindows();
 }
 
@@ -169,14 +221,74 @@ function warningView(state: State, event: WarningEvent, now: number, tz: number)
   };
 }
 
+/** Asks the agent for the warning (it counts across the computer); null means "do it locally". */
+async function agentWarning(eventId: string, url: string, object: string, tag: WarningEvent["tag"]): Promise<WarningInit | null> {
+  const ctx = await agent.request<WarningContext>({ type: "warning_request", eventId, object, url });
+  if (!ctx) return null;
+  if (ctx.skip || ctx.level === undefined || ctx.shownAt === undefined) return { ok: true, skip: true };
+  const now = Date.now();
+  const event = await updateState((d) => {
+    let e = d.events.find((x) => x.id === eventId);
+    if (!e) {
+      e = {
+        id: eventId,
+        object,
+        tag,
+        url,
+        level: ctx.level!,
+        lockSeconds: ctx.lockSeconds!,
+        n: ctx.n ?? 0,
+        shownAt: ctx.shownAt!,
+        studyLabel: ctx.study?.active ? ctx.study.label : null,
+        decision: ctx.decision ?? null,
+        decidedAt: null,
+        allowMinutes: null,
+        activity: null,
+        activityMinutes: null,
+      };
+      d.events.push(e);
+    }
+    return e;
+  });
+  if (event.decision === "enter") return { ok: true, skip: true };
+  return {
+    ok: true,
+    skip: false,
+    eventId,
+    host: hostOf(url),
+    object,
+    tag,
+    level: ctx.level,
+    lockSeconds: ctx.lockSeconds!,
+    allowOptions: ctx.allowOptions ?? [],
+    countThisHour: (ctx.n ?? 0) + 1,
+    elapsedMs: Math.max(0, now - ctx.shownAt),
+    budget: ctx.budget!,
+    study: ctx.study!,
+    activities: ctx.activities ?? [...ACTIVITIES],
+    decision: event.decision,
+    activity: event.activity,
+    activityEndsAt:
+      event.decision === "alternative" && event.decidedAt !== null && event.activityMinutes !== null
+        ? event.decidedAt + event.activityMinutes * 60_000
+        : null,
+  };
+}
+
 async function initWarning(eventId: string, url: string): Promise<WarningInit> {
   const { now, tz } = clock();
   const state = await readState();
   const existing = state.events.find((e) => e.id === eventId);
+  const ev = L.evaluateUrl(L.interceptConfig(state), url, now);
+  if (agent.connected && (existing || ev.intercept)) {
+    const object = existing?.object ?? (ev.intercept ? ev.object : "");
+    const tag = existing?.tag ?? (ev.intercept ? ev.tag : "entertainment");
+    const viaAgent = await agentWarning(eventId, url, object, tag);
+    if (viaAgent) return viaAgent;
+  }
   if (existing) {
     return existing.decision === "enter" ? { ok: true, skip: true } : warningView(state, existing, now, tz);
   }
-  const ev = L.evaluateUrl(L.interceptConfig(state), url, now);
   if (!ev.intercept) return { ok: true, skip: true };
   const event = await updateState((d) =>
     L.recordWarning(d, { id: eventId, object: ev.object, tag: ev.tag, url, now, tz }),
@@ -195,6 +307,20 @@ async function decide(
   sender: chrome.runtime.MessageSender,
 ): Promise<DecideResponse> {
   const now = Date.now();
+  if (agent.connected) {
+    const failure = agentFailure(
+      await agent.request<AgentResult>({
+        type: "decision",
+        eventId: msg.eventId,
+        decision: msg.decision,
+        allowMinutes: msg.allowMinutes,
+        activity: msg.activity,
+        activityMinutes: msg.activityMinutes,
+      }),
+    );
+    if (failure && failure.error !== "agent") return failure;
+  }
+  // Applied locally too, so the allow window works right away (the agent's config follows).
   const result = await updateState((d) => L.applyDecision(d, msg.eventId, msg, now));
   if (!result.ok) return result;
   cancelAutoExit(msg.eventId);
@@ -255,15 +381,15 @@ chrome.runtime.onConnect.addListener((port) => {
       eventId,
       setTimeout(() => {
         autoExitTimers.delete(eventId);
-        void updateState((d) => L.autoExit(d, eventId, closedAt));
+        void updateState((d) => L.autoExit(d, eventId, closedAt)).then((changed) => {
+          if (changed) agent.send({ type: "decision", requestId: crypto.randomUUID(), eventId, decision: "exit" });
+        });
       }, AUTO_EXIT_DELAY_MS),
     );
   });
 });
 
 // ---- Options and popup -----------------------------------------------------
-
-const AGENT_OFFLINE = { connected: false, incompatible: false, agentVersion: null };
 
 async function optionsView(): Promise<OptionsView> {
   const { now, tz } = clock();
@@ -275,15 +401,27 @@ async function optionsView(): Promise<OptionsView> {
     allowUrls: state.allowUrls,
     settings: state.settings,
     suggestions: DOMAIN_SUGGESTIONS,
-    study: L.studyStatus(state, now, tz),
+    study: agent.connected && agent.config ? agent.config.study : L.studyStatus(state, now, tz),
     studyRules: state.study.rules,
-    agent: AGENT_OFFLINE,
+    agent: agent.status,
   };
 }
 
 async function popupView(): Promise<PopupView> {
   const { now, tz } = clock();
   const state = await readState();
+  if (agent.connected && agent.config) {
+    const c = agent.config;
+    return {
+      ok: true,
+      protectionEnabled: c.protectionEnabled,
+      warningsToday: c.summary.warningsToday,
+      exitsToday: c.summary.exitsToday,
+      budget: c.budget,
+      study: c.study,
+      agent: agent.status,
+    };
+  }
   const today = dayKey(now, tz);
   const todayEvents = state.events.filter((e) => dayKey(e.shownAt, tz) === today);
   const study: StudyStatus = L.studyStatus(state, now, tz);
@@ -294,7 +432,7 @@ async function popupView(): Promise<PopupView> {
     exitsToday: todayEvents.filter((e) => e.decision === "exit").length,
     budget: L.budgetView(state, now, tz),
     study,
-    agent: AGENT_OFFLINE,
+    agent: agent.status,
   };
 }
 
@@ -303,6 +441,11 @@ async function mutate(fn: (d: State, now: number, tz: number) => L.Result, rules
   const result = await updateState((d) => fn(d, now, tz));
   if (result.ok && rulesChanged) await applyRules();
   return result.ok ? { ok: true } : result;
+}
+
+/** With the agent connected, settings changes go to the agent, which checks them and pushes the new config. */
+async function viaAgent(message: Record<string, unknown>): Promise<SimpleResponse> {
+  return agentFailure(await agent.request<AgentResult>(message)) ?? { ok: true };
 }
 
 async function handle(msg: Request, sender: chrome.runtime.MessageSender): Promise<unknown> {
@@ -316,17 +459,37 @@ async function handle(msg: Request, sender: chrome.runtime.MessageSender): Promi
     case "popup:get":
       return popupView();
     case "options:setDomainRule":
+      if (agent.connected) {
+        const pattern = normalizeDomainInput(msg.pattern);
+        if (!pattern) return { ok: false, error: "invalid" };
+        return viaAgent({ type: "set_domain_rule", pattern, tag: msg.tag, confirmed: msg.confirmed });
+      }
       return mutate((d, now, tz) => L.setDomainRule(d, msg.pattern, msg.tag, msg.confirmed, now, tz), true);
     case "options:addAllowUrl":
+      if (agent.connected) {
+        const entry = parseAllowUrl(msg.text);
+        if (!entry) return { ok: false, error: "invalid" };
+        return viaAgent({ type: "add_allow_url", entry, confirmed: msg.confirmed });
+      }
       return mutate((d) => L.addAllowUrl(d, msg.text, msg.confirmed), true);
     case "options:removeAllowUrl":
+      if (agent.connected) return viaAgent({ type: "remove_allow_url", entry: msg.entry as AllowEntry });
       return mutate((d) => L.removeAllowUrl(d, msg.entry), true);
     case "options:setFriction":
+      if (agent.connected) {
+        return viaAgent({ type: "set_friction", lockSeconds: msg.lockSeconds, budgetMinutes: msg.budgetMinutes, confirmed: msg.confirmed });
+      }
       return mutate((d, now, tz) => L.setFriction(d, msg.lockSeconds, msg.budgetMinutes, msg.confirmed, now, tz), false);
     case "options:setProtection":
+      if (agent.connected) return viaAgent({ type: "set_protection", enabled: msg.enabled, confirmed: msg.confirmed });
       return mutate((d, now, tz) => L.setProtection(d, msg.enabled, msg.confirmed, now, tz), true);
-    case "options:clearLog":
+    case "options:clearLog": {
+      if (agent.connected) {
+        const res = await viaAgent({ type: "clear_log", confirmed: msg.confirmed });
+        if (!res.ok) return res;
+      }
       return mutate((d) => L.clearLog(d, msg.confirmed), false);
+    }
     case "study:start":
     case "study:stop":
     case "study:setRules":
@@ -362,6 +525,7 @@ async function setup(): Promise<void> {
   await applyRules();
   for (const window of (await readState()).allowWindows) scheduleWindowAlarms(window);
   if (!(await chrome.alarms.get(TICK_ALARM))) chrome.alarms.create(TICK_ALARM, { periodInMinutes: 1 });
+  await ensureAgent();
 }
 
 chrome.runtime.onInstalled.addListener((details) => {
@@ -370,3 +534,5 @@ chrome.runtime.onInstalled.addListener((details) => {
   });
 });
 chrome.runtime.onStartup.addListener(() => void setup());
+// Every time the worker starts (it sleeps when idle), reconnect to the agent.
+void ensureAgent();

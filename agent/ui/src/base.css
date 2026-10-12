@@ -1,0 +1,177 @@
+/* Shared styles for every extension page. Colors come from tokens.css. */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--dd-bg);
+  color: var(--dd-text);
+  font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+  font-size: var(--dd-font-base);
+  line-height: 1.5;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  line-height: 1.25;
+  font-weight: 600;
+}
+
+a {
+  color: var(--dd-accent);
+}
+
+.muted {
+  color: var(--dd-text-muted);
+}
+
+.faint {
+  color: var(--dd-text-faint);
+  font-size: var(--dd-font-small);
+}
+
+.hidden {
+  display: none !important;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+  border-radius: var(--dd-radius-md);
+  border: 1px solid transparent;
+  padding: 10px 18px;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+.btn-primary:disabled,
+.btn-secondary:disabled {
+  opacity: 0.5;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--dd-accent);
+  outline-offset: 2px;
+}
+
+.btn-primary {
+  background: var(--dd-accent);
+  color: var(--dd-accent-text);
+  font-weight: 600;
+}
+
+.btn-primary:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.btn-secondary {
+  background: var(--dd-surface-raised);
+  color: var(--dd-text);
+  border-color: var(--dd-border);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  border-color: var(--dd-text-faint);
+}
+
+.btn-quiet {
+  background: transparent;
+  color: var(--dd-text-muted);
+  border-color: var(--dd-border);
+}
+
+.btn-quiet:hover:not(:disabled) {
+  color: var(--dd-text);
+}
+
+.btn-quiet:disabled {
+  color: var(--dd-text-faint);
+  border-style: dashed;
+}
+
+.btn-link {
+  background: none;
+  border: none;
+  padding: 4px 0;
+  color: var(--dd-accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+input[type="text"],
+input[type="number"],
+input[type="time"],
+select {
+  font: inherit;
+  color: var(--dd-text);
+  background: var(--dd-surface);
+  border: 1px solid var(--dd-border);
+  border-radius: var(--dd-radius-sm);
+  padding: 8px 10px;
+}
+
+input:disabled,
+select:disabled {
+  color: var(--dd-text-faint);
+}
+
+.card {
+  background: var(--dd-surface);
+  border: 1px solid var(--dd-border);
+  border-radius: var(--dd-radius-lg);
+  padding: var(--dd-space-lg);
+}
+
+.chip {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--dd-accent-soft);
+  color: var(--dd-text);
+  font-size: var(--dd-font-small);
+}
+
+.notice {
+  border-left: 3px solid var(--dd-accent);
+  background: var(--dd-surface-raised);
+  padding: 10px 14px;
+  border-radius: var(--dd-radius-sm);
+}
+
+/* Modal used by the "weaken protection" confirmation (FR14). */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgb(0 0 0 / 0.6);
+  display: grid;
+  place-items: center;
+  padding: var(--dd-space-md);
+  z-index: 10;
+}
+
+.modal {
+  width: min(480px, 100%);
+  background: var(--dd-surface);
+  border: 1px solid var(--dd-border);
+  border-radius: var(--dd-radius-lg);
+  padding: var(--dd-space-lg);
+  display: grid;
+  gap: var(--dd-space-md);
+}
+
+.modal-actions {
+  display: flex;
+  gap: var(--dd-space-sm);
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}

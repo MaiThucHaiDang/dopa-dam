@@ -45,6 +45,27 @@ Cài lên điện thoại: `adb install -r android\app\build\outputs\apk\release
 
 Kiểm thử trên máy ảo hoặc điện thoại thật đang cắm cáp: `python android/e2e/emulator_test.py --shots <thư mục ảnh>`.
 
+## Agent Windows
+
+Cần Rust (rustup, bộ MSVC), Node.js và WebView2 (có sẵn trên Windows 10/11).
+
+```powershell
+cd agent
+npm install
+npx tauri build          # build giao diện + Rust bản release + bộ cài NSIS
+```
+
+Bộ cài nằm ở `agent\src-tauri\target\release\bundle\nsis\DopaDam_<phiên bản>_x64-setup.exe`. Cài cho người dùng hiện tại, không cần quyền quản trị. Lần chạy đầu, agent tự bật chạy cùng Windows (chạy ẩn ở khay hệ thống) và tự đăng ký cầu nối với Edge, nên extension Edge nối được ngay khi Edge khởi động lại.
+
+Kiểm tra cho người phát triển:
+
+```powershell
+cd agent; npm run check                      # kiểm tra kiểu + test giao diện + build giao diện
+cd src-tauri; cargo test; cargo clippy --all-targets
+cd ..\..\extension; npm run build; node test\e2e\with-agent.mjs   # Edge + agent qua native messaging
+python agent\e2e\desktop_test.py             # bật cảnh báo thật trên Notepad (sẽ hiện cửa sổ lên màn hình)
+```
+
 ## Token giao diện và biểu tượng
 
 ```bash

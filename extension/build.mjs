@@ -7,12 +7,20 @@ import { fileURLToPath } from "node:url";
 
 const root = dirname(fileURLToPath(import.meta.url));
 const dist = join(root, "dist");
-const { version } = JSON.parse(readFileSync(join(root, "..", "version.json"), "utf8"));
+const { version, protocol } = JSON.parse(readFileSync(join(root, "..", "version.json"), "utf8"));
 
 rmSync(dist, { recursive: true, force: true });
 mkdirSync(dist);
 
-const common = { bundle: true, target: "chrome120", outdir: dist, absWorkingDir: root, logLevel: "warning", charset: "utf8" };
+const common = {
+  bundle: true,
+  target: "chrome120",
+  outdir: dist,
+  absWorkingDir: root,
+  logLevel: "warning",
+  charset: "utf8",
+  define: { __DOPADAM_VERSION__: JSON.stringify(version), __DOPADAM_PROTOCOL__: String(protocol) },
+};
 await build({ ...common, entryPoints: { background: "src/background/index.ts" }, format: "esm" });
 await build({
   ...common,

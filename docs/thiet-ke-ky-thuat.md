@@ -58,28 +58,28 @@ Mỗi nền tảng hiện thực các hàm dưới đây bằng ngôn ngữ củ
 ## 3. Giao thức agent ↔ extension
 
 ```
-Edge (extension) ──stdio, khung 4 byte độ dài──▶ dopadam-host.exe ──named pipe, JSON mỗi dòng──▶ agent (dopadam.exe)
+Edge (extension) ──stdio, khung 4 byte độ dài──▶ dopadam.exe (chế độ host) ──named pipe, JSON mỗi dòng──▶ agent (dopadam.exe)
 ```
 
-- Extension gọi `chrome.runtime.connectNative("com.dang.dopadam")`. Edge chạy `dopadam-host.exe` theo manifest được agent đăng ký tại `HKCU\Software\Microsoft\Edge\NativeMessagingHosts\com.dang.dopadam`.
+- Extension gọi `chrome.runtime.connectNative("com.dang.dopadam")`. Edge chạy lại chính `dopadam.exe` theo manifest mà agent đăng ký tại `HKCU\Software\Microsoft\Edge\NativeMessagingHosts\com.dang.dopadam`. Khi được Edge gọi (có tham số bắt đầu bằng `chrome-extension://`), chương trình chạy ở chế độ host thay vì mở giao diện.
 - Host chỉ chuyển tiếp tin nhắn giữa stdio và pipe `\\.\pipe\dopadam-agent`. Không nối được pipe thì host gửi `{"type":"agent_offline"}` rồi thoát; extension thử lại mỗi phút.
-- Mọi tin nhắn là JSON có trường `type`. Số phiên bản giao thức hiện tại: `1`.
+- Mọi tin nhắn là JSON có trường `type`. Yêu cầu cần trả lời mang `requestId`; agent đáp `{"type":"result","requestId","ok","error"}` (riêng `warning_request` đáp bằng `warning_context`). Số phiên bản giao thức hiện tại: `1` (trong `version.json`).
 
 | Chiều | `type` | Nội dung |
 | --- | --- | --- |
 | ext → agent | `hello` | `protocol`, `extVersion`, `profileId` |
-| agent → ext | `welcome` | `protocol`, `agentVersion`, `compatible` |
-| agent → ext | `config` | Ảnh chụp đầy đủ: `domainRules`, `allowUrls`, `settings`, `allowWindows`, `study`, `budget`, `protectionEnabled`. Gửi sau `welcome` và mỗi khi có thay đổi |
-| ext → agent | `warning_request` | `requestId`, `object` (tên miền), `url` |
-| agent → ext | `warning_context` | `requestId`, `eventId`, `level`, `lockSeconds`, `allowOptions`, `n`, `budget`, `study` |
-| ext → agent | `decision` | `eventId`, `decision` (`enter` / `exit` / `alternative`), `decisionSeconds`, `allowMinutes`, `activity`, `activityMinutes` |
-| ext → agent | `usage` | `domain`, `seconds` |
-| ext → agent | `set_domain_rule` | `pattern`, `tag` (`null` để xóa) |
-| ext → agent | `set_allow_urls` | `allowUrls` (toàn bộ danh sách) |
-| ext → agent | `start_study` | `minutes`, `label` |
-| ext → agent | `ping` | không có; agent coi extension là còn sống nếu nhận ping trong 3 phút |
+| agent → ext | `welcome` | `protocol`, `agentVersion`, `compatible`. Lệch giao thức thì extension chạy riêng, agent báo lệch phiên bản |
+| agent → ext | `config` | Ảnh chụp đầy đủ: `domainRules`, `allowUrls`, `settings`, `allowWindows`, `study`, `budget`, `protectionEnabled`, `summary` (số lần chặn và Thoát hôm nay). Gửi sau `welcome` và mỗi khi có thay đổi |
+| ext → agent | `warning_request` | `requestId`, `eventId` (do trang cảnh báo tạo, nên tải lại trang không bị đếm hai lần), `object` (tên miền khớp luật), `url` |
+| agent → ext | `warning_context` | `requestId`, `skip` (đang được phép thì mở thẳng), `eventId`, `level`, `lockSeconds`, `allowOptions`, `n`, `shownAt`, `decision`, `budget`, `study`, `activities` |
+| ext → agent | `decision` | `requestId`, `eventId`, `decision` (`enter` / `exit` / `alternative`), `allowMinutes`, `activity`, `activityMinutes` |
+| ext → agent | `usage` | `domain`, `url`, `seconds` (mỗi phút, cho tab đang xem); agent quy ra tag, link được phép tính là Học tập |
+| ext → agent | `set_domain_rule` | `requestId`, `pattern`, `tag` (`null` để gỡ), `confirmed` |
+| ext → agent | `add_allow_url`, `remove_allow_url` | `requestId`, `entry` (`{kind, id}` hoặc `{kind, value}`), `confirmed` |
+| ext → agent | `set_friction` | `requestId`, `lockSeconds`, `budgetMinutes`, `confirmed` |
+| ext → agent | `set_protection`, `clear_log` | `requestId`, `enabled` (với `set_protection`), `confirmed` |
 
-Khi agent đang chạy, mọi số đếm, khoảng được phép và nhật ký nằm ở agent; extension chỉ giữ bản sao cấu hình gần nhất trong `chrome.storage.local` để vẫn chặn được khi mất kết nối.
+Khi agent đang chạy, mọi số đếm, khoảng được phép và nhật ký nằm ở agent; agent tự kiểm tra lại quy tắc giảm bảo vệ và khóa cấu hình trong giờ học. Extension giữ bản sao cấu hình gần nhất trong `chrome.storage.local` để vẫn chặn được khi mất kết nối.
 
 ## 4. Lưu trữ cục bộ
 

@@ -39,3 +39,19 @@ Cần kiểm tra trên điện thoại thật (Xiaomi):
 - [ ] Chạy 7 ngày liền mà quyền Trợ năng không bị tắt.
 - [ ] Mở YouTube/TikTok: cảnh báo hiện ra kịp, video phía sau tạm dừng tiếng.
 - [ ] Game có độ trễ 30 giây: cảnh báo hiện sau khi game tải xong, không bị game che.
+
+## Giai đoạn 3: Agent Windows
+
+Đã kiểm tra tự động:
+
+- [x] Lõi logic Rust cho kết quả đúng với toàn bộ test vector dùng chung (kể cả khớp tên miền); kho dữ liệu SQLite, quy tắc giảm bảo vệ, khóa trong giờ học, link được phép và manifest cầu nối Edge có unit test (`cargo test`, `cargo clippy` không cảnh báo).
+- [x] Giao diện agent: kiểm tra kiểu và build (`npm run check`).
+- [x] Edge thật + agent thật qua native messaging (`node extension/test/e2e/with-agent.mjs`): extension nối được với agent; đổi tag trang web đi qua agent và agent vẫn đòi xác nhận khi gỡ chặn; cấu hình agent về tới extension; lần chặn trong Edge và lựa chọn Thoát được ghi vào cơ sở dữ liệu của agent; bấm Vào tạo khoảng được phép ở agent; popup hiện số liệu của agent; tắt agent thì extension vẫn tự chặn.
+- [x] Agent nhận đúng chương trình đang ở phía trước (đã thấy `notepad.exe` khi mở Notepad).
+
+Cần kiểm tra trên máy (lúc không dùng máy cho việc khác, vì sẽ có cửa sổ cảnh báo bật lên):
+
+- [ ] `python agent\e2e\desktop_test.py`: gắn tag Giải trí cho Notepad, mở Notepad thì cửa sổ cảnh báo phủ lên, Enter là Thoát và Notepad được thu nhỏ.
+- [ ] Cài bộ cài NSIS, khởi động lại máy: DopaDam tự chạy ở khay hệ thống.
+- [ ] Gắn tag Game cho một game: cảnh báo hiện sau độ trễ (mặc định 30 giây), không bị game che.
+- [ ] Mở Edge (đã cài extension): trang Tổng quan của agent báo "Đã nối"; Edge và Chrome… gắn tag Giải trí thì bị chặn như chương trình thường.

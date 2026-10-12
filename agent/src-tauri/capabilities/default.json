@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Events and window control for the DopaDam windows; app logic goes through our own commands.",
+  "windows": ["main", "warning", "toast"],
+  "permissions": ["core:default"]
+}
