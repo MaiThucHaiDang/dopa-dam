@@ -175,6 +175,11 @@ export function classifyStudyRuleChange(
 }
 
 export const STUDY_LABEL_MAX = 60;
+
+/** Cuts to STUDY_LABEL_MAX Unicode code points (as the agent does), never splitting a surrogate pair. */
+export function truncateStudyLabel(label: string): string {
+  return Array.from(label).slice(0, STUDY_LABEL_MAX).join("");
+}
 export const MANUAL_STUDY_MINUTES = [25, 50, 90];
 
 /** Cleans a rule typed by the user; null when it cannot be a rule (no day, bad time, empty window). */
@@ -184,7 +189,7 @@ export function normalizeStudyRule(rule: StudyRule): StudyRule | null {
   const end = parseHm(rule.end);
   if (!days.length || start === null || end === null || start === end) return null;
   const hm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
-  const label = (rule.label ?? "").trim().slice(0, STUDY_LABEL_MAX);
+  const label = truncateStudyLabel((rule.label ?? "").trim());
   const exceptions = [...new Set(rule.exceptions)].filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)).sort();
   return { id: rule.id, days, start: hm(start), end: hm(end), label: label || null, exceptions };
 }

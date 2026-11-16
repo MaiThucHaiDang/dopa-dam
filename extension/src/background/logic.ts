@@ -2,7 +2,7 @@
 import {
   DAY_MS,
   MINUTE_MS,
-  STUDY_LABEL_MAX,
+  truncateStudyLabel,
   activeRuleOccurrences,
   budgetStatus,
   classifyNumberChange,
@@ -338,7 +338,7 @@ export function setProtection(draft: State, enabled: boolean, confirmed: boolean
 /** A manual study session from now (FR09). Starting one while studying only adds time. */
 export function startStudy(draft: State, minutes: number, label: string | null, now: number): Result {
   if (!Number.isInteger(minutes) || minutes < 5 || minutes > 480) return { ok: false, error: "invalid" };
-  const clean = (label ?? "").trim().slice(0, STUDY_LABEL_MAX);
+  const clean = truncateStudyLabel((label ?? "").trim());
   draft.study.manual.push({ id: crypto.randomUUID(), start: now, end: now + minutes * MINUTE_MS, label: clean || null });
   return { ok: true };
 }
@@ -388,7 +388,9 @@ export function deleteStudyRule(draft: State, id: string, confirmed: boolean, no
   return { ok: true };
 }
 
-export function clearLog(draft: State, confirmed: boolean): Result {
+/** Clearing the log resets recent opens and today's budget use, so it is locked during study like friction. */
+export function clearLog(draft: State, confirmed: boolean, now: number, tz: number): Result {
+  if (studyLocked(draft, now, tz)) return { ok: false, error: "study-locked" };
   if (!confirmed) return { ok: false, error: "needs-confirm" };
   draft.events = [];
   draft.usage = {};

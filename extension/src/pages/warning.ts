@@ -2,6 +2,7 @@
 // Vào unlocks after the countdown and only responds to a real mouse click or touch.
 import { ERROR_TEXT, sendRequest, type DecideResponse, type WarningInit } from "../shared/messages";
 import type { Decision } from "../background/state";
+import { resumeVisibleMs } from "../core/countdown";
 import { byId, el, formatClock, formatMinutes, minutesUntil, show } from "./dom";
 
 type View = "loading" | "choice" | "alternative" | "timer" | "message";
@@ -91,7 +92,26 @@ function isPointerClick(event: MouseEvent): boolean {
 
 function startCountdown(lockSeconds: number, elapsedMs: number): void {
   // The countdown only runs while this tab is visible.
-  let remaining = Math.max(0, lockSeconds * 1000 - elapsedMs);
+  const key = `dopadam:visible:${eventId}`;
+  const lockMs = lockSeconds * 1000;
+  let stored: number | null = null;
+  try {
+    const raw = sessionStorage.getItem(key);
+    if (raw !== null && raw !== "") stored = Number(raw);
+  } catch {
+    // sessionStorage unavailable: fall back to the wall clock.
+  }
+  let visibleMs = resumeVisibleMs(elapsedMs, stored);
+  const persist = () => {
+    try {
+      sessionStorage.setItem(key, String(Math.round(visibleMs)));
+    } catch {
+      // Not persisted; a reload then continues from the wall clock.
+    }
+  };
+  // Stored from the start, so a tab that was never visible does not unlock by reloading either.
+  persist();
+  let remaining = Math.max(0, lockMs - visibleMs);
   let last = performance.now();
   const render = () => {
     const seconds = Math.ceil(remaining / 1000);
@@ -103,7 +123,11 @@ function startCountdown(lockSeconds: number, elapsedMs: number): void {
   if (unlocked) return;
   const timer = setInterval(() => {
     const now = performance.now();
-    if (document.visibilityState === "visible") remaining -= now - last;
+    if (document.visibilityState === "visible") {
+      remaining -= now - last;
+      visibleMs += now - last;
+      persist();
+    }
     last = now;
     render();
     if (unlocked) clearInterval(timer);

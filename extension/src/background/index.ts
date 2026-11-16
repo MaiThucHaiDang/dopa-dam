@@ -483,10 +483,12 @@ async function handle(msg: Request, sender: chrome.runtime.MessageSender): Promi
       return mutate((d, now, tz) => L.setProtection(d, msg.enabled, msg.confirmed, now, tz), true);
     case "options:clearLog": {
       if (agent.connected) {
+        // The agent refuses this during study; with an older agent the extension still refuses.
+        if (agent.config?.study.active) return { ok: false, error: "study-locked" };
         const res = await viaAgent({ type: "clear_log", confirmed: msg.confirmed });
         if (!res.ok) return res;
       }
-      return mutate((d) => L.clearLog(d, msg.confirmed), false);
+      return mutate((d, now, tz) => L.clearLog(d, msg.confirmed, now, tz), false);
     }
     case "study:start":
       if (agent.connected) return viaAgent({ type: "start_study", minutes: msg.minutes, label: msg.label });

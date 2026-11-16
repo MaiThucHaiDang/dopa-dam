@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { dayKey } from "../src/core";
+import { dayKey, normalizeStudyRule, resumeVisibleMs } from "../src/core";
 import {
   addAllowUrl,
   addUsage,
@@ -177,9 +177,30 @@ describe("options", () => {
     expect(evaluateUrl(interceptConfig(s), "https://www.youtube.com/", NOW).intercept).toBe(false);
     expect(setProtection(s, true, false, NOW, TZ).ok).toBe(true);
     warn("a", NOW);
-    expect(clearLog(s, false)).toEqual({ ok: false, error: "needs-confirm" });
-    expect(clearLog(s, true).ok).toBe(true);
+    expect(clearLog(s, false, NOW, TZ)).toEqual({ ok: false, error: "needs-confirm" });
+    expect(clearLog(s, true, NOW, TZ).ok).toBe(true);
     expect(s.events).toEqual([]);
+  });
+
+  it("refuses to clear the log during study, even when confirmed", () => {
+    warn("a", NOW);
+    expect(startStudy(s, 25, null, NOW).ok).toBe(true);
+    expect(clearLog(s, true, NOW, TZ)).toEqual({ ok: false, error: "study-locked" });
+    expect(s.events).toHaveLength(1);
+    expect(clearLog(s, true, NOW + 26 * MIN, TZ).ok).toBe(true);
+  });
+
+  it("cuts study labels by code points, not UTF-16 units", () => {
+    const label = (n: number) => {
+      s.study.manual = [];
+      startStudy(s, 25, "a".repeat(n) + "😀", NOW);
+      return s.study.manual[0].label;
+    };
+    expect(label(59)).toBe("a".repeat(59) + "😀");
+    expect(label(60)).toBe("a".repeat(60));
+    const rule = { id: "", days: [1], start: "08:00", end: "09:00", label: "a".repeat(60) + "😀", exceptions: [] };
+    expect(normalizeStudyRule(rule)?.label).toBe("a".repeat(60));
+    expect(normalizeStudyRule({ ...rule, label: "a".repeat(59) + "😀" })?.label).toBe("a".repeat(59) + "😀");
   });
 });
 
@@ -308,5 +329,17 @@ describe("pending closes", () => {
     markPendingClose(s, "a", NOW);
     expect(migrateState(structuredClone(s), "p").pendingCloses).toEqual([{ eventId: "a", closedAt: NOW }]);
     expect(migrateState({}, "p").pendingCloses).toEqual([]);
+  });
+});
+
+describe("resumeVisibleMs", () => {
+  it("uses the wall clock without a stored value", () => {
+    expect(resumeVisibleMs(8000, null)).toBe(8000);
+  });
+  it("uses the smaller stored visible time", () => {
+    expect(resumeVisibleMs(30_000, 4000)).toBe(4000);
+  });
+  it("never exceeds the wall clock", () => {
+    expect(resumeVisibleMs(5000, 20_000)).toBe(5000);
   });
 });
