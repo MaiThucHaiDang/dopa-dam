@@ -53,6 +53,12 @@ export interface PlatformInfo {
   sessionType: "wayland" | "x11" | null;
   focusBackend: "win32" | "gnome-shell" | "x11" | "none";
   shellExtensionConnected: boolean;
+  /** The desktop is GNOME (XDG_CURRENT_DESKTOP). */
+  gnome: boolean;
+  /** The GNOME Shell extension is in the user's extension folder or a system one. */
+  shellExtensionInstalled: boolean;
+  /** The user's copy of the extension differs from the one inside the agent. */
+  shellExtensionUpdateAvailable: boolean;
 }
 
 /** What to assume when get_platform is missing (older backend): the original Windows-only agent. */
@@ -61,7 +67,38 @@ export const FALLBACK_PLATFORM: PlatformInfo = {
   sessionType: null,
   focusBackend: "win32",
   shellExtensionConnected: false,
+  gnome: false,
+  shellExtensionInstalled: false,
+  shellExtensionUpdateAvailable: false,
 };
+
+/** What the GNOME Shell extension needs from the user, for GNOME on Wayland ("none" elsewhere). */
+export type ShellExtensionState =
+  | "none" // not GNOME on Wayland: no extension involved
+  | "missing" // not installed: offer the install button
+  | "needs-login" // installed, the Shell has not loaded it yet: log out and in
+  | "update" // connected, but the installed copy differs from the embedded one
+  | "ok"; // connected and current
+
+export function shellExtensionState(p: PlatformInfo): ShellExtensionState {
+  if (p.os !== "linux" || !p.gnome || p.sessionType !== "wayland") return "none";
+  if (p.shellExtensionConnected) return p.shellExtensionUpdateAvailable ? "update" : "ok";
+  return p.shellExtensionInstalled ? "needs-login" : "missing";
+}
+
+/** Result of the install_shell_extension command. */
+export interface ShellInstallResult {
+  outcome: "installed" | "updated" | "upToDate";
+  enabledChanged: boolean;
+  needsLogout: boolean;
+}
+
+/** The sentence shown after pressing the install or update button. */
+export function describeShellInstall(r: ShellInstallResult): string {
+  const done =
+    r.outcome === "installed" ? "Đã cài tiện ích GNOME." : r.outcome === "updated" ? "Đã cập nhật tiện ích GNOME." : "Tiện ích GNOME đã là bản mới nhất.";
+  return r.needsLogout ? `${done} Đăng xuất rồi đăng nhập lại để GNOME nạp tiện ích.` : done;
+}
 
 /** One line for the Overview page: where the foreground-window information comes from. */
 export function describeFocusSource(p: PlatformInfo): { ok: boolean; text: string } {
@@ -164,6 +201,7 @@ export interface DeviceRow {
 export const api = {
   overview: () => invoke<Overview>("get_overview"),
   getPlatform: () => invoke<PlatformInfo>("get_platform"),
+  installShellExtension: () => invoke<ShellInstallResult>("install_shell_extension"),
   listApps: () => invoke<AppRow[]>("list_apps"),
   rescanApps: () => invoke<number>("rescan_apps"),
   setAppTag: (exe: string, tag: Tag | null, confirmed: boolean) => invoke<void>("set_app_tag", { exe, tag, confirmed }),

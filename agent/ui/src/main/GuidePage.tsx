@@ -1,13 +1,18 @@
+import { useState } from "react";
+import { shellExtensionState, type PlatformInfo } from "../api";
+import { ShellExtensionPanel } from "./ShellExtensionPanel";
 import { usePlatform } from "./usePlatform";
 
 export function GuidePage() {
-  const linux = usePlatform().os === "linux";
+  const [reloads, setReloads] = useState(0);
+  const platform = usePlatform(reloads);
+  const linux = platform.os === "linux";
   return (
     <div className="page">
       <h1>Hướng dẫn</h1>
 
       {linux ? (
-        <LinuxInstall />
+        <LinuxInstall platform={platform} onChanged={() => setReloads((n) => n + 1)} />
       ) : (
       <section className="card">
         <h2>Cài extension cho Edge</h2>
@@ -85,8 +90,8 @@ export function GuidePage() {
                 để hiện khay.
               </li>
               <li>
-                Tổng quan báo chưa nối với GNOME Shell: chạy <code>gnome-extensions info dopadam@dang</code> để xem trạng thái,
-                và nhớ đăng xuất rồi đăng nhập lại sau khi cài.
+                Tổng quan báo chưa nối với GNOME Shell: đăng xuất rồi đăng nhập lại sau khi cài tiện ích. Vẫn chưa nối thì bấm
+                "Cài lại tiện ích" ở Tổng quan, hoặc chạy <code>gnome-extensions info dopadam@dang</code> để xem GNOME báo gì.
               </li>
             </>
           ) : (
@@ -101,25 +106,37 @@ export function GuidePage() {
   );
 }
 
-function LinuxInstall() {
+function LinuxInstall({ platform, onChanged }: { platform: PlatformInfo; onChanged: () => void }) {
+  const showPanel = shellExtensionState(platform) !== "none";
   return (
     <>
+      <section className="card">
+        <h2>Cài DopaDam trên Linux</h2>
+        <ol className="steps">
+          <li>
+            Cài file <code>.deb</code>: <code>sudo apt install ./DopaDam_0.1.0_amd64.deb</code>. Đây là lệnh duy nhất cần
+            gõ trong terminal.
+          </li>
+          <li>Mở DopaDam từ menu ứng dụng. Biểu tượng DopaDam hiện ở khay hệ thống.</li>
+          <li>Nếu bạn dùng GNOME với Wayland, làm tiếp phần dưới đây.</li>
+        </ol>
+      </section>
+
       <section className="card">
         <h2>Cho DopaDam thấy chương trình đang mở (GNOME)</h2>
         <p className="muted">
           Trên GNOME dùng Wayland, một ứng dụng thường không biết cửa sổ nào đang ở phía trước, không thu nhỏ được cửa sổ
           khác và không tự đặt cảnh báo lên trên. Tiện ích GNOME Shell của DopaDam làm ba việc đó thay cho agent. Nó không bao
-          giờ gửi tiêu đề cửa sổ.
+          giờ gửi tiêu đề cửa sổ. Tiện ích nằm sẵn trong DopaDam nên không cần tải hay chép gì thêm.
         </p>
         <ol className="steps">
           <li>
-            Trong thư mục <code>linux/gnome-shell-extension</code> chạy <code>./install.sh</code> (không cần sudo).
+            Ở trang Tổng quan (hoặc ngay dưới đây) bấm <strong>Cài tiện ích GNOME</strong>. Không cần sudo.
           </li>
           <li>Đăng xuất rồi đăng nhập lại. Trên Wayland, GNOME Shell chỉ nạp tiện ích mới khi đăng nhập.</li>
-          <li>
-            Chạy <code>gnome-extensions enable dopadam@dang</code>. Trang Tổng quan sẽ báo đã nối với GNOME Shell.
-          </li>
+          <li>Mở DopaDam. Trang Tổng quan sẽ báo đã nối với GNOME Shell.</li>
         </ol>
+        {showPanel && <ShellExtensionPanel platform={platform} onChanged={onChanged} />}
         <p className="muted">
           Phiên X11 không cần tiện ích: agent tự theo dõi cửa sổ qua X11. Nếu cả hai đều không có (ví dụ Wayland với KDE, Sway
           hay Hyprland), DopaDam vẫn chạy khay hệ thống, cài đặt, thống kê, chế độ Học, đồng bộ và cầu nối trình duyệt, nhưng
@@ -128,6 +145,10 @@ function LinuxInstall() {
         <p className="muted">
           Chương trình viết bằng ngôn ngữ thông dịch (ví dụ game chạy bằng <code>python3</code>) mang tên file chung của trình
           thông dịch, nên gán tag cho nó sẽ gán cho mọi chương trình cùng loại.
+        </p>
+        <p className="faint">
+          Chạy DopaDam từ mã nguồn thay vì file .deb: trong thư mục <code>linux/gnome-shell-extension</code> chạy{" "}
+          <code>./install.sh</code>, đăng xuất rồi đăng nhập lại, rồi chạy <code>gnome-extensions enable dopadam@dang</code>.
         </p>
       </section>
 

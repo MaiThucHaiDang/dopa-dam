@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { api, describeFocusSource, type Overview } from "../api";
+import { api, describeFocusSource, shellExtensionState, type Overview } from "../api";
 import { usePlatform } from "./usePlatform";
 import { useNavigate, useRefresh } from "./MainApp";
+import { ShellExtensionPanel } from "./ShellExtensionPanel";
 
 function minutesUntil(at: number): number {
   return Math.max(0, Math.ceil((at - Date.now()) / 60_000));
@@ -11,7 +12,8 @@ export function OverviewPage() {
   const tick = useRefresh();
   const navigate = useNavigate();
   const [o, setO] = useState<Overview | null>(null);
-  const platform = usePlatform(tick);
+  const [reloads, setReloads] = useState(0);
+  const platform = usePlatform(`${tick}:${reloads}`);
   const [hostMessage, setHostMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -20,6 +22,7 @@ export function OverviewPage() {
 
   if (!o) return null;
   const focus = platform.os === "linux" ? describeFocusSource(platform) : null;
+  const shellState = shellExtensionState(platform);
   const used = Math.round(o.budget.usedMinutes);
   const linked = o.extensions.filter((e) => e.compatible);
   const mismatched = o.extensions.filter((e) => !e.compatible);
@@ -64,7 +67,8 @@ export function OverviewPage() {
             <span className={`dot ${focus.ok ? "on" : ""}`} />
             {focus.text}
           </p>
-          {!focus.ok && (
+          <ShellExtensionPanel platform={platform} onChanged={() => setReloads((n) => n + 1)} />
+          {!focus.ok && shellState === "none" && (
             <div>
               <button className="btn-link" onClick={() => navigate("/guide")}>
                 Cách bật theo dõi chương trình

@@ -95,6 +95,29 @@ pub fn get_platform() -> crate::platform::PlatformInfo {
     crate::platform::platform_info()
 }
 
+/// Result of installing the GNOME Shell extension (see shellext.rs); Windows has no such extension.
+#[cfg(target_os = "linux")]
+pub type ShellInstall = crate::shellext::InstallResult;
+#[cfg(not(target_os = "linux"))]
+#[derive(Serialize)]
+pub struct ShellInstall;
+
+/// Copies the embedded GNOME Shell extension to the user's extension folder and enables it. Runs
+/// `gsettings`, so it stays off the UI thread.
+#[tauri::command]
+pub async fn install_shell_extension() -> Result<ShellInstall, String> {
+    #[cfg(target_os = "linux")]
+    {
+        tauri::async_runtime::spawn_blocking(crate::shellext::install_for_current_user)
+            .await
+            .map_err(|e| e.to_string())?
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        Err("Tiện ích GNOME chỉ có trên Linux.".to_string())
+    }
+}
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AppRow {

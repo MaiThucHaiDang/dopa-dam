@@ -12,6 +12,8 @@ pub mod logic;
 pub mod nmhost;
 pub mod pipe;
 pub mod platform;
+#[cfg(target_os = "linux")]
+pub mod shellext;
 pub mod state;
 pub mod sync;
 pub mod syncrun;
@@ -204,6 +206,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::get_overview,
             commands::get_platform,
+            commands::install_shell_extension,
             commands::list_apps,
             commands::rescan_apps,
             commands::set_app_tag,

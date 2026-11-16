@@ -18,6 +18,9 @@
   },
   "bundle": {
     "active": true,
+    "category": "Utility",
+    "shortDescription": "Hỏi lại trước khi bạn mở chương trình hoặc trang web giải trí",
+    "longDescription": "DopaDam hiện một câu hỏi \"Bạn mở ... để làm gì?\" trước khi chương trình hoặc trang web giải trí được dùng, để bạn dừng lại kịp lúc. Có chế độ Học, ngân sách giải trí mỗi ngày, thống kê và đồng bộ với điện thoại Android. Trên GNOME dùng Wayland, DopaDam kèm sẵn một tiện ích GNOME Shell để biết cửa sổ nào đang ở phía trước; cài tiện ích bằng một nút trong ứng dụng.",
     "targets": [
       "nsis",
       "deb",
@@ -29,6 +32,12 @@
       "icons/128x128@2x.png",
       "icons/icon.ico"
     ],
+    "linux": {
+      "deb": {
+        "section": "utils",
+        "priority": "optional"
+      }
+    },
     "windows": {
       "nsis": {
         "installMode": "currentUser",

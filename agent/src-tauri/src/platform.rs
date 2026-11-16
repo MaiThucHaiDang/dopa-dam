@@ -80,14 +80,19 @@ pub fn default_data_dir() -> PathBuf {
 /// `$XDG_DATA_HOME/DopaDam`, else `~/.local/share/DopaDam` (an empty variable counts as unset).
 #[cfg_attr(windows, allow(dead_code))]
 pub fn linux_data_dir(xdg_data_home: Option<std::ffi::OsString>, home: Option<std::ffi::OsString>) -> PathBuf {
-    let base = match xdg_data_home.filter(|v| !v.is_empty()) {
+    linux_data_home(xdg_data_home, home).join("DopaDam")
+}
+
+/// `$XDG_DATA_HOME`, else `~/.local/share` (an empty variable counts as unset).
+#[cfg_attr(windows, allow(dead_code))]
+pub fn linux_data_home(xdg_data_home: Option<std::ffi::OsString>, home: Option<std::ffi::OsString>) -> PathBuf {
+    match xdg_data_home.filter(|v| !v.is_empty()) {
         Some(dir) => PathBuf::from(dir),
         None => match home.filter(|v| !v.is_empty()) {
             Some(home) => PathBuf::from(home).join(".local").join("share"),
             None => std::env::temp_dir(),
         },
-    };
-    base.join("DopaDam")
+    }
 }
 
 // ---- Program or web domain? ----------------------------------------------------------
@@ -150,21 +155,39 @@ pub struct PlatformInfo {
     /// "win32" | "gnome-shell" | "x11" | "none"
     pub focus_backend: &'static str,
     pub shell_extension_connected: bool,
+    /// The desktop is GNOME (`XDG_CURRENT_DESKTOP`). Always false on Windows.
+    pub gnome: bool,
+    /// The GNOME Shell extension is in the user's extension folder or a system one.
+    pub shell_extension_installed: bool,
+    /// The user's copy of the extension differs from the one embedded in the agent.
+    pub shell_extension_update_available: bool,
 }
 
 pub fn platform_info() -> PlatformInfo {
     #[cfg(windows)]
     {
-        PlatformInfo { os: "windows", session_type: None, focus_backend: "win32", shell_extension_connected: false }
+        PlatformInfo {
+            os: "windows",
+            session_type: None,
+            focus_backend: "win32",
+            shell_extension_connected: false,
+            gnome: false,
+            shell_extension_installed: false,
+            shell_extension_update_available: false,
+        }
     }
     #[cfg(target_os = "linux")]
     {
         let backend = crate::linux::backend();
+        let files = crate::shellext::current_files_status();
         PlatformInfo {
             os: "linux",
             session_type: backend.session_type,
             focus_backend: backend.focus_backend,
             shell_extension_connected: backend.shell_connected,
+            gnome: crate::shellext::running_on_gnome(),
+            shell_extension_installed: files.installed,
+            shell_extension_update_available: files.update_available,
         }
     }
 }
@@ -240,16 +263,25 @@ mod tests {
             session_type: Some("wayland"),
             focus_backend: "gnome-shell",
             shell_extension_connected: true,
+            gnome: true,
+            shell_extension_installed: true,
+            shell_extension_update_available: false,
         };
         assert_eq!(
             serde_json::to_value(&info).unwrap(),
-            serde_json::json!({"os": "linux", "sessionType": "wayland", "focusBackend": "gnome-shell", "shellExtensionConnected": true})
+            serde_json::json!({
+                "os": "linux", "sessionType": "wayland", "focusBackend": "gnome-shell", "shellExtensionConnected": true,
+                "gnome": true, "shellExtensionInstalled": true, "shellExtensionUpdateAvailable": false
+            })
         );
         let none = PlatformInfo {
             os: "windows",
             session_type: None,
             focus_backend: "win32",
             shell_extension_connected: false,
+            gnome: false,
+            shell_extension_installed: false,
+            shell_extension_update_available: false,
         };
         assert!(serde_json::to_value(&none).unwrap()["sessionType"].is_null());
     }
