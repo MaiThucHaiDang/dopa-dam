@@ -37,3 +37,6 @@ Thumbs.db
 playwright-report/
 test-results/
 .e2e-profile/
+
+# Local build tools and caches (JDK, Android SDK, cross compiler, build output)
+/.toolchain/
