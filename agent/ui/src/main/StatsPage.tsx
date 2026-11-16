@@ -50,7 +50,8 @@ const VERDICT_TEXT: Record<Verdict, string> = {
 };
 
 const pct = (v: number | null) => (v === null ? "–" : `${Math.round(v * 100)}%`);
-const secs = (v: number | null) => (v === null ? "–" : `${v < 10 ? v.toFixed(1) : Math.round(v)} giây`);
+// Vietnamese writes decimals with a comma.
+const secs = (v: number | null) => (v === null ? "–" : `${v < 10 ? v.toFixed(1).replace(".", ",") : Math.round(v)} giây`);
 
 function ProgressCard({ p }: { p: WeeklyProgress }) {
   // Worse seconds are stated as a plain difference, e.g. "Chậm hơn tuần trước 2 giây".

@@ -422,6 +422,7 @@ const EPS = 1e-9;
 function weekFigures(events: WarningEvent[]): WeekFigures {
   let enter = 0, exit = 0, alternative = 0, secondsSum = 0, exitCount = 0, studyOpens = 0;
   for (const e of events) {
+    // An open during study counts as soon as its warning is shown, decided or not (as the agent counts it).
     if (e.studyLabel) studyOpens++;
     if (e.decision === "enter") enter++;
     else if (e.decision === "alternative") alternative++;
