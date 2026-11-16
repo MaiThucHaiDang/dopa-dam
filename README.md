@@ -92,9 +92,11 @@ npm install
 npx tauri build          # build giao diện + Rust bản release + gói .deb và AppImage
 ```
 
-Gói nằm trong `agent/src-tauri/target/release/bundle/`. Dữ liệu lưu ở `$XDG_DATA_HOME/DopaDam` (mặc định `~/.local/share/DopaDam`).
+Gói nằm trong `agent/src-tauri/target/release/bundle/`. Cài gói `.deb` bằng `sudo apt install ./DopaDam_0.1.0_amd64.deb` (tên gói trong hệ thống là `dopa-dam`, gỡ bằng `sudo apt remove dopa-dam`). Dữ liệu lưu ở `$XDG_DATA_HOME/DopaDam` (mặc định `~/.local/share/DopaDam`).
 
 **Tiện ích GNOME Shell.** Trên GNOME dùng Wayland, agent không tự biết cửa sổ nào ở phía trước, không thu nhỏ được cửa sổ khác và không đặt cảnh báo lên trên được; tiện ích làm ba việc này qua socket `$XDG_RUNTIME_DIR/dopadam-agent.sock`. Trên phiên X11 agent tự theo dõi cửa sổ, không cần tiện ích.
+
+Cách cài: mở DopaDam, ở trang Tổng quan bấm **Cài tiện ích GNOME**, rồi đăng xuất và đăng nhập lại. Agent mang sẵn tiện ích trong chương trình, chép nó vào `~/.local/share/gnome-shell/extensions/dopadam@dang` và thêm vào danh sách tiện ích được bật; không cần terminal. Khi chạy từ mã nguồn mà chưa có agent, có thể chép tay:
 
 ```bash
 ./linux/gnome-shell-extension/install.sh      # chép vào ~/.local/share/gnome-shell/extensions, không cần sudo

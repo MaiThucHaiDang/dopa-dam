@@ -59,8 +59,17 @@ Mỗi nền tảng hiện thực các hàm dưới đây bằng ngôn ngữ củ
 - Số: `lockSeconds` giảm, `budgetMinutes` tăng hoặc chuyển về ≤ 0 (tắt), `delaySeconds` tăng → `"weaken"`. Ngược lại `"ok"`.
 - Khung giờ học (`classifyStudyRuleChange`): thêm khung mới, thêm ngày, bắt đầu sớm hơn, kết thúc muộn hơn, đổi nhãn, bỏ ngoại lệ, hoặc thêm ngoại lệ cho ngày mai trở đi là `"ok"`. Xóa khung, bớt ngày, bắt đầu muộn hơn, kết thúc sớm hơn, hoặc thêm ngoại lệ cho hôm nay hay cho ngày của phiên đang diễn ra là `"weaken"`. So sánh khung tính theo phút kể từ nửa đêm của ngày bắt đầu (khung qua nửa đêm cộng thêm 24 giờ vào giờ kết thúc).
 - Luôn cần xác nhận: tắt bảo vệ, thêm link được phép, kết thúc Chế độ Học trước giờ, xóa nhật ký.
-- Trong giờ học: đổi tag, mức cản trở, ngân sách, độ trễ, tắt bảo vệ và mọi thay đổi `"weaken"` của khung giờ đều bị khóa (`study-locked`), kể cả khi đã xác nhận. Vẫn làm được: thêm link được phép (có xác nhận), thay đổi làm mạnh bảo vệ, và "Kết thúc sớm" (có xác nhận).
+- Trong giờ học: đổi tag, mức cản trở, ngân sách, độ trễ, tắt bảo vệ, xóa nhật ký (vì xóa nhật ký đưa số lần mở và ngân sách đã dùng về 0) và mọi thay đổi `"weaken"` của khung giờ đều bị khóa (`study-locked`), kể cả khi đã xác nhận. Vẫn làm được: thêm link được phép (có xác nhận), thay đổi làm mạnh bảo vệ, và "Kết thúc sớm" (có xác nhận).
 - Bước xác nhận: chờ 60 giây rồi gõ đúng câu `tôi chọn giảm bảo vệ`.
+- Tùy chọn số phút cho vào (`allowOptions`, `allowOptionsRestricted`): mỗi danh sách có 1 đến 4 giá trị, thường là 1 đến 120 phút, lúc bị hạn chế là 1 đến 10 phút; tăng giá trị lớn nhất của một danh sách là `"weaken"`. Agent và Android cùng kiểm tra ở phía sau, không chỉ ở giao diện.
+- Nhãn buổi học dài tối đa 60 ký tự, đếm theo điểm mã Unicode trên cả ba nền tảng để không cắt đôi một emoji.
+
+**Giới hạn đã biết, giữ nguyên có chủ ý.**
+
+- Thêm ngoại lệ cho các ngày sau hôm nay không cần xác nhận (đúng theo đặc tả mục 7), nên về lý thuyết có thể bỏ trước rất nhiều buổi. Giao diện chỉ cho thêm từng ngày một.
+- Cờ `confirmed` do giao diện gửi lên sau khi chờ 60 giây và gõ câu xác nhận; người mở công cụ nhà phát triển có thể tự gửi cờ này. Việc đó tốn công hơn tắt hẳn extension, mà agent thì cảnh báo khi extension ngừng phản hồi.
+- Extension chỉ chặn khung chính của tab. Trang giải trí nhúng trong `iframe` của trang khác không bị chặn, để bài giảng nhúng video trong trang học vẫn xem được.
+- Trang cảnh báo trên web chỉ đếm ngược khi tab đang hiện. Thời gian đã hiện được lưu trong `sessionStorage` theo mã cảnh báo, nên tải lại một tab đang ẩn không mở khóa nút Vào sớm hơn. Background vẫn kiểm tra theo đồng hồ thực như một ngưỡng dưới.
 
 ### 2.4 Tiến bộ theo tuần
 
@@ -72,7 +81,7 @@ Thẻ "Tiến bộ tuần này" (trang Thống kê của agent, và popup của 
 | Số giây đến lúc Thoát | tổng số giây cân nhắc của các lần Thoát / số lần Thoát | giảm từ 1 giây trở lên (tăng từ 1 giây là kém hơn) |
 | Mở giải trí trong giờ học | số lần cảnh báo hiện ra khi đang học, kể cả lần chưa có lựa chọn | ít hơn tuần trước |
 
-Chỉ so sánh khi mỗi tuần có ít nhất 5 lần bị chặn đã có lựa chọn; nếu không thì hiện "Cần ít nhất 5 lần bị chặn mỗi tuần để so sánh". Phần tính nằm ở `agent/ui/src/progress.ts` và `weeklyProgress` trong `extension/src/background/logic.ts`; agent lấy số lần mở trong giờ học từ trường `studyWarnings` của thống kê theo ngày. App Android chưa có thẻ này, và khi extension nối với agent thì popup không hiện thẻ (xem ở trang Thống kê của agent).
+Chỉ so sánh khi mỗi tuần có ít nhất 5 lần bị chặn đã có lựa chọn; nếu không thì hiện "Cần ít nhất 5 lần bị chặn mỗi tuần để so sánh". Phần tính nằm ở `agent/ui/src/progress.ts` và `weeklyProgress` trong `extension/src/background/logic.ts`; agent lấy số lần mở trong giờ học từ trường `studyWarnings` của thống kê theo ngày. App Android có cùng thẻ ở màn hình Thống kê (`logic/Progress.kt`, cùng quy tắc và cùng câu chữ). Khi extension nối với agent thì popup không hiện thẻ (xem ở trang Thống kê của agent).
 
 ## 3. Giao thức agent ↔ extension
 
@@ -133,7 +142,7 @@ Cấu trúc bảng nằm ở `supabase/migrations/`; `supabase/test/schema.test.
 
 1. Đẩy các dòng có cờ "chưa đồng bộ" theo từng bảng, mỗi lần tối đa 500 dòng, bằng upsert `?on_conflict=user_id,id` (`Prefer: resolution=merge-duplicates`; riêng sự kiện chặn là `ignore-duplicates`). Đẩy xong mới xóa cờ, nên lỗi giữa chừng thì lần sau đẩy lại. Sự kiện chưa có lựa chọn được giữ lại 10 phút rồi mới đẩy.
 2. Ghi dòng `devices` của máy này (tên, phiên bản, `last_seen`).
-3. Kéo về từng bảng: `server_updated_at > con trỏ − 5 phút`, sắp xếp tăng dần, mỗi trang 1000 dòng. Lùi 5 phút để không sót dòng được ghi trễ với dấu thời gian sớm hơn; dòng kéo lại lần hai bị bỏ qua nhờ so `updated_at`. Dòng `usage_daily` của chính máy này không bao giờ bị ghi đè bằng bản trên server.
+3. Kéo về từng bảng: `server_updated_at >= con trỏ − 5 phút`, sắp xếp theo `server_updated_at` rồi `id` tăng dần, mỗi trang 1000 dòng. Lùi 5 phút để không sót dòng được ghi trễ với dấu thời gian sớm hơn. Trang đầy mà dòng đầu và dòng cuối khác dấu thời gian thì trang sau bắt đầu từ dấu của dòng cuối (dùng `>=` nên các dòng cùng dấu ở ranh giới trang không bị sót); trang đầy mà mọi dòng cùng một dấu thì giữ mốc và đi tiếp bằng `offset`. Trang chưa đầy là hết. Dòng kéo lại lần hai không gây thay đổi nào: dòng trên server thắng khi `updated_at` lớn hơn, hoặc bằng nhau mà dòng trên máy không còn chờ đẩy lên; dòng trên máy đang chờ đẩy với cùng `updated_at` thì giữ và được đẩy lên. Dòng `usage_daily` của chính máy này không bao giờ bị ghi đè bằng bản trên server.
 4. Hết hạn phiên (HTTP 401) thì làm mới bằng refresh token rồi chạy lại một lần.
 
 **Đăng nhập.**
@@ -144,7 +153,7 @@ Cấu trúc bảng nằm ở `supabase/migrations/`; `supabase/test/schema.test.
 | Google | Mở trình duyệt tới `/authorize?provider=google` với PKCE (S256); Supabase trả về `dopadam://auth-callback?code=…`, Windows chuyển link đó cho agent (giao thức `dopadam://` đăng ký trong HKCU, plugin single-instance), agent đổi `code` lấy phiên (`grant_type=pkce`) | Credential Manager lấy ID token Google (kèm nonce đã băm SHA-256), đổi lấy phiên bằng `grant_type=id_token` |
 | Lưu phiên | Refresh token trong Windows Credential Manager | Refresh token mã hóa AES-GCM bằng khóa trong Android Keystore |
 
-Đổi sang tài khoản khác thì con trỏ được xóa và mọi dữ liệu trên máy được đánh dấu "chưa đồng bộ", để tài khoản mới nhận đủ dữ liệu của máy này.
+Đổi sang tài khoản khác thì trước hết xóa trên máy các dòng thời gian dùng và lần chặn đến từ thiết bị khác của tài khoản cũ (nếu không chúng sẽ bị tính vào ngân sách và số lần mở của tài khoản mới), rồi con trỏ được xóa và mọi dữ liệu còn lại trên máy được đánh dấu "chưa đồng bộ", để tài khoản mới nhận đủ dữ liệu của máy này. "Xóa dữ liệu trên server" cũng đặt lại con trỏ và quên tài khoản vừa dùng, để lần đăng nhập sau đẩy lại đầy đủ. Chỉ những lần chặn đã có lựa chọn mới được đẩy lên; lần chưa có lựa chọn được coi là Thoát sau 12 giờ, trừ cảnh báo đang hiện trên màn hình.
 
 **Tần suất.** Agent đồng bộ 30 giây một lần, và khoảng 5 giây sau mỗi thay đổi trên máy. Android đồng bộ khi mở app, tối đa mỗi phút một lần trong lúc dịch vụ bảo vệ chạy, cộng một lần nền qua WorkManager mỗi 15 phút khi có mạng. Extension không tự đồng bộ: khi agent đang chạy, extension dùng cấu hình và ghi nhật ký qua agent, nên dữ liệu trình duyệt đi theo agent lên server.
 
