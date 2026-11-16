@@ -142,7 +142,7 @@ Cấu trúc bảng nằm ở `supabase/migrations/`; `supabase/test/schema.test.
 
 ## 6. Bản Linux của agent
 
-Phần này mô tả thiết kế. Phần Rust của agent trên Linux chưa được build hay chạy thử; chỉ tiện ích GNOME Shell (logic giao thức) và extension trình duyệt đã có test chạy qua.
+Phần Rust của agent đã build và chạy test trên Linux, và chương trình đã được chạy thử ở chế độ ẩn (socket, `hello`, cầu nối). Việc theo dõi cửa sổ qua tiện ích GNOME Shell và X11, cùng cửa sổ cảnh báo, chưa được thử trên phiên thật; các mục đó nằm trong [checklist nghiệm thu](nghiem-thu.md).
 
 **Lớp nền tảng.** Giao diện React không đổi. Backend có thêm lệnh `get_platform` trả về `{ os, sessionType, focusBackend, shellExtensionConnected }`; giao diện dùng nó để chọn câu chữ (Windows hay Linux) và để Tổng quan báo nguồn theo dõi cửa sổ. Lệnh không có (backend cũ) thì giao diện coi như Windows. Trên Linux, danh tính chương trình là tên file của `/proc/<pid>/exe` (không có đuôi `.exe`).
 

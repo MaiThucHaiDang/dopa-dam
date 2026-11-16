@@ -78,7 +78,7 @@ python agent\e2e\desktop_test.py             # bật cảnh báo thật trên No
 
 ## Agent Linux (GNOME)
 
-Chưa kiểm chứng: phần Rust của agent chưa được build và chạy thử trên Linux (xem [docs/nghiem-thu.md](docs/nghiem-thu.md)). Các lệnh dưới đây là quy trình dự kiến.
+Đã kiểm chứng trên Ubuntu 26.04: agent build được, `cargo test` và `cargo clippy` qua, chương trình khởi động và trả lời đúng qua socket. Chưa kiểm chứng: đóng gói `.deb`/AppImage, cửa sổ cảnh báo và việc theo dõi cửa sổ trên phiên GNOME/X11 thật (xem [docs/nghiem-thu.md](docs/nghiem-thu.md)).
 
 Cần các gói hệ thống để build (Ubuntu/Debian), cùng Rust (rustup) và Node.js:
 

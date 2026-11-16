@@ -98,13 +98,15 @@ Cần kiểm tra trên thiết bị thật:
 - [x] Logic giao thức của tiện ích GNOME Shell (`cd linux/gnome-shell-extension && node --test`): mã hóa tin nhắn, không có tiêu đề cửa sổ trong `focus`, không gửi hai `focus` giống nhau liên tiếp, ghép dòng khi đọc từng phần, bỏ qua JSON hỏng và lệnh sai, kiểm tra lệnh `shell_minimize`, `shell_activate`, `shell_raise`.
 - [x] `fake-agent.mjs` tạo socket, nhận kết nối thử, nhận dòng và gửi lệnh đúng định dạng, rồi xóa socket khi thoát.
 - [x] Mọi file `.js` của tiện ích qua kiểm tra cú pháp; `protocol.js` nạp được trong `gjs`.
-- [x] Extension trình duyệt trên Chromium (theo báo cáo của người phát triển phần extension: unit test và `npm run e2e` với `DOPADAM_E2E_CHANNEL=chromium` đều qua).
+- [x] Extension trình duyệt trên Chromium (`cd extension && npm run check`, rồi `npm run e2e` với `DOPADAM_E2E_CHANNEL=chromium`): 241 unit test và 18 kịch bản đầu-cuối, gồm luật tên miền con không gỡ được chặn khi chưa xác nhận, link được phép kèm `#…` không lặp, và link playlist không làm kẹt các luật chặn khác.
 - [x] Giao diện agent (`cd agent && npm run check`) và cấu trúc bảng Supabase có thiết bị `linux` (`cd supabase && npm test`).
+- [x] Agent Rust build được trên Linux (`cargo build`); `cargo test` (78 test, gồm test đồng bộ với server giả) và `cargo clippy --all-targets` không lỗi.
+- [x] Chạy file chương trình của agent ở chế độ ẩn với thư mục dữ liệu tạm: mở socket `dopadam-agent.sock` quyền 0600, trả lời `hello` bằng `welcome` và `config`, bật phiên học qua cầu nối, nhận client của tiện ích GNOME mà không gửi `config` cho nó, ghi manifest native messaging cho Brave.
 
 Chưa chạy, cần làm:
 
-- [ ] Agent Rust build được trên Linux (`cd agent/src-tauri && cargo build`, `npx tauri build` ra `.deb` và AppImage).
-- [ ] `cargo test` và `cargo clippy --all-targets` trên Linux không lỗi.
+- [ ] Đóng gói `npx tauri build` ra `.deb` và AppImage.
+- [ ] Build lại và chạy `cargo test` trên Windows sau khi thêm lớp nền tảng (máy phát triển Linux không build được bản Windows).
 - [ ] Tiện ích GNOME Shell tải được trong GNOME Shell thật (chưa từng nạp vào Shell nào).
 
 Cần kiểm tra trên phiên Linux thật:
