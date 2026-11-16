@@ -4,7 +4,7 @@ import { api, isCmdError, type AccountStatus, type DeviceRow } from "../api";
 import { useSubmit } from "../components/Confirm";
 import { useRefresh } from "./MainApp";
 
-const PLATFORM: Record<string, string> = { android: "Điện thoại Android", windows: "Máy tính Windows", extension: "Extension" };
+const PLATFORM: Record<string, string> = { android: "Điện thoại Android", windows: "Máy tính Windows", linux: "Máy tính Linux", extension: "Extension" };
 
 function ago(at: number): string {
   const minutes = Math.round((Date.now() - at) / 60_000);

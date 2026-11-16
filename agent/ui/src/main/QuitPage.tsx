@@ -10,7 +10,7 @@ export function QuitPage() {
     <div className="page">
       <h1>Thoát DopaDam</h1>
       <p className="muted">
-        Khi thoát, các chương trình trên máy tính sẽ không bị cảnh báo nữa và extension Edge chạy riêng cho đến khi DopaDam mở
+        Khi thoát, các chương trình trên máy tính sẽ không bị cảnh báo nữa và extension trình duyệt chạy riêng cho đến khi DopaDam mở
         lại.
       </p>
       <ErrorBanner error={error} />

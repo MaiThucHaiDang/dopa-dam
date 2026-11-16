@@ -48,6 +48,33 @@ export interface Overview {
   autostart: boolean;
 }
 
+export interface PlatformInfo {
+  os: "windows" | "linux";
+  sessionType: "wayland" | "x11" | null;
+  focusBackend: "win32" | "gnome-shell" | "x11" | "none";
+  shellExtensionConnected: boolean;
+}
+
+/** What to assume when get_platform is missing (older backend): the original Windows-only agent. */
+export const FALLBACK_PLATFORM: PlatformInfo = {
+  os: "windows",
+  sessionType: null,
+  focusBackend: "win32",
+  shellExtensionConnected: false,
+};
+
+/** One line for the Overview page: where the foreground-window information comes from. */
+export function describeFocusSource(p: PlatformInfo): { ok: boolean; text: string } {
+  if (p.focusBackend === "gnome-shell") {
+    return p.shellExtensionConnected
+      ? { ok: true, text: "Đã nối với GNOME Shell qua tiện ích DopaDam. Chương trình giải trí được canh bình thường." }
+      : { ok: false, text: "Đang chờ tiện ích DopaDam của GNOME Shell kết nối. Chưa canh được chương trình trên máy tính." };
+  }
+  if (p.focusBackend === "x11") return { ok: true, text: "Đang theo dõi cửa sổ qua X11. Chương trình giải trí được canh bình thường." };
+  if (p.focusBackend === "win32") return { ok: true, text: "Đang theo dõi cửa sổ đang ở phía trước." };
+  return { ok: false, text: "Chưa có nguồn nào cho biết cửa sổ đang ở phía trước nên DopaDam chưa canh được chương trình trên máy tính." };
+}
+
 export interface AppRow {
   exe: string;
   name: string;
@@ -135,6 +162,7 @@ export interface DeviceRow {
 
 export const api = {
   overview: () => invoke<Overview>("get_overview"),
+  getPlatform: () => invoke<PlatformInfo>("get_platform"),
   listApps: () => invoke<AppRow[]>("list_apps"),
   rescanApps: () => invoke<number>("rescan_apps"),
   setAppTag: (exe: string, tag: Tag | null, confirmed: boolean) => invoke<void>("set_app_tag", { exe, tag, confirmed }),

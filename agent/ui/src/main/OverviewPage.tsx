@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { api, type Overview } from "../api";
+import { api, describeFocusSource, type Overview } from "../api";
+import { usePlatform } from "./usePlatform";
 import { useNavigate, useRefresh } from "./MainApp";
 
 function minutesUntil(at: number): number {
@@ -10,6 +11,7 @@ export function OverviewPage() {
   const tick = useRefresh();
   const navigate = useNavigate();
   const [o, setO] = useState<Overview | null>(null);
+  const platform = usePlatform(tick);
   const [hostMessage, setHostMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -17,6 +19,7 @@ export function OverviewPage() {
   }, [tick]);
 
   if (!o) return null;
+  const focus = platform.os === "linux" ? describeFocusSource(platform) : null;
   const used = Math.round(o.budget.usedMinutes);
   const linked = o.extensions.filter((e) => e.compatible);
   const mismatched = o.extensions.filter((e) => !e.compatible);
@@ -54,18 +57,35 @@ export function OverviewPage() {
         </div>
       </section>
 
+      {focus && (
+        <section className="card">
+          <h2>Theo dõi chương trình</h2>
+          <p>
+            <span className={`dot ${focus.ok ? "on" : ""}`} />
+            {focus.text}
+          </p>
+          {!focus.ok && (
+            <div>
+              <button className="btn-link" onClick={() => navigate("/guide")}>
+                Cách bật theo dõi chương trình
+              </button>
+            </div>
+          )}
+        </section>
+      )}
+
       <section className="card">
-        <h2>Extension Edge</h2>
+        <h2>Extension trình duyệt</h2>
         {linked.length > 0 ? (
           <p>
             <span className="dot on" />
-            Đã nối {linked.length} profile Edge (extension {linked[0].extVersion ?? "?"}). Trang web dùng chung bộ đếm với
+            Đã nối {linked.length} profile trình duyệt (extension {linked[0].extVersion ?? "?"}). Trang web dùng chung bộ đếm với
             máy tính.
           </p>
         ) : (
           <p>
             <span className="dot" />
-            Chưa có extension nào nối với agent. Mở Edge có cài extension DopaDam để nối.
+            Chưa có extension nào nối với agent. Mở trình duyệt có cài extension DopaDam để nối.
           </p>
         )}
         {mismatched.length > 0 && (
@@ -76,12 +96,12 @@ export function OverviewPage() {
         )}
         {!o.hostRegistered && (
           <div className="row">
-            <span className="muted">Chưa đăng ký cầu nối với Edge.</span>
+            <span className="muted">Chưa đăng ký cầu nối với trình duyệt.</span>
             <button
               className="btn-secondary small-btn"
               onClick={() =>
                 void api.registerHost().then(
-                  () => setHostMessage("Đã đăng ký. Khởi động lại Edge để extension nối vào."),
+                  () => setHostMessage("Đã đăng ký. Khởi động lại trình duyệt để extension nối vào."),
                   (e) => setHostMessage(String(e)),
                 )
               }
@@ -99,7 +119,7 @@ export function OverviewPage() {
       </section>
 
       {!o.autostart && (
-        <p className="notice">DopaDam đang không tự chạy cùng Windows. Bật lại trong Cài đặt để máy tính luôn được bảo vệ.</p>
+        <p className="notice">DopaDam đang không tự chạy khi đăng nhập máy tính. Bật lại trong Cài đặt để máy tính luôn được bảo vệ.</p>
       )}
       <p className="faint">DopaDam {o.version}</p>
     </div>

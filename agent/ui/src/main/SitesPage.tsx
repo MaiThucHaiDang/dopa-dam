@@ -28,7 +28,7 @@ export function SitesPage() {
     <div className="page">
       <h1>Trang web</h1>
       <p className="muted" style={{ margin: 0 }}>
-        Extension Edge chặn các trang này trước khi tải. Danh sách dùng chung với extension khi extension đã nối với agent.
+        Extension trình duyệt chặn các trang này trước khi tải. Danh sách dùng chung với extension khi extension đã nối với agent.
       </p>
       <ErrorBanner error={error} />
 

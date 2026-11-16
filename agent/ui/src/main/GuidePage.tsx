@@ -1,8 +1,14 @@
+import { usePlatform } from "./usePlatform";
+
 export function GuidePage() {
+  const linux = usePlatform().os === "linux";
   return (
     <div className="page">
       <h1>Hướng dẫn</h1>
 
+      {linux ? (
+        <LinuxInstall />
+      ) : (
       <section className="card">
         <h2>Cài extension cho Edge</h2>
         <ol className="steps">
@@ -25,6 +31,7 @@ export function GuidePage() {
           (Chrome, Cốc Cốc…) không có extension: gán tag Giải trí cho chúng ở mục Chương trình để không lách qua được.
         </p>
       </section>
+      )}
 
       <section className="card">
         <h2>DopaDam hoạt động thế nào</h2>
@@ -63,18 +70,90 @@ export function GuidePage() {
         <p className="muted">
           Biểu đồ "Số giây trung bình đến lúc bấm Thoát" là chỉ số chính: con số giảm dần nghĩa là bạn dừng lại nhanh hơn, ít
           giằng co hơn. Biểu đồ lần bị chặn cho thấy tỉ lệ Thoát so với Vào; biểu đồ thời gian theo tag có đường gạch là ngân
-          sách giải trí mỗi ngày. Số liệu gộp cả máy tính, Edge và điện thoại (khi đã đăng nhập).
+          sách giải trí mỗi ngày. Số liệu gộp cả máy tính, trình duyệt và điện thoại (khi đã đăng nhập).
         </p>
       </section>
 
       <section className="card">
         <h2>Khi có trục trặc</h2>
         <ul className="steps">
-          <li>Extension không nối: ở Tổng quan bấm "Đăng ký lại" rồi khởi động lại Edge.</li>
-          <li>Không thấy biểu tượng DopaDam ở khay hệ thống: mở lại DopaDam từ menu Start.</li>
-          <li>Windows báo SmartScreen khi cài: chọn "More info" → "Run anyway" (bản tự build chưa được ký số).</li>
+          <li>Extension không nối: ở Tổng quan bấm "Đăng ký lại" rồi khởi động lại trình duyệt.</li>
+          {linux ? (
+            <>
+              <li>
+                Không thấy biểu tượng DopaDam ở khay hệ thống: mở lại DopaDam từ menu ứng dụng. GNOME cần tiện ích AppIndicator
+                để hiện khay.
+              </li>
+              <li>
+                Tổng quan báo chưa nối với GNOME Shell: chạy <code>gnome-extensions info dopadam@dang</code> để xem trạng thái,
+                và nhớ đăng xuất rồi đăng nhập lại sau khi cài.
+              </li>
+            </>
+          ) : (
+            <>
+              <li>Không thấy biểu tượng DopaDam ở khay hệ thống: mở lại DopaDam từ menu Start.</li>
+              <li>Windows báo SmartScreen khi cài: chọn "More info" → "Run anyway" (bản tự build chưa được ký số).</li>
+            </>
+          )}
         </ul>
       </section>
     </div>
+  );
+}
+
+function LinuxInstall() {
+  return (
+    <>
+      <section className="card">
+        <h2>Cho DopaDam thấy chương trình đang mở (GNOME)</h2>
+        <p className="muted">
+          Trên GNOME dùng Wayland, một ứng dụng thường không biết cửa sổ nào đang ở phía trước, không thu nhỏ được cửa sổ
+          khác và không tự đặt cảnh báo lên trên. Tiện ích GNOME Shell của DopaDam làm ba việc đó thay cho agent. Nó không bao
+          giờ gửi tiêu đề cửa sổ.
+        </p>
+        <ol className="steps">
+          <li>
+            Trong thư mục <code>linux/gnome-shell-extension</code> chạy <code>./install.sh</code> (không cần sudo).
+          </li>
+          <li>Đăng xuất rồi đăng nhập lại. Trên Wayland, GNOME Shell chỉ nạp tiện ích mới khi đăng nhập.</li>
+          <li>
+            Chạy <code>gnome-extensions enable dopadam@dang</code>. Trang Tổng quan sẽ báo đã nối với GNOME Shell.
+          </li>
+        </ol>
+        <p className="muted">
+          Phiên X11 không cần tiện ích: agent tự theo dõi cửa sổ qua X11. Nếu cả hai đều không có (ví dụ Wayland với KDE, Sway
+          hay Hyprland), DopaDam vẫn chạy khay hệ thống, cài đặt, thống kê, chế độ Học, đồng bộ và cầu nối trình duyệt, nhưng
+          không cảnh báo được các chương trình trên máy tính. Khi đó chỉ trang web (qua extension) được canh.
+        </p>
+        <p className="muted">
+          Chương trình viết bằng ngôn ngữ thông dịch (ví dụ game chạy bằng <code>python3</code>) mang tên file chung của trình
+          thông dịch, nên gán tag cho nó sẽ gán cho mọi chương trình cùng loại.
+        </p>
+      </section>
+
+      <section className="card">
+        <h2>Cài extension cho trình duyệt</h2>
+        <ol className="steps">
+          <li>
+            Build extension: trong thư mục <code>extension</code> chạy <code>npm install</code> rồi <code>npm run build</code>.
+          </li>
+          <li>
+            Mở <code>chrome://extensions</code> (hoặc <code>edge://extensions</code>, <code>brave://extensions</code>), bật{" "}
+            <strong>Chế độ nhà phát triển</strong>.
+          </li>
+          <li>
+            Bấm <strong>Load unpacked</strong> (Tải tiện ích đã giải nén) và chọn thư mục <code>extension/dist</code>.
+          </li>
+          <li>Trong thẻ DopaDam, bật cho phép chạy ở chế độ ẩn danh để cửa sổ ẩn danh cũng được bảo vệ.</li>
+          <li>Khởi động lại trình duyệt. Trang Tổng quan sẽ báo "Đã nối" khi extension tìm thấy agent.</li>
+        </ol>
+        <p className="muted">
+          Hỗ trợ Edge, Chrome, Chromium và Brave khi thư mục cấu hình của chúng có trong <code>~/.config</code>. Trình duyệt
+          cài bằng snap không khởi động được cầu nối bên ngoài snap, nên extension ở đó chạy riêng, không dùng chung bộ đếm
+          với agent; hãy dùng bản không đóng gói snap, hoặc gán tag Giải trí cho trình duyệt đó ở mục Chương trình. Dùng
+          nhiều profile thì cài extension ở từng profile.
+        </p>
+      </section>
+    </>
   );
 }

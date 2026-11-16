@@ -92,7 +92,7 @@ export function AppsPage() {
             });
           }}
         >
-          {scanning ? "Đang quét…" : "Quét lại menu Start"}
+          {scanning ? "Đang quét…" : "Quét lại danh sách chương trình"}
         </button>
       </div>
       {apps === null ? (

@@ -117,7 +117,7 @@ export function SettingsPage() {
               )
             }
           >
-            {overview.autostart ? "Tắt tự chạy cùng Windows" : "Bật tự chạy cùng Windows"}
+            {overview.autostart ? "Tắt tự chạy khi đăng nhập máy tính" : "Bật tự chạy khi đăng nhập máy tính"}
           </button>
           <button className="btn-quiet" onClick={() => void submit("Xóa toàn bộ nhật ký chặn và thời gian dùng.", (c) => api.clearLog(c))}>
             Xóa nhật ký
