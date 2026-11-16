@@ -1,0 +1,7 @@
+{
+  "uuid": "dopadam@dang",
+  "name": "DopaDam",
+  "description": "Giúp DopaDam Agent biết cửa sổ đang ở phía trước, thu nhỏ cửa sổ và đặt màn hình cảnh báo lên trên trên GNOME Wayland. Không bao giờ gửi tiêu đề cửa sổ.",
+  "shell-version": ["45", "46", "47", "48", "49", "50"],
+  "version": 1
+}
