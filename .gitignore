@@ -40,3 +40,4 @@ test-results/
 
 # Local build tools and caches (JDK, Android SDK, cross compiler, build output)
 /.toolchain/
+__pycache__/

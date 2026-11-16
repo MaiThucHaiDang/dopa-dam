@@ -31,8 +31,7 @@ export default class DopaDamExtension extends Extension {
         this._displaySignals = [];
         this._pendingRaise = [];
         this._deduper = new P.FocusDeduper();
-        this._decoder = new TextDecoder('utf-8');
-        this._lines = new P.LineBuffer();
+        this._reader = new P.Utf8LineReader();
 
         this._safe(() => {
             this._tracker = Shell.WindowTracker.get_default();
@@ -63,8 +62,7 @@ export default class DopaDamExtension extends Extension {
         this._closeConnection();
         this._tracker = null;
         this._deduper = null;
-        this._lines = null;
-        this._decoder = null;
+        this._reader = null;
     }
 
     // Run fn and swallow any exception: nothing may escape into the Shell.
@@ -142,8 +140,7 @@ export default class DopaDamExtension extends Extension {
         this._output = conn.get_output_stream();
         this._writeQueue = [];
         this._writing = false;
-        this._lines = new P.LineBuffer();
-        this._decoder = new TextDecoder('utf-8');
+        this._reader = new P.Utf8LineReader();
         this._deduper.reset();
         this._setState('connected');
 
@@ -171,8 +168,7 @@ export default class DopaDamExtension extends Extension {
                 this._onDisconnected('closed by agent');
                 return;
             }
-            const text = this._decoder.decode(bytes.toArray(), {stream: true});
-            for (const line of this._lines.push(text))
+            for (const line of this._reader.push(bytes.toArray()))
                 this._safe(() => this._handleLine(line));
             this._readMore(cancellable, gen);
         }));

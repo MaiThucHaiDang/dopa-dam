@@ -80,7 +80,44 @@ export class LineBuffer {
     }
 }
 
-const isInt = v => typeof v === 'number' && Number.isSafeInteger(v);
+// Splits a stream of UTF-8 bytes into lines. GJS's TextDecoder has no {stream: true}, so the
+// bytes are cut after the last newline byte (never part of a multi-byte sequence) and only whole
+// lines are decoded; the tail waits for the next chunk. A tail longer than maxLen is dropped up
+// to the next newline (to bound memory).
+export class Utf8LineReader {
+    constructor(maxLen = MAX_LINE_BYTES) {
+        this._max = maxLen;
+        this._lines = new LineBuffer(maxLen);
+        this._decoder = new TextDecoder('utf-8');
+        this._rest = new Uint8Array(0);
+        this._skipping = false;
+    }
+    push(bytes) {
+        let data = bytes;
+        if (this._rest.length > 0) {
+            data = new Uint8Array(this._rest.length + bytes.length);
+            data.set(this._rest);
+            data.set(bytes, this._rest.length);
+        }
+        this._rest = new Uint8Array(0);
+        if (this._skipping) {
+            const nl = data.indexOf(10);
+            if (nl === -1)
+                return [];
+            this._skipping = false;
+            data = data.subarray(nl + 1);
+        }
+        const cut = data.lastIndexOf(10);
+        const tail = data.subarray(cut + 1);
+        if (tail.length > this._max)
+            this._skipping = true;
+        else
+            this._rest = tail.slice();
+        return cut === -1 ? [] : this._lines.push(this._decoder.decode(data.subarray(0, cut + 1)));
+    }
+}
+
+const isInt = v =>typeof v === 'number' && Number.isSafeInteger(v);
 
 // Parse and validate one incoming line. Returns a command object or null
 // (malformed JSON, unknown type, bad fields).
