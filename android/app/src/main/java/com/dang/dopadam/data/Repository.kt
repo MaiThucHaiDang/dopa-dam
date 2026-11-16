@@ -10,6 +10,7 @@ import com.dang.dopadam.core.StudyStatus
 import com.dang.dopadam.core.Tag
 import com.dang.dopadam.core.budgetStatus
 import com.dang.dopadam.core.dayKey
+import com.dang.dopadam.core.takeCodePoints
 import com.dang.dopadam.core.activeRuleOccurrences
 import com.dang.dopadam.core.localTzOffsetMinutes
 import com.dang.dopadam.core.normalizeStudyRule
@@ -35,6 +36,12 @@ const val KIND_APP = "app"
 /** Long enough for the four-week statistics. */
 const val RETENTION_DAYS = 30
 
+/** A warning nobody decided in this long is closed as Thoát (so it can be synced). Same as the agent. */
+const val ABANDONED_AFTER_MS = 12 * 60 * 60_000L
+
+/** Undecided events shown before this instant count as abandoned. */
+fun abandonedBefore(now: Long) = now - ABANDONED_AFTER_MS
+
 fun ruleId(kind: String, pattern: String) = "$kind:$pattern"
 
 data class DayStat(
@@ -44,6 +51,8 @@ data class DayStat(
     val alternative: Int = 0,
     val exitSecondsSum: Double = 0.0,
     val exitCount: Int = 0,
+    /** Interceptions shown while a study session was active (decided or not). */
+    val studyWarnings: Int = 0,
     val minutes: Map<String, Double> = emptyMap(),
 )
 
@@ -167,7 +176,7 @@ class Repository(val db: AppDatabase, val prefs: Prefs) {
         val index = out.withIndex().associate { (i, d) -> d.day to i }
         for (e in db.events().since(now - (days + 1) * DAY_MS)) {
             val i = index[dayKey(e.shownAt, tz)] ?: continue
-            val d = out[i]
+            val d = out[i].let { if (e.studyLabel != null) it.copy(studyWarnings = it.studyWarnings + 1) else it }
             out[i] = when (e.decision) {
                 "enter" -> d.copy(enter = d.enter + 1)
                 "alternative" -> d.copy(alternative = d.alternative + 1)
@@ -248,7 +257,7 @@ class Repository(val db: AppDatabase, val prefs: Prefs) {
     /** A manual study session from now (FR09). Starting one while studying only adds time. */
     suspend fun startStudy(minutes: Int, label: String?, now: Long): ErrorCode? = mutex.withLock {
         if (minutes !in 5..480) return@withLock ErrorCode.INVALID
-        val clean = label?.trim()?.take(STUDY_LABEL_MAX)?.ifEmpty { null }
+        val clean = label?.trim()?.takeCodePoints(STUDY_LABEL_MAX)?.ifEmpty { null }
         db.study().upsertSession(
             StudySessionEntity(UUID.randomUUID().toString(), "manual", now, now + minutes * MINUTE_MS, clean, null, now),
         )
@@ -289,11 +298,21 @@ class Repository(val db: AppDatabase, val prefs: Prefs) {
         null
     }
 
-    suspend fun clearLog(confirmed: Boolean): ErrorCode? {
+    /**
+     * The user's "clear log". Wiping events and usage lowers the friction level, so it is locked during
+     * study (the extension and the agent do the same). Internal wipes go through [wipeLog].
+     */
+    suspend fun clearLog(confirmed: Boolean, now: Long): ErrorCode? {
+        if (studyStatus(now).active) return ErrorCode.STUDY_LOCKED
         if (!confirmed) return ErrorCode.NEEDS_CONFIRM
+        wipeLog()
+        return null
+    }
+
+    /** Unconditional wipe for internal paths (the account's server data was just deleted). */
+    suspend fun wipeLog() {
         db.events().deleteAll()
         db.usage().deleteAll()
-        return null
     }
 
     /** On first run, tag well-known entertainment apps and the phone's games so protection starts at once. */
@@ -311,8 +330,9 @@ class Repository(val db: AppDatabase, val prefs: Prefs) {
         prefs.defaultsApplied = true
     }
 
-    suspend fun prune(now: Long) {
-        db.events().closeAbandoned(before = now - 10 * 60_000L, at = now)
+    /** `shownEventId` is the warning on screen right now: it stays open however old it is. */
+    suspend fun prune(now: Long, shownEventId: String? = null) {
+        db.events().closeAbandoned(before = abandonedBefore(now), at = now, keep = shownEventId.orEmpty())
         db.events().deleteBefore(now - RETENTION_DAYS * DAY_MS)
         db.usage().deleteBefore(dayKey(now - RETENTION_DAYS * DAY_MS, localTzOffsetMinutes(now)))
         for (w in db.allowWindows().all()) if (w.expiresAt < now - DAY_MS) db.allowWindows().delete(w.obj)

@@ -44,6 +44,9 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.dang.dopadam.DopaDamApp
 import com.dang.dopadam.data.DayStat
+import com.dang.dopadam.logic.WeeklyProgress
+import com.dang.dopadam.logic.progressRows
+import com.dang.dopadam.logic.weeklyProgress
 import com.dang.dopadam.ui.theme.Tokens
 import kotlin.math.floor
 import kotlin.math.log10
@@ -101,6 +104,7 @@ fun StatsScreen() {
     ) {
         Text("Thống kê", style = MaterialTheme.typography.headlineSmall)
         Muted("Gộp mọi thiết bị đã đồng bộ. Mục tiêu: tỉ lệ Thoát tăng dần, số giây đến lúc Thoát giảm dần.")
+        if (all.isNotEmpty()) ProgressCard(weeklyProgress(all, all.last().day))
         Row(horizontalArrangement = Arrangement.spacedBy(Tokens.SpaceSm)) {
             FilterChip(selected = !weeks, onClick = { weeks = false }, label = { Text("14 ngày") })
             FilterChip(selected = weeks, onClick = { weeks = true }, label = { Text("4 tuần") })
@@ -139,6 +143,21 @@ fun StatsScreen() {
             unit = "phút",
             reference = if (!weeks && budget > 0) budget.toDouble() to "Ngân sách $budget phút (Giải trí + Game)" else null,
         )
+    }
+}
+
+/** "Tiến bộ tuần này": the last 7 days against the 7 before (rules in logic/Progress.kt). */
+@Composable
+private fun ProgressCard(p: WeeklyProgress) {
+    SectionCard("Tiến bộ tuần này") {
+        Muted("7 ngày gần nhất so với 7 ngày trước đó.")
+        for (row in progressRows(p)) {
+            Column {
+                Text(row.label, style = MaterialTheme.typography.titleSmall)
+                Text("Tuần này ${row.now} · Tuần trước ${row.before}")
+                Muted(row.text)
+            }
+        }
     }
 }
 

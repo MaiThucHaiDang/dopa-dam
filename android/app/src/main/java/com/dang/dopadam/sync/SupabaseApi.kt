@@ -23,7 +23,8 @@ sealed class SyncException(message: String) : Exception(message) {
 /** The REST calls the sync engine needs (an interface so the engine can be tested without a server). */
 interface RestApi {
     fun upsert(table: String, rows: List<JSONObject>, ignoreDuplicates: Boolean, token: String)
-    fun pull(table: String, since: String?, token: String, limit: Int): List<JSONObject>
+    /** One page: rows with `server_updated_at >= since`, oldest first (ties by id, so `offset` paging is stable), skipping `offset` rows. */
+    fun pull(table: String, since: String?, offset: Int, token: String, limit: Int): List<JSONObject>
 }
 
 /** Turns GoTrue's English error messages into what the user sees. */
@@ -143,9 +144,10 @@ class SupabaseApi(private val baseUrl: String, private val anonKey: String) : Re
         rest("$table?on_conflict=user_id,id", "POST", token, JSONArray(rows).toString(), "resolution=$resolution,return=minimal") { }
     }
 
-    override fun pull(table: String, since: String?, token: String, limit: Int): List<JSONObject> {
-        val filter = since?.let { "&server_updated_at=gt.${URLEncoder.encode(it, "UTF-8")}" } ?: ""
-        return rest("$table?select=*&order=server_updated_at.asc&limit=$limit$filter", "GET", token, null, null) { text ->
+    override fun pull(table: String, since: String?, offset: Int, token: String, limit: Int): List<JSONObject> {
+        val filter = since?.let { "&server_updated_at=gte.${URLEncoder.encode(it, "UTF-8")}" } ?: ""
+        val skip = if (offset > 0) "&offset=$offset" else ""
+        return rest("$table?select=*&order=server_updated_at.asc,id.asc&limit=$limit$filter$skip", "GET", token, null, null) { text ->
             val arr = JSONArray(text)
             (0 until arr.length()).map { arr.getJSONObject(it) }
         }

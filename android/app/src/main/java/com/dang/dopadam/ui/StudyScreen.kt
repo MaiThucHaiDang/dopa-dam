@@ -33,6 +33,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dang.dopadam.core.MANUAL_STUDY_MINUTES
 import com.dang.dopadam.core.STUDY_LABEL_MAX
+import com.dang.dopadam.core.takeCodePoints
 import com.dang.dopadam.core.StudyRule
 import com.dang.dopadam.core.StudySource
 import com.dang.dopadam.core.formatStudyDays
@@ -117,7 +118,7 @@ fun StudyScreen(vm: MainViewModel) {
             } else {
                 OutlinedTextField(
                     value = label,
-                    onValueChange = { label = it.take(STUDY_LABEL_MAX) },
+                    onValueChange = { label = it.takeCodePoints(STUDY_LABEL_MAX) },
                     label = { Text("Học gì? (không bắt buộc)") },
                     placeholder = { Text("vd: Ôn Hệ điều hành") },
                     singleLine = true,
@@ -172,7 +173,7 @@ fun StudyScreen(vm: MainViewModel) {
             }
             OutlinedTextField(
                 value = ruleLabel,
-                onValueChange = { ruleLabel = it.take(STUDY_LABEL_MAX) },
+                onValueChange = { ruleLabel = it.takeCodePoints(STUDY_LABEL_MAX) },
                 label = { Text("Nhãn (không bắt buộc)") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),

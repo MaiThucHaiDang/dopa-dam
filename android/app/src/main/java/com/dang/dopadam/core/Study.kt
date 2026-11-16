@@ -144,6 +144,14 @@ fun studyRuleChangeWeakens(old: StudyRule?, new: StudyRule?, now: Long, tzOffset
 }
 
 const val STUDY_LABEL_MAX = 60
+
+/** The first `n` Unicode code points: unlike String.take (UTF-16 units) it never cuts an emoji in half. */
+fun String.takeCodePoints(n: Int): String {
+    if (n <= 0) return ""
+    if (codePointCount(0, length) <= n) return this
+    return substring(0, offsetByCodePoints(0, n))
+}
+
 private val DATE_REGEX = Regex("""^\d{4}-\d{2}-\d{2}$""")
 val MANUAL_STUDY_MINUTES = listOf(25, 50, 90)
 
@@ -154,7 +162,7 @@ fun normalizeStudyRule(rule: StudyRule): StudyRule? {
     val end = parseHm(rule.end) ?: return null
     if (days.isEmpty() || start == end) return null
     fun hm(m: Int) = "${(m / 60).toString().padStart(2, '0')}:${(m % 60).toString().padStart(2, '0')}"
-    val label = rule.label.orEmpty().trim().take(STUDY_LABEL_MAX).ifEmpty { null }
+    val label = rule.label.orEmpty().trim().takeCodePoints(STUDY_LABEL_MAX).ifEmpty { null }
     val exceptions = rule.exceptions.filter { DATE_REGEX.matches(it) }.distinct().sorted()
     return StudyRule(rule.id, days, hm(start), hm(end), label, exceptions)
 }

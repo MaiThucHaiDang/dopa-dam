@@ -172,7 +172,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun clearLog() = submit("Xóa toàn bộ nhật ký chặn và thời gian dùng trên điện thoại.") { confirmed ->
-        repo.clearLog(confirmed)
+        repo.clearLog(confirmed, System.currentTimeMillis())
     }
 
     /** Deletes the account's data on the server and the log here, then signs out (after the confirmation). */

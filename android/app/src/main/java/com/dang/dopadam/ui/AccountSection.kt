@@ -39,7 +39,7 @@ import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingException
 import kotlinx.coroutines.launch
 
-private val PLATFORM = mapOf("android" to "Điện thoại Android", "windows" to "Máy tính Windows", "extension" to "Extension")
+private val PLATFORM = mapOf("android" to "Điện thoại Android", "windows" to "Máy tính Windows", "linux" to "Máy tính Linux", "extension" to "Extension")
 
 private fun ago(at: Long): String {
     val minutes = (System.currentTimeMillis() - at) / 60_000

@@ -99,11 +99,16 @@ fun checkAppDelay(
     }
 }
 
+/** One to four allow-window lengths in minutes, each from 1 to `max` (same rule as the agent). */
+private fun validAllowOptions(options: List<Int>, max: Int) = options.size in 1..4 && options.all { it in 1..max }
+
 fun checkFriction(old: Settings, new: Settings, confirmed: Boolean, studyActive: Boolean): ErrorCode? {
     val valid = new.lockSeconds.size == 4 &&
         new.lockSeconds.all { it in 0..300 } &&
         new.budgetMinutes in 0..1440 &&
-        new.tagDelays.values.all { it in 0..120 }
+        new.tagDelays.values.all { it in 0..120 } &&
+        validAllowOptions(new.allowOptionsNormal, 120) &&
+        validAllowOptions(new.allowOptionsRestricted, 10)
     if (!valid) return ErrorCode.INVALID
     if (old == new) return null
     if (studyActive) return ErrorCode.STUDY_LOCKED
@@ -112,7 +117,11 @@ fun checkFriction(old: Settings, new: Settings, confirmed: Boolean, studyActive:
         (old.tagDelays.keys + new.tagDelays.keys).any {
             numberChangeWeakens(NumberField.DELAY_SECONDS, old.tagDelays[it] ?: 0, new.tagDelays[it] ?: 0)
         }
-    return if (weakens && !confirmed) ErrorCode.NEEDS_CONFIRM else null
+    // A longer allow window is the weaker setting.
+    fun longest(v: List<Int>) = v.maxOrNull() ?: 0
+    val optionsWeaken = longest(new.allowOptionsNormal) > longest(old.allowOptionsNormal) ||
+        longest(new.allowOptionsRestricted) > longest(old.allowOptionsRestricted)
+    return if ((weakens || optionsWeaken) && !confirmed) ErrorCode.NEEDS_CONFIRM else null
 }
 
 /**

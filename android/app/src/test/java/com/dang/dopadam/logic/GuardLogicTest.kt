@@ -95,6 +95,33 @@ class GuardLogicTest {
     }
 
     @Test
+    fun allowOptionsAreValidatedAndRaisingTheLongestNeedsConfirmation() {
+        fun with(normal: List<Int>, restricted: List<Int>) = s.copy(allowOptionsNormal = normal, allowOptionsRestricted = restricted)
+        for (bad in listOf(
+            with(listOf(600), listOf(5)),
+            with(listOf(0, 5), listOf(5)),
+            with(listOf(1, 2, 3, 4, 5), listOf(5)),
+            with(listOf(5), listOf(11)),
+            with(listOf(5), emptyList()),
+            with(emptyList(), listOf(5)),
+            with(listOf(-5), listOf(5)),
+        )) {
+            assertEquals(ErrorCode.INVALID, checkFriction(s, bad, true, false))
+        }
+        // The legal extremes: four options, 120 and 10 minutes.
+        assertNull(checkFriction(s, with(listOf(1, 2, 3, 120), listOf(10)), true, false))
+        val longer = with(listOf(5, 15, 60), listOf(5, 10))
+        assertEquals(ErrorCode.NEEDS_CONFIRM, checkFriction(s, longer, false, false))
+        assertNull(checkFriction(s, longer, true, false))
+        assertEquals(ErrorCode.STUDY_LOCKED, checkFriction(s, longer, true, true))
+        // A longer restricted window weakens too; a shorter or reordered list does not.
+        val shortRestricted = s.copy(allowOptionsRestricted = listOf(5))
+        assertEquals(ErrorCode.NEEDS_CONFIRM, checkFriction(shortRestricted, s, false, false))
+        assertNull(checkFriction(s, with(listOf(5, 15), listOf(5)), false, false))
+        assertNull(checkFriction(s, with(listOf(30, 15, 5), listOf(10, 5)), false, false))
+    }
+
+    @Test
     fun protection() {
         assertEquals(ErrorCode.NEEDS_CONFIRM, checkProtection(true, false, false, false))
         assertNull(checkProtection(true, false, true, false))
@@ -109,6 +136,28 @@ class GuardLogicTest {
         assertEquals(Settings(), SettingsCodec.decode("not json"))
         assertEquals(Settings(), SettingsCodec.decode(null))
         assertEquals(Settings().lockSeconds, SettingsCodec.decode("""{"lockSeconds":[1,2]}""").lockSeconds)
+    }
+
+    @Test
+    fun oneBadSyncedValueDoesNotResetTheOtherSettings() {
+        // Same input as the agent: bad lock times and a bad delay are dropped, the budget stays.
+        val d = SettingsCodec.decode("""{"lockSeconds":[6,12,24,36.5],"tagDelays":{"game":"x"},"budgetMinutes":60}""")
+        assertEquals(Settings().lockSeconds, d.lockSeconds)
+        assertEquals(60, d.budgetMinutes)
+        assertEquals(emptyMap<String, Int>(), d.tagDelays)
+        assertEquals(Settings().allowOptionsNormal, d.allowOptionsNormal)
+        assertEquals(Settings().allowOptionsRestricted, d.allowOptionsRestricted)
+        // Good entries next to a bad one are kept.
+        val e = SettingsCodec.decode("""{"lockSeconds":[1,2,3,4],"allowOptionsNormal":[5,"x"],"tagDelays":{"game":40,"entertainment":"x"},"budgetMinutes":"90"}""")
+        assertEquals(listOf(1, 2, 3, 4), e.lockSeconds)
+        assertEquals(Settings().allowOptionsNormal, e.allowOptionsNormal)
+        assertEquals(mapOf("game" to 40), e.tagDelays)
+        assertEquals(Settings().budgetMinutes, e.budgetMinutes)
+        // A number written with a fraction is not a whole number, even when it is 6.0; null and nested values are bad.
+        assertEquals(Settings().lockSeconds, SettingsCodec.decode("""{"lockSeconds":[6.0,12,24,36]}""").lockSeconds)
+        assertEquals(Settings().lockSeconds, SettingsCodec.decode("""{"lockSeconds":[6,12,24,null]}""").lockSeconds)
+        assertEquals(Settings(), SettingsCodec.decode("""{"lockSeconds":"x","tagDelays":[1],"budgetMinutes":null}"""))
+        assertEquals(Settings(), SettingsCodec.decode("[1,2]"))
     }
 
     @Test

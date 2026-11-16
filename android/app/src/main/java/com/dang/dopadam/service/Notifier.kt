@@ -135,5 +135,19 @@ object Notifier {
             .build(),
     )
 
+    /** Accessibility is still switched on, but the system is not running our service (some phones kill it). */
+    fun guardNotRunning(context: Context) = post(
+        context,
+        ID_ACCESSIBILITY,
+        NotificationCompat.Builder(context, CHANNEL_ALERTS)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle("DopaDam đã ngừng chạy")
+            .setContentText("Trợ năng vẫn bật nhưng dịch vụ bảo vệ không hoạt động. Chạm để xem cách khởi động lại.")
+            .setContentIntent(openApp(context, MainActivity.ROUTE_GUIDE))
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .build(),
+    )
+
     fun cancelAccessibilityLost(context: Context) = NotificationManagerCompat.from(context).cancel(ID_ACCESSIBILITY)
 }

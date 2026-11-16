@@ -68,10 +68,7 @@ class SyncManager(context: Context, private val repo: Repository) {
     }
 
     private suspend fun start(newSession: Session) {
-        if (repo.prefs.getString("lastUserId") != newSession.stored.userId) {
-            store.resetForNewAccount()
-            repo.prefs.putString("lastUserId", newSession.stored.userId)
-        }
+        store.switchAccount(newSession.stored.userId)
         sessions.save(newSession.stored)
         session = newSession
         _state.update { it.copy(lastError = null) }
@@ -193,7 +190,7 @@ class SyncManager(context: Context, private val repo: Repository) {
         val api = api ?: return@withContext emptyList()
         try {
             val me = repo.deviceId
-            api.pull("devices", null, freshToken(false), 100).map {
+            api.pull("devices", null, 0, freshToken(false), 100).map {
                 DeviceRow(it.optString("platform"), it.optString("name"), it.optLong("last_seen"), it.optString("id") == me)
             }
         } catch (e: SyncException) {
@@ -206,7 +203,10 @@ class SyncManager(context: Context, private val repo: Repository) {
         val api = api ?: return@withContext "Chưa cấu hình server đồng bộ."
         try {
             api.rpc("delete_my_data", freshToken(false))
-            repo.clearLog(true)
+            // Internal wipe: not blocked by study mode. The server is empty now, so the next sign-in (even with
+            // the same account) must upload everything again.
+            repo.wipeLog()
+            store.resetSyncState()
             signOut()
             null
         } catch (e: SyncException) {

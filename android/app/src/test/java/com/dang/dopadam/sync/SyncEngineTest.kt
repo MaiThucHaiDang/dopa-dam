@@ -15,7 +15,8 @@ private class FakeServer : RestApi {
     val tables = mutableMapOf<String, MutableMap<String, JSONObject>>()
     var clock: Instant = Instant.parse("2026-10-12T00:00:00Z")
     var rejectToken: String? = null
-    val pulls = mutableListOf<Pair<String, String?>>()
+    /** Every pull as (table, since, offset). */
+    val pulls = mutableListOf<Triple<String, String?, Int>>()
 
     private fun stamp(): String {
         clock = clock.plusMillis(1)
@@ -33,13 +34,20 @@ private class FakeServer : RestApi {
         }
     }
 
-    override fun pull(table: String, since: String?, token: String, limit: Int): List<JSONObject> {
+    /** Stores a row with a chosen `server_updated_at`. */
+    fun put(table: String, row: JSONObject, serverUpdatedAt: String) {
+        tables.getOrPut(table) { linkedMapOf() }[row.getString("id")] = JSONObject(row.toString()).put("server_updated_at", serverUpdatedAt)
+    }
+
+    /** Like PostgREST: `server_updated_at >= since`, oldest first, ties by id, then offset and limit. */
+    override fun pull(table: String, since: String?, offset: Int, token: String, limit: Int): List<JSONObject> {
         if (token == rejectToken) throw SyncException.Unauthorized()
-        pulls += table to since
-        val after = since?.let { SyncEngine.parseTs(it) }
+        pulls += Triple(table, since, offset)
+        val from = since?.let { SyncEngine.parseTs(it) }
         return (tables[table]?.values ?: emptyList())
-            .filter { after == null || SyncEngine.parseTs(it.getString("server_updated_at"))!!.isAfter(after) }
-            .sortedBy { SyncEngine.parseTs(it.getString("server_updated_at")) }
+            .filter { from == null || !SyncEngine.parseTs(it.getString("server_updated_at"))!!.isBefore(from) }
+            .sortedWith(compareBy({ SyncEngine.parseTs(it.getString("server_updated_at")) }, { it.getString("id") }))
+            .drop(offset)
             .take(limit)
             .map { JSONObject(it.toString()) }
     }
@@ -69,10 +77,12 @@ private class MemoryStore(private val device: String) : SyncStore {
     override suspend fun applyRemote(table: String, row: JSONObject, myDevice: String): Boolean {
         val id = row.getString("id")
         val local = get(table, id)
+        val state = local?.let { LocalState(it.optLong("updated_at"), id in dirty[table].orEmpty()) }
         val accept = when (table) {
             "intercept_events" -> local == null
-            "usage_daily" -> row.getString("device_id") != myDevice && (local == null || row.getLong("updated_at") > local.getLong("updated_at"))
-            else -> local == null || row.getLong("updated_at") > local.getLong("updated_at")
+            "usage_daily" -> row.getString("device_id") != myDevice && remoteWins(row.getLong("updated_at"), state)
+            // Re-reading a row that is already here changes nothing.
+            else -> remoteWins(row.getLong("updated_at"), state) && (local == null || !sameJson(local.toString(), row.toString()))
         }
         if (accept) rows.getOrPut(table) { linkedMapOf() }[id] = row
         return accept
@@ -200,9 +210,78 @@ class SyncEngineTest {
     fun timestampsRoundTrip() {
         val ts = "2026-10-12T03:04:05.123456+00:00"
         assertEquals("2026-10-12T03:04:05.123456Z", SyncEngine.formatTs(SyncEngine.parseTs(ts)!!))
+        assertEquals("2026-10-12T05:00:00.000000Z", SyncEngine.formatTs(SyncEngine.parseTs("2026-10-12T05:00:00Z")!!))
         assertNull(SyncEngine.parseTs("not a time"))
         assertEquals("Sai email hoặc mật khẩu.", friendlyAuthError("Invalid login credentials"))
         assertEquals("Email này đã có tài khoản. Hãy đăng nhập.", friendlyAuthError("User already registered"))
+    }
+
+    private fun serverWith(stamps: List<String>): FakeServer = FakeServer().also { s ->
+        stamps.forEachIndexed { n, ts -> s.put("tag_rules", rule("r%02d.exe".format(n), "game", 1000L + n), ts) }
+    }
+
+    private fun pullRules(store: MemoryStore, server: FakeServer, page: Int) =
+        runBlocking { SyncEngine.pullTable(store, server, "t", "tag_rules", "dev", page) }
+
+    @Test
+    fun aPageBoundaryInsideEqualStampsLosesNoRows() {
+        val (a, b, c) = listOf("2026-10-12T05:00:00.000001Z", "2026-10-12T05:00:00.000002Z", "2026-10-12T05:00:00.000003Z")
+        // Pages of 3: [a b b] ends inside the group of four b rows.
+        val server = serverWith(listOf(a, b, b, b, b, c))
+        val store = MemoryStore("dev")
+        val (pulled, changed) = pullRules(store, server, 3)
+        assertEquals(6, store.rows["tag_rules"]!!.size)
+        assertEquals(c, store.cursors["tag_rules"])
+        assertEquals(6, changed)
+        // [a b b] -> continue at b: [b b b] is one stamp, so offset 3 -> [c].
+        assertEquals(listOf(Triple("tag_rules", null, 0), Triple("tag_rules", b, 0), Triple("tag_rules", b, 3)), server.pulls)
+        assertEquals(8, pulled) // 3 + 3 + 2: the b rows at the boundary are read again
+    }
+
+    @Test
+    fun aWholePageOfEqualStampsIsPagedWithOffset() {
+        val t = "2026-10-12T05:00:00.123456Z"
+        val store = MemoryStore("dev")
+        val (pulled, changed) = pullRules(store, serverWith(List(7) { t }), 3)
+        assertEquals(7, store.rows["tag_rules"]!!.size)
+        assertEquals(7 to 7, pulled to changed)
+        assertEquals(t, store.cursors["tag_rules"])
+        // A group that is an exact multiple of the page ends with an empty page.
+        val store2 = MemoryStore("dev")
+        pullRules(store2, serverWith(List(6) { t }), 3)
+        assertEquals(6, store2.rows["tag_rules"]!!.size)
+    }
+
+    @Test
+    fun rereadingTheRowsAtTheCursorChangesNothingAndPushesNothing() {
+        // Hours apart, so the overlap before the cursor does not reach the older rows.
+        val server = serverWith(listOf("2026-10-12T01:00:00Z", "2026-10-12T03:00:00Z", "2026-10-12T05:00:00Z"))
+        val store = MemoryStore("dev")
+        pullRules(store, server, 10)
+        server.pulls.clear()
+        val (pulled, changed) = pullRules(store, server, 10)
+        assertEquals(1 to 0, pulled to changed) // only the row at the cursor is read again
+        assertEquals("2026-10-12T04:55:00.000000Z", server.pulls[0].second)
+        assertTrue(store.dirty["tag_rules"].orEmpty().isEmpty())
+        assertEquals("2026-10-12T05:00:00.000000Z", store.cursors["tag_rules"])
+    }
+
+    @Test
+    fun theRemoteRowWinsATieOnlyWhenTheLocalRowIsClean() {
+        assertTrue(remoteWins(5, null))
+        assertTrue(remoteWins(6, LocalState(5, dirty = true)))
+        assertFalse(remoteWins(4, LocalState(5, dirty = false)))
+        assertTrue(remoteWins(5, LocalState(5, dirty = false)))
+        // A dirty local row with an equal stamp stays and is pushed.
+        assertFalse(remoteWins(5, LocalState(5, dirty = true)))
+    }
+
+    @Test
+    fun jsonThatDiffersOnlyInKeyOrderIsTheSame() {
+        assertTrue(sameJson("""{"a":1,"b":[1,2],"c":{"x":1,"y":2}}""", """{"c":{"y":2,"x":1},"b":[1,2],"a":1}"""))
+        assertFalse(sameJson("""{"a":1}""", """{"a":2}"""))
+        assertFalse(sameJson("""{"b":[1,2]}""", """{"b":[2,1]}"""))
+        assertFalse(sameJson("not json", """{"a":1}"""))
     }
 
     /** Real HTTP against supabase/test/mock-server.mjs (the migration in PGlite); skipped unless it is running. */
@@ -239,9 +318,9 @@ class SyncEngineTest {
         assertEquals(0, SyncEngine.syncOnce(strangerStore, api, stranger.accessToken, info, now).pulled)
 
         api.rpc("delete_my_data", refreshed.accessToken)
-        assertEquals(0, api.pull("tag_rules", null, refreshed.accessToken, 10).size)
+        assertEquals(0, api.pull("tag_rules", null, 0, refreshed.accessToken, 10).size)
         try {
-            api.pull("tag_rules", null, "bad-token", 10)
+            api.pull("tag_rules", null, 0, "bad-token", 10)
             throw AssertionError("expected Unauthorized")
         } catch (e: SyncException.Unauthorized) {
             // expected

@@ -226,6 +226,7 @@ class GuardService : AccessibilityService() {
         overlay = ov
         overlayPkg = pkg
         overlayEventId = eventId
+        shownEventId = eventId
         ov.show()
         requestAudioFocus()
         scope.launch {
@@ -301,6 +302,7 @@ class GuardService : AccessibilityService() {
         overlay = null
         overlayPkg = null
         overlayEventId = null
+        shownEventId = null
         abandonAudioFocus()
     }
 
@@ -338,6 +340,11 @@ class GuardService : AccessibilityService() {
 
         @Volatile
         private var instance: WeakReference<GuardService>? = null
+
+        /** The warning on screen right now, so the periodic tidy-up never closes it (same process as the worker). */
+        @Volatile
+        var shownEventId: String? = null
+            private set
 
         /** True while the system has the service connected (it can still be enabled but killed). */
         val isRunning: Boolean get() = instance?.get() != null

@@ -7,20 +7,34 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.dang.dopadam.DopaDamApp
+import com.dang.dopadam.logic.GuardAlert
+import com.dang.dopadam.logic.guardWatch
 import java.util.concurrent.TimeUnit
 
-/** Every 15 minutes: warn when the Accessibility permission has been switched off (FR14), and tidy old data. */
+/** Every 15 minutes: warn when the guard has stopped (permission off, or enabled but not running; FR14), and tidy old data. */
 class PermissionWatchWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
         val app = applicationContext as DopaDamApp
-        if (app.repository.prefs.protectionEnabled && !Permissions.accessibilityEnabled(applicationContext)) {
-            Notifier.accessibilityLost(applicationContext)
+        val prefs = app.repository.prefs
+        val check = guardWatch(
+            protectionEnabled = prefs.protectionEnabled,
+            accessibilityEnabled = Permissions.accessibilityEnabled(applicationContext),
+            serviceRunning = GuardService.isRunning,
+            previousMissedChecks = prefs.getLong(MISSED_KEY).toInt(),
+        )
+        prefs.putLong(MISSED_KEY, check.missedChecks.toLong())
+        when (check.alert) {
+            GuardAlert.PERMISSION_LOST -> Notifier.accessibilityLost(applicationContext)
+            GuardAlert.NOT_RUNNING -> Notifier.guardNotRunning(applicationContext)
+            GuardAlert.NONE -> Unit
         }
-        app.repository.prune(System.currentTimeMillis())
+        app.repository.prune(System.currentTimeMillis(), GuardService.shownEventId)
         return Result.success()
     }
 
     companion object {
+        private const val MISSED_KEY = "guardMissedChecks"
+
         fun schedule(context: Context) {
             WorkManager.getInstance(context).enqueueUniquePeriodicWork(
                 "permission-watch",

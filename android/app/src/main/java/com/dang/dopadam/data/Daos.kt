@@ -68,21 +68,26 @@ interface EventDao {
     @Upsert
     suspend fun upsertAll(events: List<InterceptEventEntity>)
 
-    /** Undecided events are pushed only once they are decided (or a few minutes old). */
-    @Query("SELECT * FROM intercept_events WHERE dirty = 1 AND (decision IS NOT NULL OR shownAt < :undecidedBefore)")
-    suspend fun dirtyReady(undecidedBefore: Long): List<InterceptEventEntity>
+    /** Only decided events are pushed: the server's events are append only, so an undecided one could never be corrected. */
+    @Query("SELECT * FROM intercept_events WHERE dirty = 1 AND decision IS NOT NULL")
+    suspend fun dirtyDecided(): List<InterceptEventEntity>
 
     @Query("UPDATE intercept_events SET dirty = 0 WHERE id = :id AND decision IS :decision")
     suspend fun markClean(id: String, decision: String?)
 
-    @Query("UPDATE intercept_events SET decision = 'exit', decidedAt = :at, dirty = 1 WHERE decision IS NULL AND shownAt < :before")
-    suspend fun closeAbandoned(before: Long, at: Long)
+    /** `keep` is the warning on screen right now ("" for none): it stays open however old it is. */
+    @Query("UPDATE intercept_events SET decision = 'exit', decidedAt = :at, dirty = 1 WHERE decision IS NULL AND shownAt < :before AND id != :keep")
+    suspend fun closeAbandoned(before: Long, at: Long, keep: String)
 
     @Query("DELETE FROM intercept_events WHERE shownAt < :before")
     suspend fun deleteBefore(before: Long)
 
     @Query("DELETE FROM intercept_events")
     suspend fun deleteAll()
+
+    /** After switching accounts: events that came from other devices of the old account. */
+    @Query("DELETE FROM intercept_events WHERE deviceId != :deviceId")
+    suspend fun deleteOfOtherDevices(deviceId: String)
 }
 
 @Dao
@@ -116,6 +121,10 @@ interface UsageDao {
 
     @Query("DELETE FROM usage_daily")
     suspend fun deleteAll()
+
+    /** After switching accounts: usage that came from other devices of the old account. */
+    @Query("DELETE FROM usage_daily WHERE deviceId != :deviceId")
+    suspend fun deleteOfOtherDevices(deviceId: String)
 }
 
 @Dao
