@@ -69,8 +69,36 @@
   overflow-wrap: anywhere;
 }
 
+/* Fixed columns for tag and button, so the domain gets the rest and wraps inside it. */
+.domain-table {
+  table-layout: fixed;
+}
+
+.domain-table th:nth-child(2) {
+  width: 7.5rem;
+}
+
+.domain-table th:nth-child(3) {
+  width: 4.5rem;
+}
+
+.domain-table select {
+  max-width: 100%;
+}
+
+/* Wrap only at the <wbr> after dots; a single label stays whole unless it alone is wider than the cell. */
+.list td.domain-cell {
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+
 .list td:last-child {
   text-align: right;
+}
+
+/* The "Gỡ" button of the domain table stays on one line (the study table's actions must still wrap). */
+.list td.action-cell {
+  white-space: nowrap;
 }
 
 .plain-list {
@@ -145,4 +173,10 @@
   gap: var(--dd-space-xs);
   justify-content: flex-end;
   align-items: center;
+}
+
+/* Buttons beside a long link keep their label on one line. */
+.plain-list .small-btn {
+  flex: none;
+  white-space: nowrap;
 }

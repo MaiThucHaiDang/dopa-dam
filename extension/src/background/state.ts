@@ -37,6 +37,12 @@ export interface AllowWindow {
   headsUpSent: boolean;
 }
 
+/** A warning tab that went away; becomes a Thoát unless the page reconnects shortly (a reload). */
+export interface PendingClose {
+  eventId: string;
+  closedAt: number;
+}
+
 export interface State {
   schema: 1;
   profileId: string;
@@ -50,6 +56,7 @@ export interface State {
   usage: Record<string, Record<string, number>>;
   study: { manual: Session[]; rules: StudyRule[] };
   lastTickAt: number | null;
+  pendingCloses: PendingClose[];
 }
 
 export const DEFAULT_DOMAIN_RULES: DomainRule[] = [
@@ -86,6 +93,7 @@ export function initialState(profileId: string): State {
     usage: {},
     study: { manual: [], rules: [] },
     lastTickAt: null,
+    pendingCloses: [],
   };
 }
 
@@ -129,5 +137,8 @@ export function migrateState(raw: unknown, profileId: string): State {
       rules: Array.isArray(r.study?.rules) ? r.study.rules : [],
     },
     lastTickAt: typeof r.lastTickAt === "number" ? r.lastTickAt : null,
+    pendingCloses: Array.isArray(r.pendingCloses)
+      ? r.pendingCloses.filter((c) => c && typeof c.eventId === "string" && typeof c.closedAt === "number")
+      : [],
   };
 }

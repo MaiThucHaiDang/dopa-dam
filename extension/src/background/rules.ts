@@ -16,21 +16,45 @@ function escapeRegex(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-/** RE2 regexes (as used by declarativeNetRequest) matching the same URLs as isAllowedUrl. */
+/**
+ * Matches a query string whose FIRST parameter named `name` has the value `id`, like URLSearchParams.get.
+ * RE2 has no lookahead, so "an earlier parameter is not `name`" is spelled out: it is empty, or it diverges
+ * from `name` at some character (or ends early), or it continues `name` with a character other than "=".
+ * The match is followed by an optional rest of the query and an optional fragment.
+ */
+function firstParam(name: string, id: string): string {
+  const alts = [`[^#&${escapeRegex(name[0])}][^#&]*`, ""];
+  for (let k = 1; k < name.length; k++) {
+    alts.push(`${escapeRegex(name.slice(0, k))}([^#&${escapeRegex(name[k])}][^#&]*)?`);
+  }
+  alts.push(`${escapeRegex(name)}[^#&=][^#&]*`);
+  return `((${alts.join("|")})&)*${escapeRegex(name)}=${id}(&[^#]*)?(#.*)?$`;
+}
+
+/**
+ * Any `list` parameter with the value `id`. The first-parameter form (firstParam) is too big for Chromium's
+ * RE2 memory limit with a name this long ("memoryLimitExceeded"), so a repeated `list` is not matched here:
+ * such a URL is intercepted and the warning page's skip handles it (see the navigation fallback).
+ */
+function anyParam(name: string, id: string): string {
+  return `([^#]*&)?${escapeRegex(name)}=${id}(&[^#]*)?(#.*)?$`;
+}
+
+/** RE2 regexes (as used by declarativeNetRequest) matching the same URLs as isAllowedUrl. Fragments are accepted. */
 export function allowRegexes(entry: AllowEntry): string[] {
   switch (entry.kind) {
     case "video": {
       const id = escapeRegex(entry.id);
       return [
-        `^https?://([^/]*\\.)?youtube\\.com(:\\d+)?/watch\\?([^#]*&)?v=${id}(&.*)?$`,
-        `^https?://youtu\\.be(:\\d+)?/${id}([/?].*)?$`,
+        `^https?://([^/]*\\.)?youtube\\.com(:\\d+)?/watch\\?${firstParam("v", id)}`,
+        `^https?://youtu\\.be(:\\d+)?/${id}([/?#].*)?$`,
       ];
     }
     case "playlist": {
       const id = escapeRegex(entry.id);
       return [
-        `^https?://([^/]*\\.)?youtube\\.com(:\\d+)?/(watch|playlist)\\?([^#]*&)?list=${id}(&.*)?$`,
-        `^https?://youtu\\.be(:\\d+)?/[^?]*\\?([^#]*&)?list=${id}(&.*)?$`,
+        `^https?://([^/]*\\.)?youtube\\.com(:\\d+)?/(watch|playlist)\\?${anyParam("list", id)}`,
+        `^https?://youtu\\.be(:\\d+)?/[^?#]*\\?${anyParam("list", id)}`,
       ];
     }
     case "prefix": {
@@ -75,13 +99,23 @@ export function buildDnrRules(cfg: InterceptConfig, now: number, warningPageUrl:
     });
   }
 
+  // evaluateUrl grants a window only to hosts whose most specific rule is the window's own pattern, so a
+  // window on youtube.com must not cover m.youtube.com when that has a rule of its own.
   for (const window of cfg.allowWindows) {
     if (window.expiresAt <= now) continue;
+    if (!cfg.domainRules.some((r) => r.pattern === window.object)) continue;
+    const moreSpecific = cfg.domainRules
+      .map((r) => r.pattern)
+      .filter((p) => p !== window.object && hostMatches(p, window.object));
     rules.push({
       id: id++,
       priority: ALLOW_PRIORITY,
       action: { type: "allow" as chrome.declarativeNetRequest.RuleActionType },
-      condition: { requestDomains: [window.object], resourceTypes: mainFrame },
+      condition: {
+        requestDomains: [window.object],
+        ...(moreSpecific.length ? { excludedRequestDomains: moreSpecific } : {}),
+        resourceTypes: mainFrame,
+      },
     });
   }
 

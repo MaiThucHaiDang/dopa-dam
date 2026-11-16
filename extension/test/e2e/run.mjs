@@ -29,9 +29,15 @@ const SITE = `http://localhost:${PORT}`;
 
 const profile = mkdtempSync(join(tmpdir(), "dopadam-e2e-"));
 const context = await chromium.launchPersistentContext(profile, {
-  channel: "msedge",
+  channel: process.env.DOPADAM_E2E_CHANNEL ?? "msedge",
   headless: true,
-  args: [`--disable-extensions-except=${dist}`, `--load-extension=${dist}`, "--no-first-run"],
+  args: [
+    `--disable-extensions-except=${dist}`,
+    `--load-extension=${dist}`,
+    "--no-first-run",
+    // youtube.com hosts resolve to the local fake site, so YouTube rules can be exercised without a network.
+    "--host-resolver-rules=MAP youtube.com 127.0.0.1, MAP *.youtube.com 127.0.0.1, MAP blocked.test 127.0.0.1",
+  ],
 });
 
 let failures = 0;
@@ -98,6 +104,15 @@ try {
     await page.close();
   });
 
+  await test("a rule for a subdomain cannot lift blocking without confirmation", async () => {
+    const res = await send({ type: "options:setDomainRule", pattern: "m.youtube.com", tag: "work", confirmed: false });
+    assert.deepEqual(res, { ok: false, error: "needs-confirm" });
+    const page = await context.newPage();
+    await page.goto(`http://m.youtube.com:${PORT}/watch?v=sub`).catch(() => undefined);
+    await page.waitForURL((u) => u.href.startsWith(`${EXT}/warning.html`), { timeout: 10_000 });
+    await page.close();
+  });
+
   await test("Enter still exits after the countdown, even with focus moved", async () => {
     const res = await send({ type: "options:setFriction", lockSeconds: [1, 1, 1, 1], budgetMinutes: 90, confirmed: true });
     assert.deepEqual(res, { ok: true });
@@ -144,6 +159,43 @@ try {
     await page.locator("#spa").click();
     await page.waitForURL((u) => u.href.startsWith(`${EXT}/warning.html`), { timeout: 5000 });
     assert.ok(page.url().endsWith(`#http://127.0.0.1:${PORT}/feed`), page.url());
+    await page.close();
+  });
+
+  await test("an allowed YouTube link with a #fragment opens without looping", async () => {
+    const add = await send({ type: "options:addAllowUrl", text: "https://www.youtube.com/watch?v=A", confirmed: true });
+    assert.deepEqual(add, { ok: true });
+    const page = await context.newPage();
+    const url = `http://www.youtube.com:${PORT}/watch?v=A#t=5`;
+    await page.goto(url);
+    await page.waitForTimeout(1500);
+    assert.equal(page.url(), url);
+    assert.match(await page.locator("#content").textContent(), /Nội dung giải trí \/watch\?v=A/);
+    // Only the first v counts: another video first is still blocked.
+    await page.goto(`http://www.youtube.com:${PORT}/watch?v=B&v=A`).catch(() => undefined);
+    await page.waitForURL((u) => u.href.startsWith(`${EXT}/warning.html`), { timeout: 10_000 });
+    await page.close();
+  });
+
+  await test("an allowed playlist does not stop later rule updates", async () => {
+    const add = await send({ type: "options:addAllowUrl", text: "https://www.youtube.com/playlist?list=PL1", confirmed: true });
+    assert.deepEqual(add, { ok: true });
+    const sw = context.serviceWorkers()[0];
+    const before = await sw.evaluate(async () => (await chrome.declarativeNetRequest.getDynamicRules()).length);
+    assert.deepEqual(await send({ type: "options:setDomainRule", pattern: "blocked.test", tag: "entertainment", confirmed: false }), {
+      ok: true,
+    });
+    const after = await sw.evaluate(async () => (await chrome.declarativeNetRequest.getDynamicRules()).length);
+    assert.ok(after > before, `dynamic rules ${before} -> ${after}`);
+    const blocked = await context.newPage();
+    await blocked.goto(`http://blocked.test:${PORT}/x`).catch(() => undefined);
+    await blocked.waitForURL((u) => u.href.startsWith(`${EXT}/warning.html`), { timeout: 10_000 });
+    await blocked.close();
+    const page = await context.newPage();
+    const url = `http://www.youtube.com:${PORT}/playlist?list=PL1`;
+    await page.goto(url);
+    await page.waitForTimeout(1500);
+    assert.equal(page.url(), url);
     await page.close();
   });
 

@@ -43,9 +43,10 @@ function setView(next: View): void {
   if (next === "choice") exitButton.focus();
 }
 
-function showMessage(title: string, body = ""): void {
+function showMessage(title: string, body = "", canReopen = false): void {
   byId("message-title").textContent = title;
   byId("message-body").textContent = body;
+  show(byId("reopen"), canReopen);
   setView("message");
 }
 
@@ -77,7 +78,7 @@ async function decide(decision: Decision, extra: Record<string, unknown> = {}): 
     }
     if (res.action === "navigate") location.replace(res.url);
     else if (res.action === "timer") startTimer(res.endsAt, chosenActivity);
-    else showMessage("Đã thoát", "Làm tốt lắm. Có thể đóng tab này.");
+    else showMessage("Đã thoát", "Làm tốt lắm. Có thể đóng tab này.", true);
   } finally {
     busy = false;
   }
@@ -205,10 +206,33 @@ enterButton.addEventListener("click", (e) => {
   if (!unlocked || !isPointerClick(e)) return;
   show(allowOptions, true);
 });
+// A fresh interception: the target goes through the blocking rules again, so a new warning (and event) with
+// its own countdown appears, or the page loads directly if it is no longer blocked.
+byId("reopen").addEventListener("click", () => location.assign(target));
 byId("close-tab").addEventListener("click", async () => {
   const tab = await chrome.tabs.getCurrent();
   if (tab?.id !== undefined) await chrome.tabs.remove(tab.id);
 });
+
+const SKIP_KEY = "dopadam-skip";
+const SKIP_LOOP_MS = 5000;
+
+function skippedRecently(): boolean {
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(SKIP_KEY) ?? "null") as { target: string; at: number } | null;
+    return !!saved && saved.target === target && Date.now() - saved.at < SKIP_LOOP_MS;
+  } catch {
+    return false;
+  }
+}
+
+function markSkipped(): void {
+  try {
+    sessionStorage.setItem(SKIP_KEY, JSON.stringify({ target, at: Date.now() }));
+  } catch {
+    // Storage unavailable: no loop guard, the rules agreement is the main defence.
+  }
+}
 
 async function main(): Promise<void> {
   // The page is web-accessible (redirect target), so refuse to work inside another site's frame.
@@ -222,6 +246,13 @@ async function main(): Promise<void> {
   }
   const init = await sendRequest<WarningInit>({ type: "warning:init", eventId, url: target });
   if (init.skip) {
+    // Never loop: if we were already told to skip for this target moments ago, the rules and the
+    // background disagree, so stop here instead of navigating again.
+    if (skippedRecently()) {
+      showMessage("Không mở được trang này", "DopaDam không thể mở trang này một cách an toàn. Hãy mở lại từ đầu.");
+      return;
+    }
+    markSkipped();
     location.replace(target);
     return;
   }
@@ -235,7 +266,7 @@ async function main(): Promise<void> {
   if (init.decision === "alternative" && init.activityEndsAt !== null) {
     startTimer(init.activityEndsAt, init.activity);
   } else if (init.decision === "exit") {
-    showMessage("Đã thoát", "Có thể đóng tab này.");
+    showMessage("Đã thoát", "Có thể đóng tab này.", true);
   } else {
     setView("choice");
     startCountdown(init.lockSeconds, init.elapsedMs);

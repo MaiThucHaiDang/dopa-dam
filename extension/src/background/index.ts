@@ -172,6 +172,7 @@ async function tick(): Promise<void> {
     }
   }
   await expireWindows();
+  await settlePendingCloses();
 }
 
 function usageTag(state: State, url: string): string | null {
@@ -321,9 +322,12 @@ async function decide(
     if (failure && failure.error !== "agent") return failure;
   }
   // Applied locally too, so the allow window works right away (the agent's config follows).
-  const result = await updateState((d) => L.applyDecision(d, msg.eventId, msg, now));
+  const result = await updateState((d) => {
+    const r = L.applyDecision(d, msg.eventId, msg, now);
+    if (r.ok) L.cancelPendingClose(d, msg.eventId);
+    return r;
+  });
   if (!result.ok) return result;
-  cancelAutoExit(msg.eventId);
   const event = result.event;
   switch (event.decision) {
     case "enter":
@@ -359,33 +363,26 @@ async function alternativeDone(eventId: string): Promise<void> {
   });
 }
 
-const autoExitTimers = new Map<string, ReturnType<typeof setTimeout>>();
-
-function cancelAutoExit(eventId: string): void {
-  const timer = autoExitTimers.get(eventId);
-  if (timer !== undefined) {
-    clearTimeout(timer);
-    autoExitTimers.delete(eventId);
+/** Turns closed warning tabs that stayed away past the grace time into Thoát, telling the agent once each. */
+async function settlePendingCloses(): Promise<void> {
+  const exited = await updateState((d) => L.resolvePendingCloses(d, Date.now(), AUTO_EXIT_DELAY_MS));
+  for (const eventId of exited) {
+    agent.send({ type: "decision", requestId: crypto.randomUUID(), eventId, decision: "exit" });
   }
 }
 
 chrome.runtime.onConnect.addListener((port) => {
   if (port.sender?.id !== chrome.runtime.id || !port.name.startsWith("warning:")) return;
   const eventId = port.name.slice("warning:".length);
-  cancelAutoExit(eventId);
+  void updateState((d) => L.cancelPendingClose(d, eventId));
   // The page pings over this port so the worker stays alive while the warning is open.
   port.onMessage.addListener(() => undefined);
   port.onDisconnect.addListener(() => {
+    // Stored, so a worker that stops before the grace time ends still resolves it on the next start or tick.
     const closedAt = Date.now();
-    autoExitTimers.set(
-      eventId,
-      setTimeout(() => {
-        autoExitTimers.delete(eventId);
-        void updateState((d) => L.autoExit(d, eventId, closedAt)).then((changed) => {
-          if (changed) agent.send({ type: "decision", requestId: crypto.randomUUID(), eventId, decision: "exit" });
-        });
-      }, AUTO_EXIT_DELAY_MS),
-    );
+    void updateState((d) => L.markPendingClose(d, eventId, closedAt)).then(() => {
+      setTimeout(() => void settlePendingCloses(), AUTO_EXIT_DELAY_MS + 100);
+    });
   });
 });
 
@@ -542,5 +539,6 @@ chrome.runtime.onInstalled.addListener((details) => {
   });
 });
 chrome.runtime.onStartup.addListener(() => void setup());
-// Every time the worker starts (it sleeps when idle), reconnect to the agent.
-void ensureAgent();
+// Every time the worker starts (it sleeps when idle), reconnect to the agent, then settle closes that were
+// pending so their exits can be reported to it.
+void ensureAgent().finally(() => void settlePendingCloses());

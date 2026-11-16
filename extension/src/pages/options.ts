@@ -176,9 +176,10 @@ function render(v: OptionsView): void {
       const select = tagSelect(rule.tag, locked, `Tag của ${rule.pattern}`);
       select.addEventListener("change", () => void setDomain(rule.pattern, select.value as Tag));
       return el("tr", {}, [
-        el("td", { text: rule.pattern }),
+        // Break opportunities after the dots, so long domains wrap between labels, not inside them.
+        el("td", { class: "domain-cell" }, rule.pattern.split(".").flatMap((label, i) => (i ? [".", el("wbr"), label] : [label]))),
         el("td", {}, [select]),
-        el("td", {}, [
+        el("td", { class: "action-cell" }, [
           el("button", {
             class: "btn-quiet small-btn",
             disabled: locked,

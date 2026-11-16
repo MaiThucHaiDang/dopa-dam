@@ -94,7 +94,7 @@ try {
   await until(() => existsSync(dbPath), "the agent database");
   await sleep(1500);
   context = await chromium.launchPersistentContext(profile, {
-    channel: "msedge",
+    channel: process.env.DOPADAM_E2E_CHANNEL ?? "msedge",
     headless: true,
     args: [`--disable-extensions-except=${dist}`, `--load-extension=${dist}`, "--no-first-run"],
   });

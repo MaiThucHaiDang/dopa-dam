@@ -9,7 +9,10 @@ import {
   clearLog,
   deleteStudyRule,
   evaluateUrl,
+  cancelPendingClose,
   interceptConfig,
+  markPendingClose,
+  resolvePendingCloses,
   prune,
   recordWarning,
   removeAllowUrl,
@@ -237,5 +240,73 @@ describe("prune and migrate", () => {
     expect(m.domainRules).toEqual([{ pattern: "y.com", tag: "game" }]);
     expect(m.settings.lockSeconds).toEqual([5, 10, 20, 30]);
     expect(migrateState(null, "p").profileId).toBe("p");
+  });
+});
+
+describe("setDomainRule on subdomains", () => {
+  it("does not let a new subdomain rule weaken an inherited entertainment tag without confirmation", () => {
+    expect(setDomainRule(s, "m.youtube.com", "work", false, NOW, TZ)).toEqual({ ok: false, error: "needs-confirm" });
+    expect(s.domainRules.some((r) => r.pattern === "m.youtube.com")).toBe(false);
+    expect(setDomainRule(s, "m.youtube.com", "work", true, NOW, TZ).ok).toBe(true);
+  });
+
+  it("applies the study lock to the effective old tag", () => {
+    s.study.manual.push({ id: "m", start: NOW - MIN, end: NOW + 30 * MIN, label: null });
+    expect(setDomainRule(s, "m.youtube.com", "work", true, NOW, TZ)).toEqual({ ok: false, error: "study-locked" });
+  });
+
+  it("lets a stricter or equal subdomain rule through without confirmation", () => {
+    expect(setDomainRule(s, "m.youtube.com", "entertainment", false, NOW, TZ).ok).toBe(true);
+    expect(setDomainRule(s, "music.youtube.com", "game", false, NOW, TZ)).toEqual({ ok: false, error: "needs-confirm" });
+  });
+
+  it("judges removal by what the host inherits afterwards", () => {
+    s.domainRules.push({ pattern: "m.youtube.com", tag: "work" });
+    // Removing a work rule under entertainment strengthens protection.
+    expect(setDomainRule(s, "m.youtube.com", null, false, NOW, TZ).ok).toBe(true);
+    expect(s.domainRules.some((r) => r.pattern === "m.youtube.com")).toBe(false);
+    // Removing an entertainment rule under a work parent weakens it.
+    s.domainRules.push({ pattern: "work.test", tag: "work" }, { pattern: "x.work.test", tag: "entertainment" });
+    expect(setDomainRule(s, "x.work.test", null, false, NOW, TZ)).toEqual({ ok: false, error: "needs-confirm" });
+    expect(setDomainRule(s, "x.work.test", null, true, NOW, TZ).ok).toBe(true);
+    // Removing a rule that does not exist is a no-op.
+    expect(setDomainRule(s, "nothing.example", null, false, NOW, TZ).ok).toBe(true);
+  });
+});
+
+describe("pending closes", () => {
+  beforeEach(() => {
+    warn("a", NOW);
+  });
+
+  it("turns a close into Thoát at the closing time once the grace has passed", () => {
+    markPendingClose(s, "a", NOW + 1000);
+    expect(resolvePendingCloses(s, NOW + 2000, 3000)).toEqual([]);
+    expect(s.events[0].decision).toBeNull();
+    expect(resolvePendingCloses(s, NOW + 4000, 3000)).toEqual(["a"]);
+    expect(s.events[0]).toMatchObject({ decision: "exit", decidedAt: NOW + 1000 });
+    expect(s.pendingCloses).toEqual([]);
+    // Resolving again reports nothing, so the agent hears about the exit once.
+    expect(resolvePendingCloses(s, NOW + 9000, 3000)).toEqual([]);
+  });
+
+  it("forgets a close when the page reconnects within the grace time", () => {
+    markPendingClose(s, "a", NOW);
+    cancelPendingClose(s, "a");
+    expect(resolvePendingCloses(s, NOW + 10_000, 3000)).toEqual([]);
+    expect(s.events[0].decision).toBeNull();
+  });
+
+  it("does not report an event that was decided meanwhile", () => {
+    markPendingClose(s, "a", NOW);
+    s.events[0].decision = "alternative";
+    expect(resolvePendingCloses(s, NOW + 10_000, 3000)).toEqual([]);
+    expect(s.events[0].decision).toBe("alternative");
+  });
+
+  it("survives storage migration", () => {
+    markPendingClose(s, "a", NOW);
+    expect(migrateState(structuredClone(s), "p").pendingCloses).toEqual([{ eventId: "a", closedAt: NOW }]);
+    expect(migrateState({}, "p").pendingCloses).toEqual([]);
   });
 });

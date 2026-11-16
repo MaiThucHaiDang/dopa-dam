@@ -199,6 +199,30 @@ export function autoExit(draft: State, eventId: string, now: number): boolean {
   return true;
 }
 
+/** Remembers that the warning page of `eventId` went away at `closedAt`, so it survives a worker restart. */
+export function markPendingClose(draft: State, eventId: string, closedAt: number): void {
+  draft.pendingCloses = draft.pendingCloses.filter((c) => c.eventId !== eventId);
+  draft.pendingCloses.push({ eventId, closedAt });
+}
+
+/** The page is back (reload) or decided: it is no longer closed. */
+export function cancelPendingClose(draft: State, eventId: string): void {
+  if (draft.pendingCloses.some((c) => c.eventId === eventId)) {
+    draft.pendingCloses = draft.pendingCloses.filter((c) => c.eventId !== eventId);
+  }
+}
+
+/**
+ * Turns pending closes that waited at least `graceMs` into Thoát (decided at the time of closing).
+ * Returns the ids of the events that really changed, so the caller reports each exit once.
+ */
+export function resolvePendingCloses(draft: State, now: number, graceMs: number): string[] {
+  const due = draft.pendingCloses.filter((c) => now - c.closedAt >= graceMs);
+  if (!due.length) return [];
+  draft.pendingCloses = draft.pendingCloses.filter((c) => now - c.closedAt < graceMs);
+  return due.filter((c) => autoExit(draft, c.eventId, c.closedAt)).map((c) => c.eventId);
+}
+
 export function addUsage(draft: State, day: string, tag: string, seconds: number): void {
   const bucket = (draft.usage[day] ??= {});
   bucket[tag] = (bucket[tag] ?? 0) + seconds;
@@ -238,10 +262,17 @@ export function setDomainRule(
   const pattern = normalizeDomainInput(patternInput);
   if (!pattern) return { ok: false, error: "invalid" };
   const index = draft.domainRules.findIndex((r) => r.pattern === pattern);
-  const oldTag = index >= 0 ? draft.domainRules[index].tag : null;
-  if (oldTag === tag) return { ok: true, pattern };
-  if (studyLocked(draft, now, tz)) return { ok: false, error: "study-locked" };
-  if (classifyTagChange(oldTag, tag) === "weaken" && !confirmed) return { ok: false, error: "needs-confirm" };
+  // Judge the change by what the host inherits, not by the rule alone: a new rule for m.youtube.com
+  // replaces the tag of youtube.com, and removing a rule falls back to the next less specific one.
+  const inherited = matchDomainRule(pattern, draft.domainRules.filter((_, i) => i !== index))?.tag ?? null;
+  const oldTag = index >= 0 ? draft.domainRules[index].tag : inherited;
+  const newTag = tag ?? inherited;
+  if (tag === null && index < 0) return { ok: true, pattern };
+  if (index >= 0 && draft.domainRules[index].tag === tag) return { ok: true, pattern };
+  if (oldTag !== newTag) {
+    if (studyLocked(draft, now, tz)) return { ok: false, error: "study-locked" };
+    if (classifyTagChange(oldTag, newTag) === "weaken" && !confirmed) return { ok: false, error: "needs-confirm" };
+  }
   if (tag === null) draft.domainRules.splice(index, 1);
   else if (index >= 0) draft.domainRules[index] = { pattern, tag };
   else draft.domainRules.push({ pattern, tag });
