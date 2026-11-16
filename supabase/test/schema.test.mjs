@@ -105,3 +105,17 @@ describe("delete_my_data", () => {
     assert.equal((await as(B, "select count(*)::int as n from public.tag_rules"))[0].n, 1);
   });
 });
+
+describe("device platforms", () => {
+  const insert = (id, platform) =>
+    as(A, `insert into public.devices (id, platform, last_seen, updated_at) values ('${id}', '${platform}', 1, 1)`);
+
+  it("accepts the known platforms, linux included", async () => {
+    for (const p of ["android", "windows", "linux", "extension"]) await insert(`dev-${p}`, p);
+    assert.equal((await as(A, "select count(*)::int as n from public.devices where platform = 'linux'"))[0].n, 1);
+  });
+
+  it("still refuses an unknown platform", async () => {
+    await assert.rejects(insert("dev-bad", "macos"), /check/i);
+  });
+});
