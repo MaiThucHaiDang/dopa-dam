@@ -38,10 +38,8 @@ async fn fresh_token(state: &Shared, force: bool) -> Result<String, (String, boo
     if !force && session.expires_at - now_ms() > 60_000 {
         return Ok(session.access_token);
     }
-    let fresh = api
-        .refresh(&session.stored.refresh_token, now_ms())
-        .await
-        .map_err(|e| (e.to_string(), e.is_rejected()))?;
+    let fresh =
+        api.refresh(&session.stored.refresh_token, now_ms()).await.map_err(|e| (e.to_string(), e.is_rejected()))?;
     let _ = account::save(&fresh.stored);
     let token = fresh.access_token.clone();
     state.set_session(Some(fresh));

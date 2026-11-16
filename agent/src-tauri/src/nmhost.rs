@@ -240,6 +240,7 @@ mod tests {
         assert_eq!(json["path"], r"C:\x\dopadam.exe");
     }
 
+    #[cfg(unix)]
     fn scratch(name: &str) -> PathBuf {
         let dir = std::env::temp_dir().join(format!("dopadam-nmhost-{name}-{}", uuid::Uuid::new_v4()));
         std::fs::create_dir_all(&dir).unwrap();

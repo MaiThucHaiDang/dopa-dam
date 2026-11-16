@@ -350,7 +350,8 @@ mod tests {
     #[test]
     fn allow_options_are_validated_and_raising_the_longest_needs_confirmation() {
         let s = Settings::default();
-        let with = |n: Vec<i64>, r: Vec<i64>| Settings { allow_options_normal: n, allow_options_restricted: r, ..s.clone() };
+        let with =
+            |n: Vec<i64>, r: Vec<i64>| Settings { allow_options_normal: n, allow_options_restricted: r, ..s.clone() };
         for bad in [
             with(vec![600], vec![5]),
             with(vec![0, 5], vec![5]),

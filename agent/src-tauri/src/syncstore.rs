@@ -172,7 +172,6 @@ impl Store {
         self.kv_set(&format!("cursor:{table}"), value);
     }
 
-    /// After signing out or deleting server data, pull everything again next time.
     /// After the server data was deleted: forget cursors and clean flags, and the account this
     /// device last synced with, so the next sign-in (even the same account) uploads everything.
     pub fn reset_sync_state(&self) {
@@ -180,6 +179,7 @@ impl Store {
         self.kv_delete("lastUserId");
     }
 
+    /// After signing out or deleting server data, pull everything again next time.
     pub fn reset_cursors(&self) {
         for t in TABLES {
             self.kv_delete(&format!("cursor:{t}"));

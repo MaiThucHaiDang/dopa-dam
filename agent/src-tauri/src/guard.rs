@@ -138,6 +138,14 @@ fn is_no_program(raw: isize, pid: u32, own_pid: u32) -> bool {
     raw == 0 || pid == own_pid
 }
 
+/// Forgets the program in front only if it is `pid`: the user may have switched to another
+/// program while the warning was up, and that one is still in front.
+fn clear_foreground_of(g: &mut Guard, pid: u32, now: i64) {
+    if g.foreground.as_ref().is_some_and(|f| f.pid == pid) {
+        clear_foreground(g, now);
+    }
+}
+
 /// Forgets the program in front and pauses its open count.
 fn clear_foreground(g: &mut Guard, now: i64) {
     if let Some(prev) = g.foreground.take() {
@@ -321,8 +329,8 @@ pub fn decide(
                 {
                     let mut g = state.guard();
                     g.just_exited = Some((fg.pid, now + EXIT_GRACE_MS));
-                    // Focus returns to our own windows: the program is no longer in front.
-                    clear_foreground(&mut g, now);
+                    // Focus returns to our own windows: the warned program is no longer in front.
+                    clear_foreground_of(&mut g, fg.pid, now);
                 }
                 platform::minimize(fg.hwnd);
             }
@@ -570,6 +578,14 @@ mod tests {
         // Time after leaving does not count towards the delay.
         assert!(!g.tracker.is_due(5, 10_000, 5000));
         assert!(g.tracker.is_due(5, 10_000, 1000));
+        // Leaving program 5 does not drop another program that came to the front meanwhile.
+        let mut g = Guard::default();
+        g.tracker.enter(7, 0);
+        g.foreground = Some(fg(7));
+        clear_foreground_of(&mut g, 5, 1000);
+        assert_eq!(g.foreground.as_ref().map(|f| f.pid), Some(7));
+        clear_foreground_of(&mut g, 7, 2000);
+        assert!(g.foreground.is_none());
     }
 
     #[test]

@@ -61,7 +61,6 @@ impl std::fmt::Display for SyncError {
     }
 }
 
-/// Turns GoTrue's English error messages into what the user sees.
 /// Why a token refresh failed. Only a rejection means the stored sign-in is dead.
 #[derive(Debug, Clone, PartialEq)]
 pub enum RefreshError {
@@ -90,6 +89,7 @@ pub fn refresh_rejected(status: u16) -> bool {
     matches!(status, 400 | 401 | 403)
 }
 
+/// Turns GoTrue's English error messages into what the user sees.
 pub fn friendly_auth_error(raw: &str) -> String {
     let lower = raw.to_lowercase();
     if lower.contains("invalid login credentials") {
