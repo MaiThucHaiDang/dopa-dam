@@ -121,3 +121,15 @@ Cần kiểm tra trên phiên Linux thật:
 - [ ] Cài bản `.deb` và AppImage: tự chạy khi đăng nhập, biểu tượng ở khay hệ thống.
 - [ ] Extension trong Chrome, Chromium hoặc Brave (không phải snap): Tổng quan báo "Đã nối"; trong trình duyệt snap: extension chạy riêng, không báo lỗi.
 - [ ] Đăng nhập đồng bộ trên Linux: thiết bị hiện là "Máy tính Linux" trong danh sách thiết bị (đã chạy migration `20261116000000_devices_linux.sql` trên project thật).
+
+## Giai đoạn 7: Tiến bộ theo tuần
+
+Đã kiểm tra tự động:
+
+- [x] Phần tính (`cd agent && npm run check`, `cd extension && npm run check`): hai tuần đủ dữ liệu, tuần không có lần chặn nào, ngưỡng 5 lần bị chặn, từng ngưỡng tốt hơn / kém hơn đúng tại biên, ngày thiếu dữ liệu; thống kê theo ngày của agent có số lần mở trong giờ học (`cargo test`).
+- [x] Trong Chromium với dữ liệu giả: popup của extension hiện đúng tỉ lệ và nhận xét cho tuần tốt hơn, kém hơn, gần như cũ, thiếu dữ liệu và chưa có dữ liệu; thẻ trên trang Thống kê của agent (lệnh Tauri được giả lập) hiện đúng cả ba chỉ số. Chữ không tràn, không có màu báo động.
+
+Cần kiểm tra trên thiết bị thật:
+
+- [ ] Sau ít nhất hai tuần dùng thật: thẻ trên agent khớp với biểu đồ bên dưới.
+- [ ] Giao diện sáng (nếu bật) và popup khi extension đã nối với agent (thẻ không hiện).

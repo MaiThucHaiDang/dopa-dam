@@ -62,6 +62,18 @@ Mỗi nền tảng hiện thực các hàm dưới đây bằng ngôn ngữ củ
 - Trong giờ học: đổi tag, mức cản trở, ngân sách, độ trễ, tắt bảo vệ và mọi thay đổi `"weaken"` của khung giờ đều bị khóa (`study-locked`), kể cả khi đã xác nhận. Vẫn làm được: thêm link được phép (có xác nhận), thay đổi làm mạnh bảo vệ, và "Kết thúc sớm" (có xác nhận).
 - Bước xác nhận: chờ 60 giây rồi gõ đúng câu `tôi chọn giảm bảo vệ`.
 
+### 2.4 Tiến bộ theo tuần
+
+Thẻ "Tiến bộ tuần này" (trang Thống kê của agent, và popup của extension khi extension chạy riêng) so 7 ngày gần nhất tính đến hôm nay với 7 ngày trước đó, theo ba mục tiêu đo được của đặc tả. Ngày tính theo mốc 4 giờ sáng như mọi thống kê khác; ngày không có dữ liệu coi là 0.
+
+| Chỉ số | Cách tính cho mỗi tuần | Tốt hơn khi |
+| --- | --- | --- |
+| Tỉ lệ rời đi | (Thoát + Làm việc khác) / (Vào + Thoát + Làm việc khác); lần chặn chưa có lựa chọn không tính | tăng từ 5 điểm phần trăm trở lên (giảm từ 5 điểm là kém hơn) |
+| Số giây đến lúc Thoát | tổng số giây cân nhắc của các lần Thoát / số lần Thoát | giảm từ 1 giây trở lên (tăng từ 1 giây là kém hơn) |
+| Mở giải trí trong giờ học | số lần cảnh báo hiện ra khi đang học, kể cả lần chưa có lựa chọn | ít hơn tuần trước |
+
+Chỉ so sánh khi mỗi tuần có ít nhất 5 lần bị chặn đã có lựa chọn; nếu không thì hiện "Cần ít nhất 5 lần bị chặn mỗi tuần để so sánh". Phần tính nằm ở `agent/ui/src/progress.ts` và `weeklyProgress` trong `extension/src/background/logic.ts`; agent lấy số lần mở trong giờ học từ trường `studyWarnings` của thống kê theo ngày. App Android chưa có thẻ này, và khi extension nối với agent thì popup không hiện thẻ (xem ở trang Thống kê của agent).
+
 ## 3. Giao thức agent ↔ extension
 
 ```
