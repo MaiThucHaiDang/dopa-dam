@@ -10,7 +10,8 @@ Tài liệu cho người phát triển: cấu trúc repo, lõi logic dùng chung
 | `shared/test-vectors/` | Các file JSON mô tả đầu vào và kết quả mong đợi của lõi logic; cả ba nền tảng chạy chung bộ này |
 | `extension/` | Extension Edge, TypeScript, Manifest V3, build bằng esbuild, test bằng Vitest |
 | `android/` | App Android, Kotlin + Jetpack Compose, package `com.dang.dopadam` |
-| `agent/` | Agent Windows, Tauri 2: `src-tauri/` (Rust) và `ui/` (React + TypeScript) |
+| `agent/` | Agent máy tính (Windows và Linux), Tauri 2: `src-tauri/` (Rust) và `ui/` (React + TypeScript) |
+| `linux/` | Tiện ích GNOME Shell (GJS) cho agent trên Linux: `dopadam@dang/` (tiện ích), `test/`, `fake-agent.mjs`, `install.sh` |
 | `supabase/` | Migration SQL: bảng, trigger, Row Level Security |
 | `docs/` | Tài liệu kỹ thuật và checklist nghiệm thu từng giai đoạn |
 
@@ -97,7 +98,8 @@ Khi agent đang chạy, mọi số đếm, khoảng được phép và nhật k�
 | --- | --- |
 | Extension | `chrome.storage.local` (cấu hình, phiên học và khung giờ học, nhật ký 14 ngày gần nhất, thời gian dùng theo ngày) |
 | Android | Room (`dopadam.db`, nhật ký 30 ngày); phiên đăng nhập mã hóa bằng khóa trong Android Keystore |
-| Agent | SQLite tại `%APPDATA%\DopaDam\dopadam.db` (nhật ký 30 ngày); phiên đăng nhập trong Windows Credential Manager |
+| Agent (Windows) | SQLite tại `%APPDATA%\DopaDam\dopadam.db` (nhật ký 30 ngày); phiên đăng nhập trong Windows Credential Manager |
+| Agent (Linux) | SQLite tại `$XDG_DATA_HOME/DopaDam/dopadam.db` (mặc định `~/.local/share/DopaDam`) |
 
 ## 5. Đồng bộ qua Supabase
 
@@ -137,3 +139,35 @@ Cấu trúc bảng nằm ở `supabase/migrations/`; `supabase/test/schema.test.
 **Không cấu hình hoặc chưa đăng nhập.** Thiếu URL hoặc anon key (trong `agent/src-tauri/config.local.json` hoặc `android/secrets.properties`), hoặc chưa đăng nhập, thì mọi phần đồng bộ tắt; từng thiết bị vẫn chạy đầy đủ với dữ liệu của riêng nó.
 
 **Giữ dữ liệu.** Nhật ký chặn và thời gian dùng được giữ 30 ngày trên agent và Android (đủ cho biểu đồ 4 tuần), 14 ngày trong extension (khi chạy riêng, không có agent); trên server dữ liệu được giữ đến khi người dùng bấm "Xóa dữ liệu trên server".
+
+## 6. Bản Linux của agent
+
+Phần này mô tả thiết kế. Phần Rust của agent trên Linux chưa được build hay chạy thử; chỉ tiện ích GNOME Shell (logic giao thức) và extension trình duyệt đã có test chạy qua.
+
+**Lớp nền tảng.** Giao diện React không đổi. Backend có thêm lệnh `get_platform` trả về `{ os, sessionType, focusBackend, shellExtensionConnected }`; giao diện dùng nó để chọn câu chữ (Windows hay Linux) và để Tổng quan báo nguồn theo dõi cửa sổ. Lệnh không có (backend cũ) thì giao diện coi như Windows. Trên Linux, danh tính chương trình là tên file của `/proc/<pid>/exe` (không có đuôi `.exe`).
+
+**Hai nguồn cho biết cửa sổ phía trước** (`focusBackend`):
+
+1. `gnome-shell`: tiện ích GNOME Shell `dopadam@dang` (GNOME Shell 45 đến 50), dùng trên Wayland vì ứng dụng thường không đọc được cửa sổ phía trước, không thu nhỏ được cửa sổ khác và không giữ cảnh báo ở trên cùng.
+2. `x11`: thư viện `x11rb`, dùng trên phiên X11.
+
+Không có nguồn nào (`none`) thì agent vẫn chạy khay hệ thống, cài đặt, thống kê, Chế độ Học, đồng bộ và cầu nối trình duyệt, nhưng không canh chương trình trên máy tính.
+
+**Giao thức với tiện ích.** Agent lắng nghe trên Unix socket (stream) `$XDG_RUNTIME_DIR/dopadam-agent.sock`; socket này cũng phục vụ client khác nên mọi bên bỏ qua `type` lạ. Mỗi chiều là một đối tượng JSON mỗi dòng (UTF-8, kết thúc `\n`). Tiện ích thử nối lại mỗi 5 giây, mãi mãi. Tiện ích không bao giờ gửi tiêu đề cửa sổ.
+
+| Chiều | `type` | Nội dung |
+| --- | --- | --- |
+| shell → agent | `shell_hello` | `protocol` (hiện là `1`), `shellVersion`. Gửi ngay khi nối |
+| shell → agent | `focus` | `windowId` (id ổn định của Mutter), `pid`, `wmClass` hoặc `null`, `appId` hoặc `null` (ví dụ `org.gnome.Nautilus.desktop`), `fullscreen`, `monitor` (`{x, y, width, height}` hoặc `null`). Gửi sau `shell_hello`, mỗi khi cửa sổ có focus đổi, và khi cửa sổ đó vào hoặc ra toàn màn hình. Không có cửa sổ nào có focus: `windowId` 0, `pid` 0, các trường còn lại rỗng. Không gửi hai tin `focus` giống hệt nhau liên tiếp |
+| shell → agent | `idle` | `seconds`: thời gian từ lần gõ phím hoặc di chuột cuối, theo bộ đo của Mutter. Gửi mỗi 30 giây và kèm mỗi `focus` |
+| agent → shell | `shell_minimize` | `windowId`: thu nhỏ cửa sổ |
+| agent → shell | `shell_activate` | `windowId`: bỏ thu nhỏ nếu cần và cho nhận focus |
+| agent → shell | `shell_raise` | `pid`, `title`, `above`, `activate`: tìm cửa sổ của tiến trình `pid` có tiêu đề đúng bằng `title` (chỉ dành cho cửa sổ cảnh báo và thông báo của chính agent; tiêu đề không bao giờ được gửi ngược lại). `above` bật thì giữ cửa sổ trên các cửa sổ khác, tắt thì bỏ; `activate` bật thì cho nhận focus. Chưa thấy cửa sổ thì tiện ích tìm tiếp tối đa 2 giây rồi bỏ qua |
+
+**Đăng ký cầu nối trình duyệt.** Agent ghi manifest native messaging vào thư mục cấu hình của Edge, Chrome, Chromium và Brave khi thư mục đó tồn tại dưới `~/.config`. Trình duyệt cài bằng snap không khởi động được chương trình bên ngoài snap, nên ở đó extension chạy riêng. Đóng gói bằng `.deb` và AppImage; tự chạy khi đăng nhập theo cơ chế của máy tính (không phải mục "Cùng Windows").
+
+**Giới hạn đã biết.**
+
+- Wayland trên trình quản lý cửa sổ khác GNOME (KDE, Sway, Hyprland…) không có nguồn cửa sổ phía trước, nên desktop không được canh.
+- Trình duyệt cài bằng snap: không có cầu nối với agent, extension chạy riêng, không dùng chung bộ đếm.
+- Chương trình viết bằng ngôn ngữ thông dịch cùng mang một tên file (ví dụ `python3`), nên gán tag cho một chương trình sẽ gán cho tất cả.

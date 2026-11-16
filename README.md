@@ -1,6 +1,6 @@
 # DopaDam
 
-DopaDam chen một khoảng dừng ngắn giữa cú bấm vô thức và nội dung giải trí, trên điện thoại Android, máy tính Windows và trình duyệt Edge, rồi siết khoảng dừng đó chặt hơn trong giờ học. Ứng dụng cảnh báo chứ không cấm: nút Thoát luôn bấm được ngay, nút Vào chỉ mở sau vài giây đếm ngược.
+DopaDam chen một khoảng dừng ngắn giữa cú bấm vô thức và nội dung giải trí, trên điện thoại Android, máy tính Windows hoặc Linux (GNOME) và trình duyệt Edge hay Chrome, rồi siết khoảng dừng đó chặt hơn trong giờ học. Ứng dụng cảnh báo chứ không cấm: nút Thoát luôn bấm được ngay, nút Vào chỉ mở sau vài giây đếm ngược.
 
 - Đặc tả: [DopaDam-dac-ta.md](DopaDam-dac-ta.md)
 - Thiết kế kỹ thuật: [docs/thiet-ke-ky-thuat.md](docs/thiet-ke-ky-thuat.md)
@@ -8,8 +8,8 @@ DopaDam chen một khoảng dừng ngắn giữa cú bấm vô thức và nội 
 
 ## Cài lần đầu, theo thứ tự
 
-1. **Agent Windows:** build bộ cài (mục Agent Windows bên dưới), cài và chạy một lần. Agent tự chạy cùng Windows và tự đăng ký cầu nối với Edge.
-2. **Extension Edge:** build rồi "Load unpacked" thư mục `extension/dist`, khởi động lại Edge. Trang Tổng quan của agent sẽ báo "Đã nối".
+1. **Agent máy tính:** trên Windows, build bộ cài (mục Agent Windows bên dưới), cài và chạy một lần. Agent tự chạy cùng Windows và tự đăng ký cầu nối với Edge. Trên Linux, làm theo mục "Agent Linux (GNOME)" bên dưới, gồm cả tiện ích GNOME Shell.
+2. **Extension trình duyệt:** build rồi "Load unpacked" thư mục `extension/dist`, khởi động lại trình duyệt. Trang Tổng quan của agent sẽ báo "Đã nối".
 3. **App Android:** build APK, cài lên điện thoại, mở **Hướng dẫn và kiểm tra quyền** và làm hết các bước (Trợ năng, thông báo, pin, các bước của Xiaomi).
 4. **Đồng bộ (tùy chọn):** làm theo mục "Đồng bộ và đăng nhập" để điện thoại và máy tính dùng chung tag, bộ đếm và Chế độ Học. Bỏ qua bước này thì mỗi thiết bị vẫn chạy đầy đủ với dữ liệu riêng.
 
@@ -19,9 +19,10 @@ Những gì cần tự kiểm tra trên máy thật (điện thoại Xiaomi, gam
 
 | Thư mục | Thành phần |
 | --- | --- |
-| `extension/` | Extension Microsoft Edge (TypeScript, Manifest V3) |
+| `extension/` | Extension trình duyệt Edge và Chromium (TypeScript, Manifest V3) |
 | `android/` | App Android (Kotlin, Jetpack Compose) |
-| `agent/` | Agent Windows (Tauri 2: Rust + React) |
+| `agent/` | Agent máy tính cho Windows và Linux (Tauri 2: Rust + React) |
+| `linux/` | Tiện ích GNOME Shell cho agent trên Linux (GJS) |
 | `supabase/` | Cấu trúc bảng và quy tắc bảo mật cho phần đồng bộ |
 | `shared/` | Token giao diện, biểu tượng và bộ test vector dùng chung |
 | `docs/` | Tài liệu kỹ thuật |
@@ -75,11 +76,51 @@ cd ..\..\extension; npm run build; node test\e2e\with-agent.mjs   # Edge + agent
 python agent\e2e\desktop_test.py             # bật cảnh báo thật trên Notepad (sẽ hiện cửa sổ lên màn hình)
 ```
 
+## Agent Linux (GNOME)
+
+Chưa kiểm chứng: phần Rust của agent chưa được build và chạy thử trên Linux (xem [docs/nghiem-thu.md](docs/nghiem-thu.md)). Các lệnh dưới đây là quy trình dự kiến.
+
+Cần các gói hệ thống để build (Ubuntu/Debian), cùng Rust (rustup) và Node.js:
+
+```bash
+sudo apt install libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libssl-dev libxdo-dev build-essential pkg-config
+```
+
+```bash
+cd agent
+npm install
+npx tauri build          # build giao diện + Rust bản release + gói .deb và AppImage
+```
+
+Gói nằm trong `agent/src-tauri/target/release/bundle/`. Dữ liệu lưu ở `$XDG_DATA_HOME/DopaDam` (mặc định `~/.local/share/DopaDam`).
+
+**Tiện ích GNOME Shell.** Trên GNOME dùng Wayland, agent không tự biết cửa sổ nào ở phía trước, không thu nhỏ được cửa sổ khác và không đặt cảnh báo lên trên được; tiện ích làm ba việc này qua socket `$XDG_RUNTIME_DIR/dopadam-agent.sock`. Trên phiên X11 agent tự theo dõi cửa sổ, không cần tiện ích.
+
+```bash
+./linux/gnome-shell-extension/install.sh      # chép vào ~/.local/share/gnome-shell/extensions, không cần sudo
+# đăng xuất rồi đăng nhập lại, sau đó:
+gnome-extensions enable dopadam@dang
+```
+
+Không có tiện ích lẫn X11 (ví dụ Wayland trên KDE hay Sway) thì agent vẫn chạy nhưng không canh được chương trình trên máy tính; trang web vẫn được extension canh.
+
+**Extension trình duyệt.** Build extension như mục Extension Edge, rồi mở `chrome://extensions` (hoặc `edge://extensions`, `brave://extensions`), bật chế độ nhà phát triển, "Load unpacked" thư mục `extension/dist`. Agent đăng ký cầu nối cho Edge, Chrome, Chromium và Brave khi thư mục cấu hình của chúng có trong `~/.config`. Trình duyệt cài bằng snap không khởi động được cầu nối bên ngoài snap nên extension ở đó chạy riêng.
+
+Kiểm tra cho người phát triển:
+
+```bash
+cd linux/gnome-shell-extension && node --test      # logic giao thức của tiện ích
+cd extension && npm run check                      # unit test + build
+cd extension && npm run e2e                        # đầu-cuối trên Chromium, xem biến môi trường dưới đây
+```
+
+Hai biến môi trường cho test đầu-cuối trên Linux: `PLAYWRIGHT_HOST_PLATFORM_OVERRIDE=ubuntu24.04-x64` khi Playwright không nhận ra bản phân phối, và `DOPADAM_E2E_CHANNEL=chromium` để dùng Chromium thay cho Edge.
+
 ## Đồng bộ và đăng nhập (Supabase)
 
 Không bắt buộc: chưa cấu hình thì mỗi thiết bị vẫn chạy đầy đủ với dữ liệu riêng. Cần làm một lần:
 
-1. **Tạo project Supabase** (gói miễn phí). Vào **SQL Editor**, dán toàn bộ `supabase/migrations/20261012000000_init.sql` và chạy.
+1. **Tạo project Supabase** (gói miễn phí). Vào **SQL Editor**, dán lần lượt từng file trong `supabase/migrations/` theo thứ tự tên (`20261012000000_init.sql`, rồi `20261116000000_devices_linux.sql`) và chạy.
 2. **Đăng nhập bằng email:** **Authentication → Sign In / Providers → Email** đang bật sẵn. Nếu không muốn bước xác nhận qua email, tắt **Confirm email**.
 3. **Đăng nhập bằng Google** (tùy chọn):
    - Google Cloud Console → **APIs & Services → Credentials**, tạo **OAuth client ID** loại *Web application*, thêm *Authorized redirect URI* `https://<project>.supabase.co/auth/v1/callback`.

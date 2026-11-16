@@ -90,3 +90,32 @@ Cần kiểm tra trên thiết bị thật:
 - [ ] Đặt khung giờ (ví dụ 5 phút sau giờ hiện tại): đến giờ thì cả hai thiết bị tự vào giờ học, kể cả khi điện thoại tắt mạng.
 - [ ] "Kết thúc sớm" trên một thiết bị thì thiết bị kia cũng thoát giờ học sau lần đồng bộ kế tiếp.
 
+
+## Giai đoạn 6: Linux (GNOME)
+
+Đã kiểm tra tự động:
+
+- [x] Logic giao thức của tiện ích GNOME Shell (`cd linux/gnome-shell-extension && node --test`): mã hóa tin nhắn, không có tiêu đề cửa sổ trong `focus`, không gửi hai `focus` giống nhau liên tiếp, ghép dòng khi đọc từng phần, bỏ qua JSON hỏng và lệnh sai, kiểm tra lệnh `shell_minimize`, `shell_activate`, `shell_raise`.
+- [x] `fake-agent.mjs` tạo socket, nhận kết nối thử, nhận dòng và gửi lệnh đúng định dạng, rồi xóa socket khi thoát.
+- [x] Mọi file `.js` của tiện ích qua kiểm tra cú pháp; `protocol.js` nạp được trong `gjs`.
+- [x] Extension trình duyệt trên Chromium (theo báo cáo của người phát triển phần extension: unit test và `npm run e2e` với `DOPADAM_E2E_CHANNEL=chromium` đều qua).
+- [x] Giao diện agent (`cd agent && npm run check`) và cấu trúc bảng Supabase có thiết bị `linux` (`cd supabase && npm test`).
+
+Chưa chạy, cần làm:
+
+- [ ] Agent Rust build được trên Linux (`cd agent/src-tauri && cargo build`, `npx tauri build` ra `.deb` và AppImage).
+- [ ] `cargo test` và `cargo clippy --all-targets` trên Linux không lỗi.
+- [ ] Tiện ích GNOME Shell tải được trong GNOME Shell thật (chưa từng nạp vào Shell nào).
+
+Cần kiểm tra trên phiên Linux thật:
+
+- [ ] Chạy `linux/gnome-shell-extension/install.sh`, đăng xuất và đăng nhập lại, `gnome-extensions enable dopadam@dang`: Tổng quan của agent báo đã nối với GNOME Shell.
+- [ ] Gắn tag Giải trí cho một chương trình GNOME (ví dụ Files): mở nó thì cảnh báo phủ lên trên, Thoát thu nhỏ chương trình, Vào cho dùng tiếp đúng thời gian.
+- [ ] Cảnh báo không bị cửa sổ khác che, kể cả khi chương trình ở toàn màn hình.
+- [ ] Khóa màn hình rồi mở lại: tiện ích tự tắt và bật, agent nối lại trong vài giây.
+- [ ] Tắt agent: tiện ích không gây lỗi trong `journalctl`; bật agent: tiện ích tự nối lại trong 5 giây.
+- [ ] Phiên X11: Tổng quan báo theo dõi qua X11 và cảnh báo hiện đúng như trên.
+- [ ] Phiên không có nguồn nào (ví dụ Wayland trên KDE): Tổng quan báo chưa có nguồn và trỏ tới Hướng dẫn; tray, thống kê và extension vẫn dùng được.
+- [ ] Cài bản `.deb` và AppImage: tự chạy khi đăng nhập, biểu tượng ở khay hệ thống.
+- [ ] Extension trong Chrome, Chromium hoặc Brave (không phải snap): Tổng quan báo "Đã nối"; trong trình duyệt snap: extension chạy riêng, không báo lỗi.
+- [ ] Đăng nhập đồng bộ trên Linux: thiết bị hiện là "Máy tính Linux" trong danh sách thiết bị (đã chạy migration `20261116000000_devices_linux.sql` trên project thật).
