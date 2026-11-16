@@ -60,6 +60,8 @@ pub struct DayStat {
     /// Sum and count of the seconds from showing the warning to choosing Thoát (for averages).
     pub exit_seconds_sum: f64,
     pub exit_count: i64,
+    /// Interceptions shown while a study session was active.
+    pub study_warnings: i64,
     pub minutes: std::collections::BTreeMap<String, f64>,
 }
 
@@ -640,6 +642,9 @@ impl Store {
         for e in self.events_since(now - (days + 1) * DAY_MS) {
             let Some(i) = index(&day_key(e.shown_at, tz), &out) else { continue };
             let st = &mut out[i];
+            if e.study_label.is_some() {
+                st.study_warnings += 1;
+            }
             match e.decision.as_deref() {
                 Some("enter") => st.enter += 1,
                 Some("alternative") => st.alternative += 1,
@@ -1035,6 +1040,10 @@ mod tests {
         assert!((today.exit_seconds_sum - 4.0).abs() < 1e-9);
         assert!((today.minutes["game"] - 10.0).abs() < 1e-9);
         assert_eq!(st[0].enter + st[0].exit, 0);
+        assert_eq!(today.study_warnings, 0);
+        s.start_study(30, Some("x"), NOW + 3 * MIN).unwrap();
+        s.record_warning("c", "x.exe", "game", NOW + 4 * MIN);
+        assert_eq!(s.stats(NOW + 5 * MIN, 7).last().unwrap().study_warnings, 1);
     }
 
     #[test]

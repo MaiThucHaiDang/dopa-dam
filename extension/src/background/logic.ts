@@ -395,3 +395,75 @@ export function clearLog(draft: State, confirmed: boolean): Result {
   return { ok: true };
 }
 
+
+// ---- Weekly progress (standalone popup) -------------------------------------------------
+
+export type ProgressVerdict = "better" | "worse" | "same" | "not-enough-data";
+
+export interface WeekFigures {
+  total: number;
+  leaveRate: number | null;
+  avgExitSeconds: number | null;
+  studyOpens: number;
+}
+
+export interface WeeklyProgress {
+  thisWeek: WeekFigures;
+  lastWeek: WeekFigures;
+  enough: boolean;
+  leaveRate: ProgressVerdict;
+  seconds: ProgressVerdict;
+  studyOpens: ProgressVerdict;
+}
+
+export const PROGRESS_MIN_INTERCEPTIONS = 5;
+const EPS = 1e-9;
+
+function weekFigures(events: WarningEvent[]): WeekFigures {
+  let enter = 0, exit = 0, alternative = 0, secondsSum = 0, exitCount = 0, studyOpens = 0;
+  for (const e of events) {
+    if (e.studyLabel) studyOpens++;
+    if (e.decision === "enter") enter++;
+    else if (e.decision === "alternative") alternative++;
+    else if (e.decision === "exit") {
+      exit++;
+      if (e.decidedAt !== null) {
+        secondsSum += Math.max(0, e.decidedAt - e.shownAt) / 1000;
+        exitCount++;
+      }
+    }
+  }
+  const total = enter + exit + alternative;
+  return {
+    total,
+    leaveRate: total > 0 ? (exit + alternative) / total : null,
+    avgExitSeconds: exitCount > 0 ? secondsSum / exitCount : null,
+    studyOpens,
+  };
+}
+
+/** The last 7 days (ending today) against the 7 before, from the events the extension keeps. */
+export function weeklyProgress(events: WarningEvent[], now: number, tz: number): WeeklyProgress {
+  const thisDays = new Set<string>();
+  const lastDays = new Set<string>();
+  for (let i = 0; i < 14; i++) (i < 7 ? thisDays : lastDays).add(dayKey(now - i * DAY_MS, tz));
+  const thisWeek = weekFigures(events.filter((e) => thisDays.has(dayKey(e.shownAt, tz))));
+  const lastWeek = weekFigures(events.filter((e) => lastDays.has(dayKey(e.shownAt, tz))));
+  const enough = thisWeek.total >= PROGRESS_MIN_INTERCEPTIONS && lastWeek.total >= PROGRESS_MIN_INTERCEPTIONS;
+  if (!enough) {
+    return { thisWeek, lastWeek, enough, leaveRate: "not-enough-data", seconds: "not-enough-data", studyOpens: "not-enough-data" };
+  }
+  let leaveRate: ProgressVerdict = "same";
+  if (thisWeek.leaveRate !== null && lastWeek.leaveRate !== null) {
+    const diff = thisWeek.leaveRate - lastWeek.leaveRate;
+    leaveRate = diff >= 0.05 - EPS ? "better" : diff <= -(0.05 - EPS) ? "worse" : "same";
+  }
+  let seconds: ProgressVerdict = "not-enough-data";
+  if (thisWeek.avgExitSeconds !== null && lastWeek.avgExitSeconds !== null) {
+    const diff = thisWeek.avgExitSeconds - lastWeek.avgExitSeconds;
+    seconds = diff <= -(1 - EPS) ? "better" : diff >= 1 - EPS ? "worse" : "same";
+  }
+  const studyOpens: ProgressVerdict =
+    thisWeek.studyOpens < lastWeek.studyOpens ? "better" : thisWeek.studyOpens > lastWeek.studyOpens ? "worse" : "same";
+  return { thisWeek, lastWeek, enough, leaveRate, seconds, studyOpens };
+}

@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { api, type DayStat } from "../api";
 import { BarChart, type Series } from "../components/BarChart";
+import { weeklyProgress, MIN_INTERCEPTIONS, type Verdict, type WeeklyProgress } from "../progress";
 import { useRefresh } from "./MainApp";
 
 type Range = "days" | "weeks";
@@ -41,6 +42,45 @@ function bucketize(stats: DayStat[], range: Range): Bucket[] {
   return weeks;
 }
 
+const VERDICT_TEXT: Record<Verdict, string> = {
+  better: "Tốt hơn tuần trước",
+  worse: "Chưa tốt bằng tuần trước",
+  same: "Gần như tuần trước",
+  "not-enough-data": `Cần ít nhất ${MIN_INTERCEPTIONS} lần bị chặn mỗi tuần để so sánh`,
+};
+
+const pct = (v: number | null) => (v === null ? "–" : `${Math.round(v * 100)}%`);
+const secs = (v: number | null) => (v === null ? "–" : `${v < 10 ? v.toFixed(1) : Math.round(v)} giây`);
+
+function ProgressCard({ p }: { p: WeeklyProgress }) {
+  // Worse seconds are stated as a plain difference, e.g. "Chậm hơn tuần trước 2 giây".
+  let secondsText = VERDICT_TEXT[p.seconds];
+  if (p.thisWeek.avgExitSeconds !== null && p.lastWeek.avgExitSeconds !== null && p.seconds !== "same" && p.seconds !== "not-enough-data") {
+    const diff = Math.round(Math.abs(p.thisWeek.avgExitSeconds - p.lastWeek.avgExitSeconds));
+    secondsText = `${p.seconds === "better" ? "Nhanh hơn" : "Chậm hơn"} tuần trước ${diff} giây`;
+  }
+  const rows: { label: string; now: string; before: string; text: string }[] = [
+    { label: "Tỉ lệ rời đi", now: pct(p.thisWeek.leaveRate), before: pct(p.lastWeek.leaveRate), text: VERDICT_TEXT[p.leaveRate] },
+    { label: "Số giây đến lúc Thoát", now: secs(p.thisWeek.avgExitSeconds), before: secs(p.lastWeek.avgExitSeconds), text: secondsText },
+    { label: "Mở giải trí trong giờ học", now: `${p.thisWeek.studyOpens} lần`, before: `${p.lastWeek.studyOpens} lần`, text: VERDICT_TEXT[p.studyOpens] },
+  ];
+  return (
+    <section className="card" aria-label="Tiến bộ tuần này">
+      <h2>Tiến bộ tuần này</h2>
+      <p className="muted" style={{ margin: 0 }}>7 ngày gần nhất so với 7 ngày trước đó.</p>
+      {rows.map((r) => (
+        <div key={r.label}>
+          <strong>{r.label}</strong>
+          <p style={{ margin: 0 }}>
+            Tuần này {r.now} · Tuần trước {r.before}
+          </p>
+          <p className="muted" style={{ margin: 0 }}>{r.text}</p>
+        </div>
+      ))}
+    </section>
+  );
+}
+
 export function StatsPage() {
   const tick = useRefresh();
   const [stats, setStats] = useState<DayStat[] | null>(null);
@@ -72,6 +112,7 @@ export function StatsPage() {
       <p className="muted" style={{ margin: 0 }}>
         Gộp mọi thiết bị đã đồng bộ. Mục tiêu: tỉ lệ Thoát tăng dần, số giây đến lúc Thoát giảm dần.
       </p>
+      {stats.length > 0 && <ProgressCard p={weeklyProgress(stats, stats[stats.length - 1].day)} />}
       <div className="row" role="group" aria-label="Khoảng thời gian">
         <button className={range === "days" ? "btn-primary small-btn" : "btn-secondary small-btn"} onClick={() => setRange("days")}>
           14 ngày

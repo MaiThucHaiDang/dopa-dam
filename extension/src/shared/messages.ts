@@ -1,6 +1,6 @@
 // Messages between extension pages (warning, options, popup) and the background service worker.
 import type { AllowEntry, DomainRule, Settings, StudyRule, StudyStatus, Tag } from "../core";
-import type { BudgetView, ErrorCode } from "../background/logic";
+import type { BudgetView, ErrorCode, WeeklyProgress } from "../background/logic";
 import type { Decision } from "../background/state";
 
 export type Request =
@@ -86,6 +86,8 @@ export interface PopupView {
   budget: BudgetView;
   study: StudyStatus;
   agent: AgentStatus;
+  /** Standalone mode only: this week against last week. Absent while the agent is connected. */
+  progress?: WeeklyProgress;
 }
 
 export type SimpleResponse = { ok: true } | Failure;

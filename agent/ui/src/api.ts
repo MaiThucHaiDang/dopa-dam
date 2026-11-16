@@ -134,6 +134,7 @@ export interface DayStat {
   alternative: number;
   exitSecondsSum: number;
   exitCount: number;
+  studyWarnings: number;
   minutes: Record<string, number>;
 }
 

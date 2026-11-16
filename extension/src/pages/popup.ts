@@ -16,7 +16,27 @@ async function main(): Promise<void> {
   show(byId("study"), studying);
   show(byId("study-start"), !studying);
   show(byId("study-stop"), studying);
+  renderProgress(v);
   byId("agent").textContent = v.agent.connected ? "Đã nối với agent trên máy" : "Chạy riêng (chưa nối agent)";
+}
+
+const pct = (r: number | null) => (r === null ? "–" : `${Math.round(r * 100)}%`);
+
+function renderProgress(v: PopupView): void {
+  const p = v.progress;
+  show(byId("progress"), !!p);
+  if (!p) return;
+  byId("progress-rate").textContent = `Tỉ lệ rời đi: ${pct(p.thisWeek.leaveRate)} (tuần trước ${pct(p.lastWeek.leaveRate)})`;
+  const verdict = {
+    better: "Tốt hơn tuần trước",
+    worse: "Chưa tốt bằng tuần trước",
+    same: "Gần như tuần trước",
+    "not-enough-data": "Cần ít nhất 5 lần bị chặn mỗi tuần để so sánh",
+  }[p.leaveRate];
+  byId("progress-rate-verdict").textContent = verdict;
+  const anyStudy = p.thisWeek.studyOpens + p.lastWeek.studyOpens > 0;
+  byId("progress-study").textContent = `Mở giải trí trong giờ học: ${p.thisWeek.studyOpens} lần (tuần trước ${p.lastWeek.studyOpens})`;
+  show(byId("progress-study"), anyStudy);
 }
 
 async function startStudy(minutes: number): Promise<void> {

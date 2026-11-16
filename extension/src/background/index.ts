@@ -430,6 +430,7 @@ async function popupView(): Promise<PopupView> {
     budget: L.budgetView(state, now, tz),
     study,
     agent: agent.status,
+    progress: L.weeklyProgress(state.events, now, tz),
   };
 }
 
