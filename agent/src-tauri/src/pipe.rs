@@ -13,6 +13,9 @@ use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader
 #[cfg(windows)]
 use tokio::net::windows::named_pipe::ServerOptions;
 
+/// Pause before retrying after an accept error, so a persistent failure cannot busy-loop.
+const RETRY_DELAY: std::time::Duration = std::time::Duration::from_millis(200);
+
 #[cfg(windows)]
 pub async fn serve(state: Shared) {
     let mut server = match ServerOptions::new().first_pipe_instance(true).create(PIPE_NAME) {
@@ -23,18 +26,32 @@ pub async fn serve(state: Shared) {
         }
     };
     loop {
-        if server.connect().await.is_err() {
+        if let Err(e) = server.connect().await {
+            // This instance may be unusable now: replace it, and pause so a persistent failure cannot spin.
+            eprintln!("DopaDam: pipe connect failed: {e}");
+            server = fresh_instance(true).await;
             continue;
         }
         let connected = server;
-        server = match ServerOptions::new().create(PIPE_NAME) {
-            Ok(s) => s,
-            Err(e) => {
-                eprintln!("DopaDam: pipe instance failed: {e}");
-                return;
-            }
-        };
+        server = fresh_instance(false).await;
         tokio::spawn(handle_client(state.clone(), connected));
+    }
+}
+
+/// A new pipe instance for the next client; retries every 200 ms until one can be created.
+/// `pause_first` is for the error path; after a successful accept the next instance is made at once,
+/// so a second client does not find the pipe missing.
+#[cfg(windows)]
+async fn fresh_instance(pause_first: bool) -> tokio::net::windows::named_pipe::NamedPipeServer {
+    if pause_first {
+        tokio::time::sleep(RETRY_DELAY).await;
+    }
+    loop {
+        match ServerOptions::new().create(PIPE_NAME) {
+            Ok(s) => return s,
+            Err(e) => eprintln!("DopaDam: pipe instance failed: {e}"),
+        }
+        tokio::time::sleep(RETRY_DELAY).await;
     }
 }
 
@@ -73,7 +90,7 @@ pub async fn serve(state: Shared) {
             }
             Err(e) => {
                 eprintln!("DopaDam: accept failed: {e}");
-                tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+                tokio::time::sleep(RETRY_DELAY).await;
             }
         }
     }
@@ -280,7 +297,7 @@ pub fn handle_message(state: &Shared, client: u64, msg: &Value) -> Option<Value>
         }
         "clear_log" => {
             let confirmed = msg.get("confirmed").and_then(Value::as_bool).unwrap_or(false);
-            let outcome = state.store().clear_log(confirmed);
+            let outcome = state.store().clear_log(confirmed, now);
             if outcome.is_ok() {
                 state.changed();
             }

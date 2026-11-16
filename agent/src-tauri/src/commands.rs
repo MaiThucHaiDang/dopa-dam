@@ -275,7 +275,7 @@ pub fn set_protection(state: State<'_, Shared>, enabled: bool, confirmed: bool) 
 
 #[tauri::command]
 pub fn clear_log(state: State<'_, Shared>, confirmed: bool) -> CmdResult {
-    state.store().clear_log(confirmed)?;
+    state.store().clear_log(confirmed, now_ms())?;
     state.changed();
     Ok(())
 }
@@ -458,7 +458,7 @@ pub async fn account_devices(state: State<'_, Shared>) -> Result<Vec<DeviceRow>,
     let api = api(&state)?;
     let token = state.session().map(|s| s.access_token).ok_or("Chưa đăng nhập.")?;
     let me = state.store().device_id();
-    let rows = api.pull("devices", None, &token).await.map_err(|e| e.to_string())?;
+    let rows = api.pull("devices", None, 0, crate::sync::PAGE, &token).await.map_err(|e| e.to_string())?;
     Ok(rows
         .into_iter()
         .map(|r| DeviceRow {
@@ -482,7 +482,7 @@ pub async fn delete_server_data(state: State<'_, Shared>, confirmed: bool) -> Cm
     api.rpc("delete_my_data", &token).await.map_err(|e| e.to_string())?;
     {
         let store = state.store();
-        store.clear_log(true)?;
+        store.wipe_log();
         // The server is empty now: everything must be uploaded again after the next sign-in.
         store.reset_sync_state();
     }

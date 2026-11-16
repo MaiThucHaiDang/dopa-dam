@@ -10,7 +10,7 @@ use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::sync::Mutex;
 
-const PAGE: usize = 1000;
+pub const PAGE: usize = 1000;
 /// Pull again a little before the cursor: rows committed late with an earlier stamp are not missed.
 const CURSOR_OVERLAP_MIN: i64 = 5;
 pub const REDIRECT_URL: &str = "dopadam://auth-callback";
@@ -254,10 +254,22 @@ impl Api {
         Self::check(res).await.map(|_| ())
     }
 
-    pub async fn pull(&self, table: &str, since: Option<&str>, token: &str) -> Result<Vec<Value>, SyncError> {
-        let mut path = format!("{table}?select=*&order=server_updated_at.asc&limit={PAGE}");
+    /// One page of a table: rows with `server_updated_at >= since`, oldest first (ties by id, so that
+    /// `offset` paging inside a group of equal timestamps is stable), skipping `offset` rows.
+    pub async fn pull(
+        &self,
+        table: &str,
+        since: Option<&str>,
+        offset: usize,
+        limit: usize,
+        token: &str,
+    ) -> Result<Vec<Value>, SyncError> {
+        let mut path = format!("{table}?select=*&order=server_updated_at.asc,id.asc&limit={limit}");
         if let Some(since) = since {
-            path.push_str(&format!("&server_updated_at=gt.{}", urlencode(since)));
+            path.push_str(&format!("&server_updated_at=gte.{}", urlencode(since)));
+        }
+        if offset > 0 {
+            path.push_str(&format!("&offset={offset}"));
         }
         let res = self
             .rest(reqwest::Method::GET, &path, token)
@@ -316,6 +328,75 @@ fn lock(store: &Mutex<Store>) -> std::sync::MutexGuard<'_, Store> {
     store.lock().unwrap_or_else(|e| e.into_inner())
 }
 
+/// Where pages of rows come from (the server; a fake in tests).
+trait PullSource {
+    async fn page(&self, table: &str, since: Option<&str>, offset: usize, limit: usize) -> Result<Vec<Value>, SyncError>;
+}
+
+struct Remote<'a> {
+    api: &'a Api,
+    token: &'a str,
+}
+
+impl PullSource for Remote<'_> {
+    async fn page(&self, table: &str, since: Option<&str>, offset: usize, limit: usize) -> Result<Vec<Value>, SyncError> {
+        self.api.pull(table, since, offset, limit, self.token).await
+    }
+}
+
+fn stamp(row: &Value) -> Option<DateTime<Utc>> {
+    row.get("server_updated_at").and_then(Value::as_str).and_then(parse_ts)
+}
+
+/// Pulls one table. Pages are asked for with `server_updated_at >= since`, oldest first.
+/// - A page that is not full ends the pull; the cursor is the newest `server_updated_at` seen.
+/// - A full page whose first and last rows differ continues from the last row's stamp (the rows at
+///   that stamp are read again, which is harmless: see `Store::apply_remote`).
+/// - A full page of one single stamp keeps `since` and moves `offset` on, so a group of rows with
+///   equal stamps larger than a page is still read to the end.
+async fn pull_table<S: PullSource>(
+    store: &Mutex<Store>,
+    source: &S,
+    table: &str,
+    device_id: &str,
+    page: usize,
+    report: &mut Report,
+) -> Result<(), SyncError> {
+    let mut newest = lock(store).cursor(table).as_deref().and_then(parse_ts);
+    let mut since = newest.map(|d| format_ts(d - ChronoDuration::minutes(CURSOR_OVERLAP_MIN)));
+    let mut offset = 0;
+    loop {
+        let rows = source.page(table, since.as_deref(), offset, page).await?;
+        {
+            let s = lock(store);
+            for row in &rows {
+                if s.apply_remote(table, row, device_id) {
+                    report.changed += 1;
+                }
+                if let Some(ts) = stamp(row) {
+                    if newest.is_none_or(|n| ts > n) {
+                        newest = Some(ts);
+                    }
+                }
+            }
+            if let Some(n) = newest {
+                s.set_cursor(table, &format_ts(n));
+            }
+        }
+        report.pulled += rows.len();
+        if rows.len() < page {
+            return Ok(());
+        }
+        match (rows.first().and_then(stamp), rows.last().and_then(stamp)) {
+            (Some(first), Some(last)) if first != last => {
+                since = Some(format_ts(last));
+                offset = 0;
+            }
+            _ => offset += rows.len(),
+        }
+    }
+}
+
 /// One round: push local changes, record this device, pull everything newer than the cursors.
 pub async fn sync_once(
     store: &Mutex<Store>,
@@ -338,35 +419,9 @@ pub async fn sync_once(
         "last_seen": now, "updated_at": now});
     api.upsert("devices", &[me], false, token).await?;
 
+    let remote = Remote { api, token };
     for table in TABLES {
-        let cursor = lock(store).cursor(table);
-        let mut since =
-            cursor.as_deref().and_then(parse_ts).map(|d| format_ts(d - ChronoDuration::minutes(CURSOR_OVERLAP_MIN)));
-        loop {
-            let rows = api.pull(table, since.as_deref(), token).await?;
-            let mut newest = cursor.as_deref().and_then(parse_ts);
-            {
-                let s = lock(store);
-                for row in &rows {
-                    if s.apply_remote(table, row, &device_id) {
-                        report.changed += 1;
-                    }
-                    if let Some(ts) = row.get("server_updated_at").and_then(Value::as_str).and_then(parse_ts) {
-                        if newest.is_none_or(|n| ts > n) {
-                            newest = Some(ts);
-                        }
-                    }
-                }
-                if let Some(n) = newest {
-                    s.set_cursor(table, &format_ts(n));
-                }
-            }
-            report.pulled += rows.len();
-            if rows.len() < PAGE {
-                break;
-            }
-            since = newest.map(format_ts);
-        }
+        pull_table(store, &remote, table, &device_id, PAGE, &mut report).await?;
     }
     lock(store).kv_set("lastSync", &now.to_string());
     Ok(report)
@@ -407,6 +462,96 @@ mod tests {
             "Email chưa được xác nhận. Mở thư xác nhận rồi đăng nhập lại."
         );
         assert_eq!(friendly_auth_error("User already registered"), "Email này đã có tài khoản. Hãy đăng nhập.");
+    }
+
+    /// A server that keeps rows in memory and answers like PostgREST: `>= since`, oldest first,
+    /// ties by id, `offset`, `limit`.
+    struct FakeServer {
+        rows: Vec<Value>,
+        calls: Mutex<Vec<(Option<String>, usize)>>,
+    }
+
+    impl FakeServer {
+        /// `stamps` are `server_updated_at` values, one row each.
+        fn new(stamps: &[&str]) -> FakeServer {
+            let rows = stamps
+                .iter()
+                .enumerate()
+                .map(|(n, ts)| {
+                    json!({"id": format!("exe:r{n:02}"), "kind": "exe", "pattern": format!("r{n:02}.exe"), "tag": "game",
+                        "delay_seconds": null, "updated_at": 1_000 + n as i64, "deleted": false, "server_updated_at": ts})
+                })
+                .collect();
+            FakeServer { rows, calls: Mutex::new(vec![]) }
+        }
+    }
+
+    impl PullSource for FakeServer {
+        async fn page(&self, _t: &str, since: Option<&str>, offset: usize, limit: usize) -> Result<Vec<Value>, SyncError> {
+            self.calls.lock().unwrap().push((since.map(String::from), offset));
+            let from = since.and_then(parse_ts);
+            let mut rows: Vec<Value> =
+                self.rows.iter().filter(|r| from.is_none_or(|f| stamp(r).unwrap() >= f)).cloned().collect();
+            rows.sort_by_key(|r| (stamp(r).unwrap(), r["id"].as_str().unwrap().to_string()));
+            Ok(rows.into_iter().skip(offset).take(limit).collect())
+        }
+    }
+
+    async fn pull_all(store: &Mutex<Store>, server: &FakeServer, page: usize) -> Report {
+        let mut report = Report::default();
+        pull_table(store, server, "tag_rules", "dev", page, &mut report).await.unwrap();
+        report
+    }
+
+    fn rule_count(store: &Mutex<Store>) -> usize {
+        let n: i64 =
+            lock(store).conn().query_row("SELECT COUNT(*) FROM tag_rules", [], |r| r.get(0)).unwrap();
+        n as usize
+    }
+
+    #[tokio::test]
+    async fn a_page_boundary_inside_equal_stamps_loses_no_rows() {
+        let (a, b, c) = ("2026-10-12T05:00:00.000001Z", "2026-10-12T05:00:00.000002Z", "2026-10-12T05:00:00.000003Z");
+        // Pages of 3: [a b b] ends inside the group of four b rows.
+        let server = FakeServer::new(&[a, b, b, b, b, c]);
+        let store = Mutex::new(Store::open_in_memory().unwrap());
+        let report = pull_all(&store, &server, 3).await;
+        assert_eq!(rule_count(&store), 6);
+        assert_eq!(lock(&store).cursor("tag_rules").as_deref(), Some(c));
+        assert_eq!(report.changed, 6);
+        // [a b b] -> continue at b: [b b b] is one stamp, so offset 3 -> [c].
+        let calls = server.calls.lock().unwrap().clone();
+        assert_eq!(calls, vec![(None, 0), (Some(b.to_string()), 0), (Some(b.to_string()), 3)]);
+    }
+
+    #[tokio::test]
+    async fn a_whole_page_of_equal_stamps_is_paged_with_offset() {
+        let t = "2026-10-12T05:00:00.123456Z";
+        let server = FakeServer::new(&[t; 7]);
+        let store = Mutex::new(Store::open_in_memory().unwrap());
+        let report = pull_all(&store, &server, 3).await;
+        assert_eq!(rule_count(&store), 7);
+        assert_eq!((report.pulled, report.changed), (7, 7));
+        assert_eq!(lock(&store).cursor("tag_rules").as_deref(), Some(t));
+        // A group that is an exact multiple of the page ends with an empty page.
+        let server = FakeServer::new(&[t; 6]);
+        let store = Mutex::new(Store::open_in_memory().unwrap());
+        pull_all(&store, &server, 3).await;
+        assert_eq!(rule_count(&store), 6);
+    }
+
+    #[tokio::test]
+    async fn rereading_the_rows_at_the_cursor_changes_nothing_and_pushes_nothing() {
+        // Hours apart, so the overlap before the cursor does not reach the older rows.
+        let server = FakeServer::new(&["2026-10-12T01:00:00Z", "2026-10-12T03:00:00Z", "2026-10-12T05:00:00Z"]);
+        let store = Mutex::new(Store::open_in_memory().unwrap());
+        pull_all(&store, &server, 10).await;
+        server.calls.lock().unwrap().clear();
+        let again = pull_all(&store, &server, 10).await;
+        assert_eq!((again.pulled, again.changed), (1, 0), "only the row at the cursor is read again");
+        assert_eq!(server.calls.lock().unwrap()[0].0.as_deref(), Some("2026-10-12T04:55:00.000000Z"));
+        assert!(lock(&store).dirty_rows("tag_rules", "dev", 0).is_empty());
+        assert_eq!(lock(&store).cursor("tag_rules").as_deref(), Some("2026-10-12T05:00:00.000000Z"));
     }
 
     /// Full round trip against supabase/test/mock-server.mjs (real SQL + RLS in PGlite).
@@ -452,10 +597,45 @@ mod tests {
 
         // Another user sees nothing of it.
         let other = api.sign_up(&format!("o{}@example.com", now), "secret123", now).await.unwrap().unwrap();
-        assert!(api.pull("tag_rules", None, &other.access_token).await.unwrap().is_empty());
+        assert!(api.pull("tag_rules", None, 0, PAGE, &other.access_token).await.unwrap().is_empty());
 
         api.rpc("delete_my_data", &session.access_token).await.unwrap();
-        assert!(api.pull("tag_rules", None, &session.access_token).await.unwrap().is_empty());
-        assert!(matches!(api.pull("tag_rules", None, "not-a-token").await, Err(SyncError::Unauthorized)));
+        assert!(api.pull("tag_rules", None, 0, PAGE, &session.access_token).await.unwrap().is_empty());
+        assert!(matches!(api.pull("tag_rules", None, 0, PAGE, "not-a-token").await, Err(SyncError::Unauthorized)));
+    }
+
+    /// Paging with `gte` and `offset` against the real SQL: five rules read two at a time.
+    #[tokio::test]
+    #[ignore]
+    async fn pages_through_the_mock_server() {
+        let url = std::env::var("DOPADAM_MOCK_SUPABASE").expect("DOPADAM_MOCK_SUPABASE");
+        let api = Api::new(Config { url, anon_key: "anon".into() });
+        let now = crate::core::now_ms();
+        let session = api.sign_up(&format!("p{now}@example.com"), "secret123", now).await.unwrap().unwrap();
+        let rows: Vec<Value> = (0..5)
+            .map(|n| json!({"id": format!("exe:p{n}.exe"), "kind": "exe", "pattern": format!("p{n}.exe"), "tag": "game",
+                "updated_at": now + n, "deleted": false}))
+            .collect();
+        api.upsert("tag_rules", &rows, false, &session.access_token).await.unwrap();
+
+        let store = Mutex::new(Store::open_in_memory().unwrap());
+        let remote = Remote { api: &api, token: &session.access_token };
+        let mut report = Report::default();
+        pull_table(&store, &remote, "tag_rules", "dev", 2, &mut report).await.unwrap();
+        assert_eq!(rule_count(&store), 5);
+        assert_eq!(report.changed, 5);
+        // A second pull reads the newest row again and changes nothing.
+        let mut again = Report::default();
+        pull_table(&store, &remote, "tag_rules", "dev", 2, &mut again).await.unwrap();
+        assert_eq!(again.changed, 0);
+        assert!(lock(&store).dirty_rows("tag_rules", "dev", now).is_empty());
+        // `offset` and `gte` themselves.
+        let all = api.pull("tag_rules", None, 0, 10, &session.access_token).await.unwrap();
+        let from_third = api.pull("tag_rules", None, 2, 10, &session.access_token).await.unwrap();
+        assert_eq!(from_third, all[2..].to_vec());
+        let at = all[3]["server_updated_at"].as_str().unwrap();
+        let ge = api.pull("tag_rules", Some(at), 0, 10, &session.access_token).await.unwrap();
+        assert_eq!(ge.first(), Some(&all[3]));
+        assert_eq!(ge.len(), 2);
     }
 }

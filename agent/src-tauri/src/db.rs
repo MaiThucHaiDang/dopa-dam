@@ -810,12 +810,22 @@ impl Store {
         self.write_rule(KIND_ALLOW_URL, &entry.to_pattern(), None, None, now);
     }
 
-    pub fn clear_log(&self, confirmed: bool) -> Res<()> {
+    /// The user's "clear log". Wiping events and usage lowers the friction level, so it is a locked
+    /// mutation during study.
+    pub fn clear_log(&self, confirmed: bool, now: i64) -> Res<()> {
+        if self.study_status(now).active {
+            return Err(ErrorCode::StudyLocked);
+        }
         if !confirmed {
             return Err(ErrorCode::NeedsConfirm);
         }
-        let _ = self.conn.execute_batch("DELETE FROM intercept_events; DELETE FROM usage_daily;");
+        self.wipe_log();
         Ok(())
+    }
+
+    /// Unconditional wipe for internal paths (the account's server data was just deleted).
+    pub fn wipe_log(&self) {
+        let _ = self.conn.execute_batch("DELETE FROM intercept_events; DELETE FROM usage_daily;");
     }
 
     /// Closes warnings nobody decided in twelve hours as Thoát, so they can be synced (an event is only
@@ -1057,6 +1067,25 @@ mod tests {
         assert_eq!(s.set_protection(false, false, NOW), Err(ErrorCode::NeedsConfirm));
         assert_eq!(s.set_protection(false, true, NOW), Ok(()));
         assert!(!s.protection_enabled());
-        assert_eq!(s.clear_log(true), Ok(()));
+        assert_eq!(s.clear_log(true, NOW), Ok(()));
+    }
+
+    #[test]
+    fn clear_log_is_refused_during_study_but_works_outside() {
+        let s = store();
+        s.add_usage("game", 600.0, NOW);
+        assert_eq!(s.clear_log(false, NOW), Err(ErrorCode::NeedsConfirm));
+        s.start_study(30, Some("x"), NOW).unwrap();
+        assert_eq!(s.clear_log(true, NOW + MIN), Err(ErrorCode::StudyLocked));
+        assert_eq!(s.clear_log(false, NOW + MIN), Err(ErrorCode::StudyLocked));
+        let rows = |s: &Store| s.conn.query_row("SELECT COUNT(*) FROM usage_daily", [], |r| r.get::<_, i64>(0)).unwrap();
+        assert_eq!(rows(&s), 1);
+        // The internal wipe (after deleting the server data) is not blocked.
+        s.wipe_log();
+        assert_eq!(rows(&s), 0);
+        // After the session ends the user path works again.
+        s.add_usage("game", 60.0, NOW + 2 * MIN);
+        assert_eq!(s.clear_log(true, NOW + 31 * MIN), Ok(()));
+        assert_eq!(rows(&s), 0);
     }
 }

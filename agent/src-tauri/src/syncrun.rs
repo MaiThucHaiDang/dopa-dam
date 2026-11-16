@@ -127,11 +127,7 @@ pub fn spawn_loop(state: Shared) {
 pub fn sign_in_with(state: &Shared, session: Session) -> Result<(), String> {
     account::save(&session.stored)?;
     {
-        let store = state.store();
-        if store.kv_get("lastUserId").as_deref() != Some(session.stored.user_id.as_str()) {
-            store.reset_cursors();
-            store.kv_set("lastUserId", &session.stored.user_id);
-        }
+        state.store().switch_account(&session.stored.user_id);
     }
     state.set_session(Some(session));
     state.sync_info().last_error = None;

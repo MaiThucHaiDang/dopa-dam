@@ -137,14 +137,16 @@ const server = createServer(async (req, res) => {
 
     if (req.method === "GET") {
       const limit = Number(url.searchParams.get("limit") ?? 1000);
-      const since = url.searchParams.get("server_updated_at")?.replace(/^gt\./, "");
+      const offset = Number(url.searchParams.get("offset") ?? 0);
+      // server_updated_at=gt.<ts> or gte.<ts>; rows come oldest first, ties by id (a stable order for offset paging).
+      const filter = url.searchParams.get("server_updated_at")?.match(/^(gte?)\.(.+)$/);
       const rows = await asUser(userId, async () =>
         (
           await db.query(
             `select *, to_char(server_updated_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"+00:00"') as server_updated_at_text
-             from public.${table} ${since ? "where server_updated_at > $1::timestamptz" : ""}
-             order by server_updated_at asc limit ${limit}`,
-            since ? [since] : [],
+             from public.${table} ${filter ? `where server_updated_at ${filter[1] === "gte" ? ">=" : ">"} $1::timestamptz` : ""}
+             order by server_updated_at asc, id asc limit ${limit} offset ${offset}`,
+            filter ? [filter[2]] : [],
           )
         ).rows,
       );

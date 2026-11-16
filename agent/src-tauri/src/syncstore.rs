@@ -113,41 +113,76 @@ impl Store {
         }
     }
 
-    fn local_updated_at(&self, table: &str, id: &str) -> Option<i64> {
+    /// `updated_at` and the dirty flag of the local row, if there is one.
+    fn local_state(&self, table: &str, id: &str) -> Option<(i64, bool)> {
         self.conn()
-            .query_row(&format!("SELECT updated_at FROM {table} WHERE id = ?1"), [id], |r| r.get(0))
+            .query_row(&format!("SELECT updated_at, dirty FROM {table} WHERE id = ?1"), [id], |r| {
+                Ok((r.get(0)?, r.get::<_, i64>(1)? != 0))
+            })
+            .optional()
+            .ok()
+            .flatten()
+    }
+
+    /// All synced columns of a local row (and its dirty flag) as one string, to tell whether a merge changed it.
+    fn row_signature(&self, table: &str, id: &str) -> Option<String> {
+        let columns = match table {
+            "tag_rules" => "kind, pattern, tag, delay_seconds, updated_at, deleted, dirty",
+            "settings" => "json, updated_at, dirty",
+            "study_rules" => "days, start, \"end\", label, exceptions, updated_at, deleted, dirty",
+            "study_sessions" => "source, start, \"end\", label, external_id, updated_at, deleted, dirty",
+            "usage_daily" => "day, device_id, tag, seconds, updated_at, dirty",
+            _ => return None,
+        };
+        self.conn()
+            .query_row(&format!("SELECT json_array({columns}) FROM {table} WHERE id = ?1"), [id], |r| r.get(0))
             .optional()
             .ok()
             .flatten()
     }
 
     /// Merges one pulled row. Returns true when the local data changed.
+    ///
+    /// The remote row wins when its `updated_at` is greater than the local one, or equal while the
+    /// local row is not dirty (the server keeps the later push on a tie, so a clean local row is the
+    /// one that lost). A dirty local row with an equal stamp stays and is pushed. Pulling the same row
+    /// again (the cursor is read with `>=`) writes the same values and reports no change.
     pub fn apply_remote(&self, table: &str, row: &Value, my_device: &str) -> bool {
         let Some(id) = s(row, "id") else { return false };
         let updated = i(row, "updated_at").unwrap_or(0);
-        let newer = || self.local_updated_at(table, &id).is_none_or(|local| updated > local);
+        if table == "usage_daily" && s(row, "device_id").as_deref() == Some(my_device) {
+            return false;
+        }
+        // Events are append only and have no updated_at: the insert below ignores a known id.
+        let local = if table == "intercept_events" { None } else { self.local_state(table, &id) };
+        let wins = local.is_none_or(|(at, dirty)| updated > at || (updated == at && !dirty));
+        if !wins {
+            return false;
+        }
+        let tie = local.is_some_and(|(at, _)| at == updated);
+        let before = if tie { self.row_signature(table, &id) } else { None };
         let c = self.conn();
         let result = match table {
-            "tag_rules" if newer() => c.execute(
+            "tag_rules" => c.execute(
                 "INSERT OR REPLACE INTO tag_rules(id, kind, pattern, tag, delay_seconds, updated_at, deleted, dirty)
                  VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, 0)",
                 params![id, s(row, "kind"), s(row, "pattern"), s(row, "tag"), i(row, "delay_seconds"), updated, b(row, "deleted")],
             ),
-            "settings" if newer() => c.execute(
+            "settings" => c.execute(
                 "INSERT OR REPLACE INTO settings(id, json, updated_at, dirty) VALUES(?1, ?2, ?3, 0)",
                 params![id, row.get("json").map(Value::to_string).unwrap_or_else(|| "{}".into()), updated],
             ),
-            "study_rules" if newer() => c.execute(
+            "study_rules" => c.execute(
                 "INSERT OR REPLACE INTO study_rules(id, days, start, \"end\", label, exceptions, updated_at, deleted, dirty)
                  VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 0)",
                 params![id, s(row, "days"), s(row, "start"), s(row, "end"), s(row, "label"), s(row, "exceptions").unwrap_or_default(), updated, b(row, "deleted")],
             ),
-            "study_sessions" if newer() => c.execute(
+            "study_sessions" => c.execute(
                 "INSERT OR REPLACE INTO study_sessions(id, source, start, \"end\", label, external_id, updated_at, deleted, dirty)
                  VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 0)",
                 params![id, s(row, "source"), i(row, "start"), i(row, "end"), s(row, "label"), s(row, "external_id"), updated, b(row, "deleted")],
             ),
-            "usage_daily" if s(row, "device_id").as_deref() != Some(my_device) && newer() => c.execute(
+            "usage_daily" => c.execute(
                 "INSERT OR REPLACE INTO usage_daily(id, day, device_id, tag, seconds, updated_at, dirty) VALUES(?1, ?2, ?3, ?4, ?5, ?6, 0)",
                 params![id, s(row, "day"), s(row, "device_id"), s(row, "tag"), row.get("seconds").and_then(Value::as_f64).unwrap_or(0.0), updated],
             ),
@@ -161,6 +196,9 @@ impl Store {
             ),
             _ => Ok(0),
         };
+        if tie {
+            return result.is_ok() && self.row_signature(table, &id) != before;
+        }
         result.is_ok_and(|n| n > 0)
     }
 
@@ -177,6 +215,22 @@ impl Store {
     pub fn reset_sync_state(&self) {
         self.reset_cursors();
         self.kv_delete("lastUserId");
+    }
+
+    /// Called at sign-in. When the account differs from the last one synced here, forgets the old
+    /// account's data that came from other devices (their usage and events would otherwise count in
+    /// the new account's budget and recent-open count) and prepares this device's data for upload.
+    /// This device's own rows, settings, tags and study rules stay. Returns true when it was a switch.
+    pub fn switch_account(&self, user_id: &str) -> bool {
+        if self.kv_get("lastUserId").as_deref() == Some(user_id) {
+            return false;
+        }
+        let me = self.device_id();
+        let _ = self.conn().execute("DELETE FROM usage_daily WHERE device_id != ?1", [&me]);
+        let _ = self.conn().execute("DELETE FROM intercept_events WHERE device_id != ?1", [&me]);
+        self.reset_cursors();
+        self.kv_set("lastUserId", user_id);
+        true
     }
 
     /// After signing out or deleting server data, pull everything again next time.
@@ -237,6 +291,46 @@ mod tests {
     }
 
     #[test]
+    fn on_an_equal_stamp_a_clean_local_row_takes_the_remote_one_and_a_dirty_one_stays() {
+        let s = Store::open_in_memory().unwrap();
+        let remote = json!({"id": "exe:a.exe", "kind": "exe", "pattern": "a.exe", "tag": "work", "updated_at": NOW, "deleted": false});
+        // Dirty (waiting to be pushed): stays, and is still pushed.
+        s.set_rule_tag(KIND_EXE, "a.exe", Some("game"), false, NOW).unwrap();
+        assert!(!s.apply_remote("tag_rules", &remote, "dev"));
+        assert_eq!(s.rule(KIND_EXE, "a.exe").unwrap().tag, "game");
+        assert_eq!(s.dirty_rows("tag_rules", "dev", NOW).len(), 1);
+        // Clean (already pushed, the server kept the other device's later push): the remote row wins.
+        let rows = s.dirty_rows("tag_rules", "dev", NOW);
+        s.mark_clean("tag_rules", &rows);
+        assert!(s.apply_remote("tag_rules", &remote, "dev"));
+        assert_eq!(s.rule(KIND_EXE, "a.exe").unwrap().tag, "work");
+        assert!(s.dirty_rows("tag_rules", "dev", NOW).is_empty());
+        // The same row again is not a change.
+        assert!(!s.apply_remote("tag_rules", &remote, "dev"));
+    }
+
+    #[test]
+    fn applying_a_pulled_row_twice_is_harmless_for_every_table() {
+        let s = Store::open_in_memory().unwrap();
+        let rows = [
+            ("tag_rules", json!({"id": "exe:a.exe", "kind": "exe", "pattern": "a.exe", "tag": "work", "delay_seconds": 5, "updated_at": NOW, "deleted": false})),
+            ("settings", json!({"id": "settings", "json": {"budgetMinutes": 45, "x": [1, 2]}, "updated_at": NOW})),
+            ("study_rules", json!({"id": "r1", "days": "1,2", "start": "08:00", "end": "09:00", "label": "L", "exceptions": "", "updated_at": NOW, "deleted": false})),
+            ("study_sessions", json!({"id": "s1", "source": "manual", "start": NOW, "end": NOW + 1000, "label": null, "external_id": null, "updated_at": NOW, "deleted": false})),
+            ("usage_daily", json!({"id": "d|phone|game", "day": "2026-10-12", "device_id": "phone", "tag": "game", "seconds": 61.5, "updated_at": NOW})),
+            ("intercept_events", json!({"id": "e1", "device_id": "phone", "object": "o", "tag": "game", "level": 1, "lock_seconds": 5, "n": 2,
+                "shown_at": NOW, "decision": "enter", "decided_at": NOW + 1, "allow_minutes": 5, "activity": null, "activity_minutes": null})),
+        ];
+        for (table, row) in &rows {
+            assert!(s.apply_remote(table, row, "pc"), "{table}: first apply");
+            assert!(!s.apply_remote(table, row, "pc"), "{table}: second apply must change nothing");
+            assert!(s.dirty_rows(table, "pc", NOW).is_empty(), "{table}: nothing to push");
+        }
+        // Same for the dirty-bit side: a clean local row at the same stamp is not touched either.
+        assert_eq!(s.rule(KIND_EXE, "a.exe").unwrap().tag, "work");
+    }
+
+    #[test]
     fn usage_and_events_from_other_devices_count_here() {
         let s = Store::open_in_memory().unwrap();
         let phone = json!({"id": "d|phone|entertainment", "day": crate::core::day_key(NOW, crate::core::local_tz_offset(NOW)),
@@ -253,6 +347,41 @@ mod tests {
         assert_eq!(s.shown_since(NOW - 3_600_000), vec![NOW - 60_000]);
         // Pulled rows are not pushed back.
         assert!(s.dirty_rows("intercept_events", "pc", NOW).is_empty());
+    }
+
+    #[test]
+    fn switching_account_drops_other_devices_usage_and_events_but_keeps_ours() {
+        let s = Store::open_in_memory().unwrap();
+        s.ensure_defaults(NOW);
+        let me = s.device_id();
+        let day = crate::core::day_key(NOW, crate::core::local_tz_offset(NOW));
+        s.add_usage("entertainment", 600.0, NOW);
+        s.record_warning("mine", "x.exe", "game", NOW);
+        s.auto_exit("mine", NOW + 1000);
+        s.set_rule_tag(KIND_EXE, "steam.exe", Some("game"), false, NOW).unwrap();
+        let phone = json!({"id": "d|phone|entertainment", "day": day, "device_id": "phone", "tag": "entertainment",
+            "seconds": 1800.0, "updated_at": NOW});
+        let event = json!({"id": "e1", "device_id": "phone", "object": "tiktok", "tag": "entertainment", "level": 0,
+            "lock_seconds": 5, "n": 0, "shown_at": NOW - 60_000, "decision": "exit", "decided_at": NOW - 50_000});
+        // First sign-in of an account, then the other device's data arrives; signing in again as the
+        // same account drops nothing.
+        assert!(s.switch_account("u1"));
+        assert!(s.apply_remote("usage_daily", &phone, &me));
+        assert!(s.apply_remote("intercept_events", &event, &me));
+        assert!((s.used_minutes(NOW) - 40.0).abs() < 1e-9);
+        assert_eq!(s.shown_since(NOW - 3_600_000).len(), 2);
+        assert!(!s.switch_account("u1"));
+        assert!((s.used_minutes(NOW) - 40.0).abs() < 1e-9);
+        assert_eq!(s.kv_get("lastUserId").as_deref(), Some("u1"));
+
+        // Another account: only this device's own rows remain, and they go up to the new account.
+        assert!(s.switch_account("u2"));
+        assert!((s.used_minutes(NOW) - 10.0).abs() < 1e-9);
+        assert_eq!(s.shown_since(NOW - 3_600_000), vec![NOW]);
+        assert_eq!(s.rule(KIND_EXE, "steam.exe").unwrap().tag, "game");
+        assert_eq!(s.dirty_rows("usage_daily", &me, NOW).len(), 1);
+        assert_eq!(s.dirty_rows("intercept_events", &me, NOW).len(), 1);
+        assert_eq!(s.kv_get("lastUserId").as_deref(), Some("u2"));
     }
 
     #[test]
