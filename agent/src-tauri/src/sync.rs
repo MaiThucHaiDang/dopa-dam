@@ -62,6 +62,34 @@ impl std::fmt::Display for SyncError {
 }
 
 /// Turns GoTrue's English error messages into what the user sees.
+/// Why a token refresh failed. Only a rejection means the stored sign-in is dead.
+#[derive(Debug, Clone, PartialEq)]
+pub enum RefreshError {
+    /// The server refused the refresh token.
+    Rejected(String),
+    /// Network trouble or a server error: the sign-in may still be good.
+    Other(String),
+}
+
+impl RefreshError {
+    pub fn is_rejected(&self) -> bool {
+        matches!(self, RefreshError::Rejected(_))
+    }
+}
+
+impl std::fmt::Display for RefreshError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            RefreshError::Rejected(m) | RefreshError::Other(m) => write!(f, "{m}"),
+        }
+    }
+}
+
+/// An authentication failure (bad or revoked token), not a rate limit or server error.
+pub fn refresh_rejected(status: u16) -> bool {
+    matches!(status, 400 | 401 | 403)
+}
+
 pub fn friendly_auth_error(raw: &str) -> String {
     let lower = raw.to_lowercase();
     if lower.contains("invalid login credentials") {
@@ -125,6 +153,11 @@ impl Api {
     }
 
     async fn auth_post(&self, path: &str, body: Value) -> Result<Value, String> {
+        self.auth_post_status(path, body).await.map_err(|(_, msg)| msg)
+    }
+
+    /// Like `auth_post`, but an error also carries the HTTP status (None: no answer from the server).
+    async fn auth_post_status(&self, path: &str, body: Value) -> Result<Value, (Option<u16>, String)> {
         let res = self
             .http
             .post(format!("{}/auth/v1/{path}", self.cfg.url))
@@ -132,13 +165,14 @@ impl Api {
             .json(&body)
             .send()
             .await
-            .map_err(|_| friendly_auth_error(""))?;
+            .map_err(|_| (None, friendly_auth_error("")))?;
         let ok = res.status().is_success();
+        let status = res.status().as_u16();
         let json: Value = res.json().await.unwrap_or(Value::Null);
         if ok {
             Ok(json)
         } else {
-            Err(friendly_auth_error(&error_text(&json)))
+            Err((Some(status), friendly_auth_error(&error_text(&json))))
         }
     }
 
@@ -157,8 +191,16 @@ impl Api {
         Ok(Self::session_from(&json, now))
     }
 
-    pub async fn refresh(&self, refresh_token: &str, now: i64) -> Result<Session, String> {
-        self.token("refresh_token", json!({"refresh_token": refresh_token}), now).await
+    pub async fn refresh(&self, refresh_token: &str, now: i64) -> Result<Session, RefreshError> {
+        let json = self
+            .auth_post_status("token?grant_type=refresh_token", json!({"refresh_token": refresh_token}))
+            .await
+            .map_err(|(status, msg)| match status {
+                Some(s) if refresh_rejected(s) => RefreshError::Rejected(msg),
+                _ => RefreshError::Other(msg),
+            })?;
+        Self::session_from(&json, now)
+            .ok_or_else(|| RefreshError::Other("Server trả về phiên đăng nhập không hợp lệ.".into()))
     }
 
     pub async fn exchange_code(&self, code: &str, verifier: &str, now: i64) -> Result<Session, String> {
@@ -292,7 +334,7 @@ pub async fn sync_once(
             report.pushed += chunk.len();
         }
     }
-    let me = json!({"id": device_id, "platform": "windows", "name": device.name, "version": device.version,
+    let me = json!({"id": device_id, "platform": crate::platform::DEVICE_PLATFORM, "name": device.name, "version": device.version,
         "last_seen": now, "updated_at": now});
     api.upsert("devices", &[me], false, token).await?;
 
@@ -355,6 +397,10 @@ mod tests {
 
     #[test]
     fn auth_errors_are_translated() {
+        assert!(refresh_rejected(400) && refresh_rejected(401) && refresh_rejected(403));
+        assert!(!refresh_rejected(429) && !refresh_rejected(500) && !refresh_rejected(503));
+        assert!(RefreshError::Rejected("x".into()).is_rejected());
+        assert!(!RefreshError::Other("x".into()).is_rejected());
         assert_eq!(friendly_auth_error("Invalid login credentials"), "Sai email hoặc mật khẩu.");
         assert_eq!(
             friendly_auth_error("Email not confirmed"),

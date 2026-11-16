@@ -1,4 +1,4 @@
-//! DopaDam agent for Windows: tray app that guards desktop programs and bridges the Edge extension.
+//! DopaDam agent for Windows and Linux: tray app that guards desktop programs and bridges the browser extension.
 
 pub mod account;
 pub mod commands;
@@ -6,13 +6,17 @@ pub mod core;
 pub mod db;
 pub mod guard;
 pub mod host;
+#[cfg(target_os = "linux")]
+pub mod linux;
 pub mod logic;
 pub mod nmhost;
 pub mod pipe;
+pub mod platform;
 pub mod state;
 pub mod sync;
 pub mod syncrun;
 pub mod syncstore;
+#[cfg(windows)]
 pub mod win;
 
 use state::{AppState, Shared};
@@ -21,12 +25,13 @@ use tauri::menu::{Menu, MenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder, WindowEvent};
 
-/// %APPDATA%\DopaDam, or DOPADAM_DATA_DIR (used by the integration tests to stay out of the real data).
+/// %APPDATA%\DopaDam on Windows, $XDG_DATA_HOME/DopaDam on Linux, or DOPADAM_DATA_DIR (used by the
+/// integration tests to stay out of the real data).
 pub fn data_dir() -> std::path::PathBuf {
     if let Some(dir) = std::env::var_os("DOPADAM_DATA_DIR") {
         return std::path::PathBuf::from(dir);
     }
-    std::env::var_os("APPDATA").map(std::path::PathBuf::from).unwrap_or_else(std::env::temp_dir).join("DopaDam")
+    platform::default_data_dir()
 }
 
 /// Test runs must not leave DopaDam starting with Windows.
@@ -36,7 +41,7 @@ fn autostart_allowed() -> bool {
 
 fn build_windows(app: &tauri::AppHandle, start_hidden: bool) -> tauri::Result<()> {
     let main = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
-        .title("DopaDam")
+        .title(platform::MAIN_TITLE)
         .inner_size(1040.0, 740.0)
         .min_inner_size(760.0, 560.0)
         .visible(!start_hidden)
@@ -51,7 +56,7 @@ fn build_windows(app: &tauri::AppHandle, start_hidden: bool) -> tauri::Result<()
     });
 
     let warning = WebviewWindowBuilder::new(app, "warning", WebviewUrl::App("index.html#/warning".into()))
-        .title("DopaDam")
+        .title(platform::WARNING_TITLE)
         .decorations(false)
         .always_on_top(true)
         .skip_taskbar(true)
@@ -71,7 +76,7 @@ fn build_windows(app: &tauri::AppHandle, start_hidden: bool) -> tauri::Result<()
     });
 
     WebviewWindowBuilder::new(app, "toast", WebviewUrl::App("index.html#/toast".into()))
-        .title("DopaDam")
+        .title(platform::NOTICE_TITLE)
         .decorations(false)
         .always_on_top(true)
         .skip_taskbar(true)
@@ -161,20 +166,20 @@ pub fn run() {
                 syncrun::handle_deep_link(&state, &url);
             }
 
-            // Start-menu programs for the app list (slow COM calls: off the main thread).
+            // Installed programs for the app list (slow COM calls: off the main thread).
             let scan_state = state.clone();
             std::thread::spawn(move || {
                 let now = core::now_ms();
-                let found = win::start_menu_apps();
+                let found = platform::start_menu_apps();
                 let store = scan_state.store();
                 for (exe, name, path) in found {
                     store.note_app(&exe, &name, Some(&path), "start-menu", now);
                 }
             });
 
-            // Foreground changes come from a Win32 hook thread.
+            // Foreground changes come from a Win32 hook thread (Linux: the GNOME Shell companion or X11).
             let (tx, rx) = std::sync::mpsc::channel::<isize>();
-            win::watch_foreground(tx);
+            platform::watch_foreground(tx);
             let fg_state = state.clone();
             std::thread::spawn(move || {
                 while let Ok(hwnd) = rx.recv() {
@@ -182,7 +187,7 @@ pub fn run() {
                 }
             });
             // Pick up whatever is in front already.
-            guard::on_foreground(&state, win::foreground_window());
+            guard::on_foreground(&state, platform::foreground_window());
 
             let tick_state = state.clone();
             tauri::async_runtime::spawn(async move {
@@ -198,6 +203,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::get_overview,
+            commands::get_platform,
             commands::list_apps,
             commands::rescan_apps,
             commands::set_app_tag,

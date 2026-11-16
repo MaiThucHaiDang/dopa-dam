@@ -19,26 +19,30 @@ async fn restore(state: &Shared) {
     let (Some(api), Some(stored)) = (state.api.clone(), account::load()) else { return };
     match api.refresh(&stored.refresh_token, now_ms()).await {
         Ok(session) => {
-            account::save(&session.stored);
+            let _ = account::save(&session.stored);
             state.set_session(Some(session));
         }
         Err(e) => {
             // Keep the stored sign-in: the network may just be down. The next sync retries.
-            state.sync_info().last_error = Some(e);
+            state.sync_info().last_error = Some(e.to_string());
             state.set_session(Some(Session { access_token: String::new(), expires_at: 0, stored }));
         }
     }
     notify(state);
 }
 
-async fn fresh_token(state: &Shared, force: bool) -> Result<String, String> {
-    let api = state.api.clone().ok_or("Chưa cấu hình server đồng bộ.")?;
-    let session = state.session().ok_or("Chưa đăng nhập.")?;
+/// Err carries the message and whether the server rejected the refresh token (sign-in is dead).
+async fn fresh_token(state: &Shared, force: bool) -> Result<String, (String, bool)> {
+    let api = state.api.clone().ok_or_else(|| ("Chưa cấu hình server đồng bộ.".to_string(), false))?;
+    let session = state.session().ok_or_else(|| ("Chưa đăng nhập.".to_string(), false))?;
     if !force && session.expires_at - now_ms() > 60_000 {
         return Ok(session.access_token);
     }
-    let fresh = api.refresh(&session.stored.refresh_token, now_ms()).await?;
-    account::save(&fresh.stored);
+    let fresh = api
+        .refresh(&session.stored.refresh_token, now_ms())
+        .await
+        .map_err(|e| (e.to_string(), e.is_rejected()))?;
+    let _ = account::save(&fresh.stored);
     let token = fresh.access_token.clone();
     state.set_session(Some(fresh));
     Ok(token)
@@ -57,16 +61,22 @@ pub async fn run_sync(state: &Shared) -> Result<Report, String> {
         info.syncing = true;
     }
     notify(state);
-    let device = DeviceInfo {
-        name: std::env::var("COMPUTERNAME").unwrap_or_else(|_| "Máy tính".into()),
-        version: crate::state::AGENT_VERSION.into(),
-    };
+    let device = DeviceInfo { name: crate::platform::device_name(), version: crate::state::AGENT_VERSION.into() };
+    // Undecided events are never pushed: close the abandoned ones first (not the warning on screen).
+    let keep = crate::guard::current_warning(state).map(|w| w.event_id);
+    state.store().close_abandoned(now_ms(), keep.as_deref());
     let mut expired = false;
     let result = async {
-        let token = fresh_token(state, false).await?;
+        let token = fresh_token(state, false).await.map_err(|(m, rejected)| {
+            expired |= rejected;
+            m
+        })?;
         match sync::sync_once(state.store_mutex(), &api, &token, &device, now_ms()).await {
             Err(SyncError::Unauthorized) => {
-                let token = fresh_token(state, true).await.inspect_err(|_| expired = true)?;
+                let token = fresh_token(state, true).await.map_err(|(m, rejected)| {
+                    expired |= rejected;
+                    m
+                })?;
                 sync::sync_once(state.store_mutex(), &api, &token, &device, now_ms()).await.map_err(|e| {
                     if matches!(e, SyncError::Unauthorized) {
                         expired = true;
@@ -115,7 +125,9 @@ pub fn spawn_loop(state: Shared) {
 }
 
 /// Starts using a new session. Another account than last time gets this device's data uploaded fresh.
-pub fn sign_in_with(state: &Shared, session: Session) {
+/// Fails (without signing in) when the sign-in cannot be kept for the next start.
+pub fn sign_in_with(state: &Shared, session: Session) -> Result<(), String> {
+    account::save(&session.stored)?;
     {
         let store = state.store();
         if store.kv_get("lastUserId").as_deref() != Some(session.stored.user_id.as_str()) {
@@ -123,11 +135,11 @@ pub fn sign_in_with(state: &Shared, session: Session) {
             store.kv_set("lastUserId", &session.stored.user_id);
         }
     }
-    account::save(&session.stored);
     state.set_session(Some(session));
     state.sync_info().last_error = None;
     state.sync_soon.store(true, Ordering::Relaxed);
     notify(state);
+    Ok(())
 }
 
 pub fn sign_out(state: &Shared) {
@@ -188,7 +200,12 @@ pub fn handle_deep_link(state: &Shared, url: &str) {
     let state = state.clone();
     tauri::async_runtime::spawn(async move {
         match api.exchange_code(&code, &verifier, now_ms()).await {
-            Ok(session) => sign_in_with(&state, session),
+            Ok(session) => {
+                if let Err(e) = sign_in_with(&state, session) {
+                    state.sync_info().last_error = Some(e);
+                    notify(&state);
+                }
+            }
             Err(e) => {
                 state.sync_info().last_error = Some(e);
                 notify(&state);

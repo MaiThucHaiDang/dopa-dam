@@ -4,8 +4,8 @@
 use crate::core::{effective_delay, is_blocked_tag, now_ms, OpenTracker, StudyStatus};
 use crate::db::KIND_EXE;
 use crate::logic::{Decision, ErrorCode, ACTIVITIES};
+use crate::platform::{self, Foreground};
 use crate::state::{budget_view, BudgetView, Shared};
-use crate::win::{self, Foreground};
 use serde::Serialize;
 use std::time::Duration;
 use tauri::{Emitter, Manager, PhysicalPosition, PhysicalSize};
@@ -58,6 +58,8 @@ pub struct Guard {
     pub segment_start: i64,
     pub tracker: OpenTracker,
     pub warning: Option<ActiveWarning>,
+    /// A warning is being prepared (event being recorded) but not yet in `warning`.
+    pub preparing: bool,
     pub just_exited: Option<(u32, i64)>,
     pub last_flush: i64,
     pub last_slow_tick: i64,
@@ -81,16 +83,29 @@ fn app_name(state: &Shared, fg: &Foreground) -> String {
 }
 
 fn is_system_program(path: &str) -> bool {
-    let windir = std::env::var("WINDIR").unwrap_or_else(|_| r"C:\Windows".into()).to_lowercase();
-    path.to_lowercase().starts_with(&windir)
+    #[cfg(windows)]
+    {
+        let windir = std::env::var("WINDIR").unwrap_or_else(|_| r"C:\Windows".into()).to_lowercase();
+        path.to_lowercase().starts_with(&windir)
+    }
+    #[cfg(target_os = "linux")]
+    {
+        platform::is_system_program(path)
+    }
 }
 
 pub fn on_foreground(state: &Shared, raw: isize) {
-    let Some(fg) = win::describe(raw) else { return };
-    if fg.pid == std::process::id() {
-        return;
-    }
     let now = now_ms();
+    let fg = platform::describe(raw).filter(|fg| !is_no_program(raw, fg.pid, std::process::id()));
+    let Some(fg) = fg else {
+        // Our own window, an undescribable one or "no focus": no program is in front.
+        // While a warning is up the warned program stays the subject of the decision.
+        if state.guard().warning.is_none() {
+            flush_usage(state, now);
+            clear_foreground(&mut state.guard(), now);
+        }
+        return;
+    };
     {
         let g = state.guard();
         if g.foreground.as_ref().is_some_and(|f| f.pid == fg.pid && f.hwnd == fg.hwnd) {
@@ -116,6 +131,33 @@ pub fn on_foreground(state: &Shared, raw: isize) {
     if !warning_up {
         evaluate(state, now);
     }
+}
+
+/// Focus on nothing (id 0) or on DopaDam's own process means no program is in front.
+fn is_no_program(raw: isize, pid: u32, own_pid: u32) -> bool {
+    raw == 0 || pid == own_pid
+}
+
+/// Forgets the program in front and pauses its open count.
+fn clear_foreground(g: &mut Guard, now: i64) {
+    if let Some(prev) = g.foreground.take() {
+        g.tracker.leave(prev.pid, now);
+    }
+    g.segment_start = now;
+}
+
+/// Atomically claims the right to show a warning: nothing up, nothing being prepared, not in the
+/// exit grace period and the delay is over. Sets the "preparing" marker on success.
+fn claim_warning(g: &mut Guard, pid: u32, now: i64, delay_ms: i64) -> bool {
+    if g.warning.is_some()
+        || g.preparing
+        || g.just_exited.is_some_and(|(p, until)| p == pid && now < until)
+        || !g.tracker.is_due(pid, now, delay_ms)
+    {
+        return false;
+    }
+    g.preparing = true;
+    true
 }
 
 fn note_app(state: &Shared, fg: &Foreground, now: i64) {
@@ -171,13 +213,8 @@ pub fn evaluate(state: &Shared, now: i64) {
         let delay = effective_delay(rule.delay_seconds, &rule.tag, &store.settings().tag_delays);
         (rule.tag, delay * 1000)
     };
-    {
-        let g = state.guard();
-        if g.just_exited.is_some_and(|(pid, until)| pid == fg.pid && now < until)
-            || !g.tracker.is_due(fg.pid, now, delay_ms)
-        {
-            return;
-        }
+    if !claim_warning(&mut state.guard(), fg.pid, now, delay_ms) {
+        return;
     }
     show_warning(state, fg, &tag, now);
 }
@@ -205,12 +242,13 @@ fn show_warning(state: &Shared, fg: Foreground, tag: &str, now: i64) {
     };
     {
         let mut g = state.guard();
+        g.preparing = false;
         g.tracker.mark_warned(fg.pid);
         g.warning = Some(ActiveWarning { context: context.clone(), fg: fg.clone() });
     }
     // An always-on-top window cannot cover a game in exclusive full screen: minimize the game first.
-    if win::exclusive_fullscreen() {
-        win::minimize(fg.hwnd);
+    if platform::exclusive_fullscreen() {
+        platform::minimize(fg.hwnd);
     }
     present_warning(state, &fg, &context);
     state.changed();
@@ -218,16 +256,33 @@ fn show_warning(state: &Shared, fg: Foreground, tag: &str, now: i64) {
 
 fn present_warning(state: &Shared, fg: &Foreground, context: &WarningContext) {
     let Some(window) = state.app.get_webview_window("warning") else { return };
-    let (x, y, w, h) = win::monitor_rect(fg.hwnd);
-    let _ = window.set_position(PhysicalPosition::new(x, y));
-    let _ = window.set_size(PhysicalSize::new(w as u32, h as u32));
-    let _ = window.set_always_on_top(true);
-    let _ = window.show();
-    let _ = window.emit_to("warning", "warning:show", context);
-    if let Ok(h) = window.hwnd() {
-        win::bring_to_front(h.0 as isize, false);
+    #[cfg(windows)]
+    {
+        let (x, y, w, h) = platform::monitor_rect(fg.hwnd);
+        let _ = window.set_position(PhysicalPosition::new(x, y));
+        let _ = window.set_size(PhysicalSize::new(w as u32, h as u32));
+        let _ = window.set_always_on_top(true);
+        let _ = window.show();
+        let _ = window.emit_to("warning", "warning:show", context);
+        if let Ok(h) = window.hwnd() {
+            platform::bring_to_front(h.0 as isize, false);
+        }
+        let _ = window.set_focus();
     }
-    let _ = window.set_focus();
+    #[cfg(target_os = "linux")]
+    {
+        // Wayland ignores positions; on X11 this puts the window on the program's monitor first.
+        if let Some((x, y, _, _)) = platform::monitor_of(fg.hwnd) {
+            let _ = window.set_position(PhysicalPosition::new(x, y));
+        }
+        let _ = window.show();
+        let _ = window.set_fullscreen(true);
+        let _ = window.set_always_on_top(true);
+        let _ = window.set_focus();
+        let _ = window.emit_to("warning", "warning:show", context);
+        // Under Wayland only the shell may put a window above the others and focus it.
+        platform::raise_own_window(platform::WARNING_TITLE, true, true);
+    }
 }
 
 pub fn hide_warning(state: &Shared) {
@@ -258,13 +313,18 @@ pub fn decide(
             hide_warning(state);
             if let Some(fg) = &fg {
                 state.guard().segment_start = now;
-                win::bring_to_front(fg.hwnd, true);
+                platform::bring_to_front(fg.hwnd, true);
             }
         }
         Decision::Exit | Decision::Alternative => {
             if let Some(fg) = &fg {
-                state.guard().just_exited = Some((fg.pid, now + EXIT_GRACE_MS));
-                win::minimize(fg.hwnd);
+                {
+                    let mut g = state.guard();
+                    g.just_exited = Some((fg.pid, now + EXIT_GRACE_MS));
+                    // Focus returns to our own windows: the program is no longer in front.
+                    clear_foreground(&mut g, now);
+                }
+                platform::minimize(fg.hwnd);
             }
             hide_warning(state);
             if decision == Decision::Alternative {
@@ -306,7 +366,7 @@ pub fn flush_usage(state: &Shared, now: i64) {
     if warning_up || now <= start || start == 0 {
         return;
     }
-    if win::idle_seconds() > IDLE_LIMIT_S && !win::fullscreen_busy() {
+    if platform::idle_seconds() > IDLE_LIMIT_S && !platform::fullscreen_busy() {
         return;
     }
     // A long gap means the computer slept: count at most a little more than one flush interval.
@@ -324,7 +384,7 @@ pub fn tick(state: &Shared) {
     // The warned program was closed: nothing left to decide.
     let gone = {
         let g = state.guard();
-        g.warning.as_ref().filter(|w| !win::process_alive(w.fg.pid)).map(|w| w.context.event_id.clone())
+        g.warning.as_ref().filter(|w| !platform::process_alive(w.fg.pid)).map(|w| w.context.event_id.clone())
     };
     if let Some(id) = gone {
         state.store().auto_exit(&id, now);
@@ -338,7 +398,7 @@ pub fn tick(state: &Shared) {
         if !w.heads_up_sent && now >= w.expires_at - 60_000 && now < w.expires_at {
             state.store().mark_heads_up(&w.object);
             // Websites get their notice from the extension.
-            if w.object.ends_with(".exe") {
+            if platform::is_program_name(&w.object) {
                 let name = state
                     .store()
                     .seen_apps()
@@ -376,7 +436,8 @@ pub fn tick(state: &Shared) {
     }
     if prune_due {
         state.guard().last_prune = now;
-        state.store().prune(now);
+        let keep = current_warning(state).map(|w| w.event_id);
+        state.store().prune(now, keep.as_deref());
     }
 }
 
@@ -386,7 +447,7 @@ fn slow_tick(state: &Shared, now: i64) {
         g.last_slow_tick = now;
         g.tracker.known_pids()
     };
-    let dead: Vec<u32> = pids.into_iter().filter(|p| !win::process_alive(*p)).collect();
+    let dead: Vec<u32> = pids.into_iter().filter(|p| !platform::process_alive(*p)).collect();
     {
         let mut g = state.guard();
         for pid in dead {
@@ -408,7 +469,7 @@ fn slow_tick(state: &Shared, now: i64) {
     }
 
     // Edge running while the extension is not connected: the web is not protected.
-    let edge_running = win::running_exes().iter().any(|e| e == "msedge.exe");
+    let edge_running = platform::running_exes().iter().any(|e| e == platform::EDGE_EXE);
     let linked = state.connected_extensions() > 0;
     let notify = {
         let mut g = state.guard();
@@ -449,12 +510,20 @@ pub fn show_toast(state: &Shared, title: &str, body: &str, action: Option<&str>)
     let scale = window.scale_factor().unwrap_or(1.0);
     let (w, h) = ((380.0 * scale) as i32, (130.0 * scale) as i32);
     let margin = (16.0 * scale) as i32;
-    let (ax, ay, aw, ah) = win::work_area();
+    let (ax, ay, aw, ah) = platform::work_area();
     let _ = window.set_size(PhysicalSize::new(w as u32, h as u32));
     let _ = window.set_position(PhysicalPosition::new(ax + aw - w - margin, ay + ah - h - margin));
     let _ = window.emit_to("toast", "toast:show", &toast);
-    if let Ok(hwnd) = window.hwnd() {
-        win::show_topmost_no_activate(hwnd.0 as isize);
+    #[cfg(windows)]
+    {
+        if let Ok(hwnd) = window.hwnd() {
+            platform::show_topmost_no_activate(hwnd.0 as isize);
+        }
+    }
+    #[cfg(target_os = "linux")]
+    {
+        let _ = window.show();
+        platform::raise_own_window(platform::NOTICE_TITLE, true, false);
     }
     let state = state.clone();
     let id = toast.id;
@@ -473,5 +542,53 @@ pub fn hide_toast(state: &Shared, only: Option<u64>) {
     drop(g);
     if let Some(window) = state.app.get_webview_window("toast") {
         let _ = window.hide();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn fg(pid: u32) -> Foreground {
+        Foreground { hwnd: 7, pid, exe: "game".into(), path: "/usr/bin/game".into() }
+    }
+
+    #[test]
+    fn own_process_and_window_zero_mean_no_program() {
+        assert!(is_no_program(0, 55, 1));
+        assert!(is_no_program(9, 1, 1));
+        assert!(!is_no_program(9, 55, 1));
+    }
+
+    #[test]
+    fn clearing_foreground_pauses_the_tracker() {
+        let mut g = Guard::default();
+        g.tracker.enter(5, 0);
+        g.foreground = Some(fg(5));
+        clear_foreground(&mut g, 1000);
+        assert!(g.foreground.is_none());
+        // Time after leaving does not count towards the delay.
+        assert!(!g.tracker.is_due(5, 10_000, 5000));
+        assert!(g.tracker.is_due(5, 10_000, 1000));
+    }
+
+    #[test]
+    fn only_one_warning_can_be_claimed() {
+        let mut g = Guard::default();
+        g.tracker.enter(5, 0);
+        assert!(claim_warning(&mut g, 5, 1000, 0));
+        assert!(!claim_warning(&mut g, 5, 1000, 0));
+        g.preparing = false;
+        assert!(claim_warning(&mut g, 5, 1000, 0));
+    }
+
+    #[test]
+    fn no_claim_during_exit_grace_or_before_delay() {
+        let mut g = Guard::default();
+        g.tracker.enter(5, 0);
+        assert!(!claim_warning(&mut g, 5, 1000, 5000));
+        g.just_exited = Some((5, 2000));
+        assert!(!claim_warning(&mut g, 5, 1000, 0));
+        assert!(!g.preparing);
     }
 }

@@ -64,6 +64,7 @@ pub fn get_overview(state: State<'_, Shared>) -> Overview {
         .lock()
         .unwrap_or_else(|e| e.into_inner())
         .values()
+        .filter(|c| !c.shell)
         .map(|c| ExtensionInfo {
             profile_id: c.profile_id.clone(),
             ext_version: c.ext_version.clone(),
@@ -88,6 +89,12 @@ pub fn get_overview(state: State<'_, Shared>) -> Overview {
     }
 }
 
+/// Which system the agent runs on and how it follows the foreground program.
+#[tauri::command]
+pub fn get_platform() -> crate::platform::PlatformInfo {
+    crate::platform::platform_info()
+}
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AppRow {
@@ -99,7 +106,7 @@ pub struct AppRow {
     effective_delay: i64,
 }
 
-/// Programs from the Start menu, programs seen in front, and programs that have a rule.
+/// Installed programs (Start menu, or .desktop files on Linux), programs seen in front, and programs that have a rule.
 #[tauri::command]
 pub fn list_apps(state: State<'_, Shared>) -> Vec<AppRow> {
     let store = state.store();
@@ -129,7 +136,7 @@ pub fn list_apps(state: State<'_, Shared>) -> Vec<AppRow> {
 
 #[tauri::command]
 pub async fn rescan_apps(state: State<'_, Shared>) -> CmdResult<usize> {
-    let found = tauri::async_runtime::spawn_blocking(crate::win::start_menu_apps).await.unwrap_or_default();
+    let found = tauri::async_runtime::spawn_blocking(crate::platform::start_menu_apps).await.unwrap_or_default();
     let now = now_ms();
     let store = state.store();
     let count = found.len();
@@ -140,9 +147,7 @@ pub async fn rescan_apps(state: State<'_, Shared>) -> CmdResult<usize> {
 }
 
 fn normalize_exe(exe: &str) -> Option<String> {
-    let e = exe.trim().to_lowercase();
-    let name = e.rsplit(['\\', '/']).next()?.to_string();
-    (name.ends_with(".exe") && name.len() > 4).then_some(name)
+    crate::platform::normalize_program_name(exe)
 }
 
 #[tauri::command]
@@ -401,7 +406,7 @@ fn check_credentials(email: &str, password: &str) -> Result<(), String> {
 pub async fn account_sign_in(state: State<'_, Shared>, email: String, password: String) -> Result<(), String> {
     check_credentials(&email, &password)?;
     let session = api(&state)?.sign_in(email.trim(), &password, now_ms()).await?;
-    crate::syncrun::sign_in_with(&state, session);
+    crate::syncrun::sign_in_with(&state, session)?;
     Ok(())
 }
 
@@ -411,7 +416,7 @@ pub async fn account_sign_up(state: State<'_, Shared>, email: String, password: 
     check_credentials(&email, &password)?;
     match api(&state)?.sign_up(email.trim(), &password, now_ms()).await? {
         Some(session) => {
-            crate::syncrun::sign_in_with(&state, session);
+            crate::syncrun::sign_in_with(&state, session)?;
             Ok("signed-in".into())
         }
         None => Ok("confirm-email".into()),
@@ -424,7 +429,7 @@ pub fn account_google(state: State<'_, Shared>) -> Result<(), String> {
     let verifier = crate::sync::new_verifier();
     let url = api.google_url(&crate::sync::pkce_challenge(&verifier));
     *state.pkce.lock().unwrap_or_else(|e| e.into_inner()) = Some(verifier);
-    crate::win::open_url(&url);
+    crate::platform::open_url(&url);
     Ok(())
 }
 
@@ -475,7 +480,12 @@ pub async fn delete_server_data(state: State<'_, Shared>, confirmed: bool) -> Cm
     let api = api(&state)?;
     let token = state.session().map(|s| s.access_token).ok_or_else(|| "Chưa đăng nhập.".to_string())?;
     api.rpc("delete_my_data", &token).await.map_err(|e| e.to_string())?;
-    state.store().clear_log(true)?;
+    {
+        let store = state.store();
+        store.clear_log(true)?;
+        // The server is empty now: everything must be uploaded again after the next sign-in.
+        store.reset_sync_state();
+    }
     crate::syncrun::sign_out(&state);
     state.refreshed();
     Ok(())

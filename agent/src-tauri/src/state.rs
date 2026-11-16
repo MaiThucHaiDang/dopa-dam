@@ -22,6 +22,8 @@ pub struct Client {
     pub ext_version: Option<String>,
     pub compatible: bool,
     pub last_seen: i64,
+    /// The GNOME Shell companion (Linux): not an extension, never counted and never sent the config.
+    pub shell: bool,
 }
 
 pub struct AppState {
@@ -139,7 +141,8 @@ impl AppState {
 
     pub fn add_client(&self, tx: UnboundedSender<String>) -> u64 {
         let id = self.next_client.fetch_add(1, Ordering::Relaxed);
-        let client = Client { tx, profile_id: None, ext_version: None, compatible: false, last_seen: now_ms() };
+        let client =
+            Client { tx, profile_id: None, ext_version: None, compatible: false, last_seen: now_ms(), shell: false };
         self.clients.lock().unwrap_or_else(|e| e.into_inner()).insert(id, client);
         id
     }
@@ -150,7 +153,7 @@ impl AppState {
     }
 
     pub fn connected_extensions(&self) -> usize {
-        self.clients.lock().unwrap_or_else(|e| e.into_inner()).values().filter(|c| c.compatible).count()
+        self.clients.lock().unwrap_or_else(|e| e.into_inner()).values().filter(|c| c.compatible && !c.shell).count()
     }
 
     /// Everything the extension needs to block on its own, as one JSON line.
@@ -193,7 +196,7 @@ impl AppState {
     pub fn refreshed(&self) {
         let json = self.config_message();
         for c in self.clients.lock().unwrap_or_else(|e| e.into_inner()).values() {
-            if c.compatible {
+            if c.compatible && !c.shell {
                 let _ = c.tx.send(json.clone());
             }
         }

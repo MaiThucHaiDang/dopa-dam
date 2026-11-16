@@ -16,6 +16,8 @@ use std::path::Path;
 pub const RETENTION_DAYS: i64 = 30;
 pub const KIND_EXE: &str = "exe";
 pub const KIND_DOMAIN: &str = "domain";
+/// A warning without a decision after this long is treated as Thoát.
+pub const ABANDONED_AFTER_MS: i64 = 12 * 60 * 60_000;
 pub const KIND_ALLOW_URL: &str = "allow_url";
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -337,7 +339,7 @@ impl Store {
         if self.kv_get("defaultsApplied").is_some() {
             return;
         }
-        self.write_rule(KIND_EXE, "msedge.exe", Some("ignore"), None, now);
+        self.write_rule(KIND_EXE, crate::platform::EDGE_EXE, Some("ignore"), None, now);
         for d in DEFAULT_DOMAINS {
             self.write_rule(KIND_DOMAIN, d, Some("entertainment"), None, now);
         }
@@ -722,11 +724,27 @@ impl Store {
             return Err(ErrorCode::Invalid);
         }
         let existing = self.rule(kind, pattern);
-        let old = existing.as_ref().map(|r| r.tag.as_str());
-        if let Some(e) = check_tag_change(old, tag, confirmed, self.study_status(now).active) {
-            return Err(e);
-        }
-        if old != tag {
+        let own = existing.as_ref().map(|r| r.tag.as_str());
+        // A site's tag is the one of its most specific matching rule. Judge a change by what the host
+        // gets before and after, not by the rule alone: a new rule for m.youtube.com replaces the tag
+        // that m.youtube.com inherits from youtube.com, and removing a rule falls back to the next one.
+        let (old, new) = if kind == KIND_DOMAIN {
+            let others: Vec<(String, String)> = self
+                .rules(KIND_DOMAIN)
+                .into_iter()
+                .filter(|r| r.pattern != pattern)
+                .map(|r| (r.pattern, r.tag))
+                .collect();
+            let inherited = crate::core::match_domain(pattern, &others).map(|(_, t)| t.clone());
+            (own.map(String::from).or_else(|| inherited.clone()), tag.map(String::from).or(inherited))
+        } else {
+            (own.map(String::from), tag.map(String::from))
+        };
+        if own != tag {
+            if let Some(e) = check_tag_change(old.as_deref(), new.as_deref(), confirmed, self.study_status(now).active)
+            {
+                return Err(e);
+            }
             self.write_rule(kind, pattern, tag, existing.and_then(|r| r.delay_seconds), now);
         }
         Ok(())
@@ -795,13 +813,20 @@ impl Store {
         Ok(())
     }
 
-    pub fn prune(&self, now: i64) {
+    /// Closes warnings nobody decided in twelve hours as Thoát, so they can be synced (an event is only
+    /// pushed once it has a decision). `keep` is the warning on screen right now: it stays open.
+    pub fn close_abandoned(&self, now: i64, keep: Option<&str>) {
+        let _ = self.conn.execute(
+            "UPDATE intercept_events SET decision = 'exit', decided_at = ?1, dirty = 1
+             WHERE decision IS NULL AND shown_at < ?2 AND id != ?3",
+            params![now, now - ABANDONED_AFTER_MS, keep.unwrap_or("")],
+        );
+    }
+
+    pub fn prune(&self, now: i64, keep: Option<&str>) {
         let cutoff = now - RETENTION_DAYS * DAY_MS;
         let cutoff_day = day_key(cutoff, local_tz_offset(now));
-        let _ = self.conn.execute(
-            "UPDATE intercept_events SET decision = 'exit', decided_at = ?1, dirty = 1 WHERE decision IS NULL AND shown_at < ?2",
-            params![now, now - 10 * 60_000],
-        );
+        self.close_abandoned(now, keep);
         let _ = self.conn.execute("DELETE FROM intercept_events WHERE shown_at < ?1", [cutoff]);
         let _ = self.conn.execute("DELETE FROM usage_daily WHERE day < ?1", [cutoff_day]);
         let _ = self.conn.execute("DELETE FROM allow_windows WHERE expires_at < ?1", [now - DAY_MS]);
@@ -822,9 +847,30 @@ mod tests {
     }
 
     #[test]
+    fn a_more_specific_domain_rule_cannot_lift_blocking_without_confirmation() {
+        let s = store();
+        assert_eq!(s.set_rule_tag(KIND_DOMAIN, "youtube.com", Some("entertainment"), true, NOW), Ok(()));
+        // m.youtube.com inherits entertainment, so "work" weakens it.
+        assert_eq!(
+            s.set_rule_tag(KIND_DOMAIN, "m.youtube.com", Some("work"), false, NOW),
+            Err(ErrorCode::NeedsConfirm)
+        );
+        assert!(s.rule(KIND_DOMAIN, "m.youtube.com").is_none());
+        assert_eq!(s.set_rule_tag(KIND_DOMAIN, "m.youtube.com", Some("work"), true, NOW), Ok(()));
+        // Removing the exception falls back to entertainment: that strengthens, so no confirmation.
+        assert_eq!(s.set_rule_tag(KIND_DOMAIN, "m.youtube.com", None, false, NOW), Ok(()));
+        // Removing the parent while a work exception exists changes nothing for the exception's host.
+        assert_eq!(s.set_rule_tag(KIND_DOMAIN, "m.youtube.com", Some("work"), true, NOW), Ok(()));
+        assert_eq!(s.set_rule_tag(KIND_DOMAIN, "youtube.com", None, false, NOW), Err(ErrorCode::NeedsConfirm));
+        // Study lock uses the same effective tags.
+        s.start_study(30, Some("x"), NOW).unwrap();
+        assert_eq!(s.set_rule_tag(KIND_DOMAIN, "a.youtube.com", Some("work"), true, NOW), Err(ErrorCode::StudyLocked));
+    }
+
+    #[test]
     fn defaults_and_rules() {
         let s = store();
-        assert_eq!(s.rule(KIND_EXE, "msedge.exe").unwrap().tag, "ignore");
+        assert_eq!(s.rule(KIND_EXE, crate::platform::EDGE_EXE).unwrap().tag, "ignore");
         assert_eq!(s.rules(KIND_DOMAIN).len(), 3);
         assert_eq!(s.set_rule_tag(KIND_DOMAIN, "youtube.com", Some("study"), false, NOW), Err(ErrorCode::NeedsConfirm));
         assert_eq!(s.set_rule_tag(KIND_DOMAIN, "youtube.com", None, true, NOW), Ok(()));

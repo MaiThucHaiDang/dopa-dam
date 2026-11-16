@@ -9,9 +9,6 @@ use serde_json::{json, Value};
 pub const TABLES: [&str; 6] =
     ["tag_rules", "settings", "study_rules", "study_sessions", "usage_daily", "intercept_events"];
 
-/// Undecided events are pushed once decided, or after this long (they are closed as Thoát by then).
-const UNDECIDED_PUSH_AFTER_MS: i64 = 10 * 60_000;
-
 fn s(v: &Value, k: &str) -> Option<String> {
     v.get(k).and_then(Value::as_str).map(String::from)
 }
@@ -26,7 +23,7 @@ fn b(v: &Value, k: &str) -> bool {
 
 impl Store {
     /// Rows changed on this device that the server does not have yet, as Supabase JSON.
-    pub fn dirty_rows(&self, table: &str, device_id: &str, now: i64) -> Vec<Value> {
+    pub fn dirty_rows(&self, table: &str, device_id: &str, _now: i64) -> Vec<Value> {
         let c = self.conn();
         let rows: rusqlite::Result<Vec<Value>> = match table {
             "tag_rules" => c
@@ -80,10 +77,10 @@ impl Store {
                 .prepare(
                     "SELECT id, device_id, object, tag, level, lock_seconds, n, shown_at, study_label, decision, decided_at,
                             allow_minutes, activity, activity_minutes
-                     FROM intercept_events WHERE dirty = 1 AND device_id = ?1 AND (decision IS NOT NULL OR shown_at < ?2)",
+                     FROM intercept_events WHERE dirty = 1 AND device_id = ?1 AND decision IS NOT NULL",
                 )
                 .and_then(|mut st| {
-                    st.query_map(params![device_id, now - UNDECIDED_PUSH_AFTER_MS], |r| {
+                    st.query_map(params![device_id], |r| {
                         Ok(json!({"id": r.get::<_, String>(0)?, "device_id": r.get::<_, String>(1)?, "object": r.get::<_, String>(2)?,
                             "tag": r.get::<_, String>(3)?, "level": r.get::<_, i64>(4)?, "lock_seconds": r.get::<_, i64>(5)?,
                             "n": r.get::<_, i64>(6)?, "shown_at": r.get::<_, i64>(7)?, "study_label": r.get::<_, Option<String>>(8)?,
@@ -176,6 +173,13 @@ impl Store {
     }
 
     /// After signing out or deleting server data, pull everything again next time.
+    /// After the server data was deleted: forget cursors and clean flags, and the account this
+    /// device last synced with, so the next sign-in (even the same account) uploads everything.
+    pub fn reset_sync_state(&self) {
+        self.reset_cursors();
+        self.kv_delete("lastUserId");
+    }
+
     pub fn reset_cursors(&self) {
         for t in TABLES {
             self.kv_delete(&format!("cursor:{t}"));
@@ -252,16 +256,59 @@ mod tests {
     }
 
     #[test]
-    fn only_decided_or_old_events_are_pushed() {
+    fn only_decided_events_are_pushed() {
         let s = Store::open_in_memory().unwrap();
         let dev = s.device_id();
         s.record_warning("a", "x.exe", "game", NOW);
+        // The server's events are append-only: an undecided one would stay undecided there for ever.
         assert!(s.dirty_rows("intercept_events", &dev, NOW + 1000).is_empty());
-        assert_eq!(s.dirty_rows("intercept_events", &dev, NOW + 11 * 60_000).len(), 1);
+        assert!(s.dirty_rows("intercept_events", &dev, NOW + 11 * 60_000).is_empty());
         s.auto_exit("a", NOW + 2000);
         let rows = s.dirty_rows("intercept_events", &dev, NOW + 3000);
         assert_eq!(rows[0]["decision"], "exit");
         s.mark_clean("intercept_events", &rows);
         assert!(s.dirty_rows("intercept_events", &dev, NOW + 3000).is_empty());
+    }
+
+    #[test]
+    fn a_warning_left_open_for_an_hour_can_still_be_entered() {
+        let s = Store::open_in_memory().unwrap();
+        s.record_warning("a", "x.exe", "game", NOW);
+        s.close_abandoned(NOW + 60 * 60_000, None);
+        assert!(s.decide("a", crate::logic::Decision::Enter, Some(5), None, None, NOW + 60 * 60_000).is_ok());
+    }
+
+    #[test]
+    fn deleting_server_data_makes_the_next_sign_in_upload_everything() {
+        let s = Store::open_in_memory().unwrap();
+        s.set_rule_tag(KIND_EXE, "steam.exe", Some("game"), false, NOW).unwrap();
+        let rows = s.dirty_rows("tag_rules", "dev", NOW);
+        s.mark_clean("tag_rules", &rows);
+        s.kv_set("cursor:tag_rules", "2026-01-01");
+        s.kv_set("lastUserId", "u1");
+        s.reset_sync_state();
+        assert_eq!(s.kv_get("cursor:tag_rules"), None);
+        assert_eq!(s.kv_get("lastUserId"), None);
+        assert_eq!(s.dirty_rows("tag_rules", "dev", NOW).len(), 1);
+    }
+
+    #[test]
+    fn abandoned_events_are_closed_before_they_are_pushed_except_the_one_on_screen() {
+        let s = Store::open_in_memory().unwrap();
+        let dev = s.device_id();
+        s.record_warning("old", "x.exe", "game", NOW);
+        s.record_warning("shown", "y.exe", "game", NOW);
+        s.record_warning("fresh", "z.exe", "game", NOW + 11 * 3_600_000);
+        let later = NOW + 12 * 3_600_000 + 1;
+        s.close_abandoned(later, Some("shown"));
+        let rows = s.dirty_rows("intercept_events", &dev, later);
+        let ids: Vec<&str> = rows.iter().filter_map(|r| r["id"].as_str()).collect();
+        assert_eq!(ids, vec!["old"]);
+        // The warning on screen can still be decided afterwards.
+        assert!(s.decide("shown", crate::logic::Decision::Exit, None, None, None, later).is_ok());
+        // Pruning does the same.
+        s.record_warning("shown2", "y.exe", "game", NOW);
+        s.prune(later + 1, Some("shown2"));
+        assert!(s.decide("shown2", crate::logic::Decision::Exit, None, None, None, later + 2).is_ok());
     }
 }

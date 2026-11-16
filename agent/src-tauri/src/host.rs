@@ -1,12 +1,16 @@
-//! Native messaging host mode: Edge starts dopadam.exe with the extension origin as argument.
+//! Native messaging host mode: the browser starts the agent's executable with the extension origin as argument.
 //!
-//! It only relays messages: Edge's stdio framing (4-byte length + JSON) on one side, the agent's
-//! named pipe (one JSON object per line) on the other. When the agent is not running it answers
+//! It only relays messages: the browser's stdio framing (4-byte length + JSON) on one side, the agent's
+//! named pipe (Windows) or Unix socket (Linux), one JSON object per line, on the other. When the agent is not running it answers
 //! {"type":"agent_offline"} and exits, and the extension keeps working on its own.
 use std::io::{Read, Write};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+#[cfg(windows)]
 use tokio::net::windows::named_pipe::ClientOptions;
+#[cfg(unix)]
+use tokio::net::UnixStream;
 
+#[cfg(windows)]
 use crate::nmhost::PIPE_NAME;
 /// Edge refuses messages from the host larger than 1 MB.
 const MAX_OUT: usize = 1024 * 1024;
@@ -41,8 +45,18 @@ pub fn run_relay() {
     tokio::runtime::Builder::new_current_thread().enable_all().build().expect("runtime").block_on(relay());
 }
 
+#[cfg(windows)]
+async fn connect() -> std::io::Result<tokio::net::windows::named_pipe::NamedPipeClient> {
+    ClientOptions::new().open(PIPE_NAME)
+}
+
+#[cfg(unix)]
+async fn connect() -> std::io::Result<UnixStream> {
+    UnixStream::connect(crate::nmhost::socket_path()).await
+}
+
 async fn relay() {
-    let client = match ClientOptions::new().open(PIPE_NAME) {
+    let client = match connect().await {
         Ok(c) => c,
         Err(_) => {
             let _ = write_frame(&mut std::io::stdout().lock(), r#"{"type":"agent_offline"}"#);

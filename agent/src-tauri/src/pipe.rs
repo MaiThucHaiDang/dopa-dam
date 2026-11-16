@@ -1,15 +1,19 @@
-//! Named pipe server for the extension (relayed by dopadam.exe in host mode). One JSON object per line.
-//! See docs/thiet-ke-ky-thuat.md, section 3, for the messages.
+//! Local server for the extension (relayed by the agent's executable in host mode): a named pipe on
+//! Windows, a Unix socket on Linux. One JSON object per line. On Linux the GNOME Shell companion
+//! is one more client. See docs/thiet-ke-ky-thuat.md, section 3, for the messages.
 
 use crate::core::{match_domain, now_ms, Settings, StudyRule};
 use crate::db::{AllowEntry, KIND_DOMAIN};
 use crate::logic::{Decision, ErrorCode, ACTIVITIES};
+#[cfg(windows)]
 use crate::nmhost::PIPE_NAME;
 use crate::state::{budget_view, Shared, AGENT_VERSION, PROTOCOL};
 use serde_json::{json, Value};
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-use tokio::net::windows::named_pipe::{NamedPipeServer, ServerOptions};
+use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
+#[cfg(windows)]
+use tokio::net::windows::named_pipe::ServerOptions;
 
+#[cfg(windows)]
 pub async fn serve(state: Shared) {
     let mut server = match ServerOptions::new().first_pipe_instance(true).create(PIPE_NAME) {
         Ok(s) => s,
@@ -34,7 +38,51 @@ pub async fn serve(state: Shared) {
     }
 }
 
-async fn handle_client(state: Shared, pipe: NamedPipeServer) {
+/// Binds the socket. A file left by a crashed run is removed, but only when nothing listens on it.
+#[cfg(unix)]
+fn bind_socket(path: &std::path::Path) -> std::io::Result<tokio::net::UnixListener> {
+    use std::os::unix::fs::PermissionsExt;
+    if path.exists() {
+        if std::os::unix::net::UnixStream::connect(path).is_ok() {
+            return Err(std::io::Error::new(std::io::ErrorKind::AddrInUse, "another DopaDam is listening"));
+        }
+        std::fs::remove_file(path)?;
+    }
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir)?;
+    }
+    let listener = tokio::net::UnixListener::bind(path)?;
+    std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))?;
+    Ok(listener)
+}
+
+#[cfg(unix)]
+pub async fn serve(state: Shared) {
+    let path = crate::nmhost::socket_path();
+    let listener = match bind_socket(&path) {
+        Ok(l) => l,
+        Err(e) => {
+            eprintln!("DopaDam: cannot listen on {}: {e}", path.display());
+            return;
+        }
+    };
+    loop {
+        match listener.accept().await {
+            Ok((stream, _)) => {
+                tokio::spawn(handle_client(state.clone(), stream));
+            }
+            Err(e) => {
+                eprintln!("DopaDam: accept failed: {e}");
+                tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+            }
+        }
+    }
+}
+
+async fn handle_client<S>(state: Shared, pipe: S)
+where
+    S: AsyncRead + AsyncWrite + Send + 'static,
+{
     let (read, mut write) = tokio::io::split(pipe);
     let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<String>();
     let id = state.add_client(tx);
@@ -52,6 +100,8 @@ async fn handle_client(state: Shared, pipe: NamedPipeServer) {
             state.send_to(id, reply.to_string());
         }
     }
+    #[cfg(target_os = "linux")]
+    crate::linux::shell_gone(id);
     state.remove_client(id);
     writer.abort();
 }
@@ -67,6 +117,16 @@ fn str_field<'a>(msg: &'a Value, key: &str) -> Option<&'a str> {
     msg.get(key).and_then(Value::as_str)
 }
 
+/// Whether a client may send this message yet: extension messages need a compatible `hello`,
+/// the shell's `focus` and `idle` need `shell_hello` first.
+fn message_allowed(kind: &str, compatible: bool, shell: bool) -> bool {
+    match kind {
+        "hello" | "shell_hello" | "ping" => true,
+        "focus" | "idle" => shell,
+        _ => compatible,
+    }
+}
+
 /// Handles one message from an extension; returns the direct reply, if any.
 pub fn handle_message(state: &Shared, client: u64, msg: &Value) -> Option<Value> {
     let now = now_ms();
@@ -74,7 +134,18 @@ pub fn handle_message(state: &Shared, client: u64, msg: &Value) -> Option<Value>
     if let Some(c) = state.clients.lock().unwrap_or_else(|e| e.into_inner()).get_mut(&client) {
         c.last_seen = now;
     }
-    match str_field(msg, "type")? {
+    let kind = str_field(msg, "type")?;
+    let (compatible, shell) = state
+        .clients
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .get(&client)
+        .map_or((false, false), |c| (c.compatible, c.shell));
+    if !message_allowed(kind, compatible, shell) {
+        // Nothing happens; a caller waiting for an answer gets an error.
+        return (!request_id.is_null()).then(|| result(&request_id, Err(ErrorCode::Invalid)));
+    }
+    match kind {
         "hello" => {
             let protocol = msg.get("protocol").and_then(Value::as_i64).unwrap_or(0);
             let compatible = protocol == PROTOCOL;
@@ -91,6 +162,11 @@ pub fn handle_message(state: &Shared, client: u64, msg: &Value) -> Option<Value>
             None
         }
         "ping" => None,
+        #[cfg(target_os = "linux")]
+        "shell_hello" | "focus" | "idle" => {
+            handle_shell(state, client, msg);
+            None
+        }
         "warning_request" => Some(warning_request(state, msg, &request_id, now)),
         "decision" => {
             let outcome = decision(state, msg, now);
@@ -214,6 +290,32 @@ pub fn handle_message(state: &Shared, client: u64, msg: &Value) -> Option<Value>
     }
 }
 
+/// The GNOME Shell companion: its messages feed the foreground tracking, not the extension logic.
+#[cfg(target_os = "linux")]
+fn handle_shell(state: &Shared, client: u64, msg: &Value) {
+    use crate::linux::{apply_shell_event, parse_shell_event, shell_connected, ShellEvent, SHELL_PROTOCOL};
+    let Some(event) = parse_shell_event(msg) else { return };
+    if let ShellEvent::Hello { protocol, .. } = event {
+        // From now on this client is not an extension: it is not counted and gets no config broadcasts.
+        let tx = {
+            let mut clients = state.clients.lock().unwrap_or_else(|e| e.into_inner());
+            clients.get_mut(&client).map(|c| {
+                c.shell = true;
+                c.tx.clone()
+            })
+        };
+        if let (Some(tx), true) = (tx, protocol == SHELL_PROTOCOL) {
+            shell_connected(client, tx);
+        }
+        let _ = tauri::Emitter::emit(&state.app, "state-changed", ());
+        return;
+    }
+    let is_shell = state.clients.lock().unwrap_or_else(|e| e.into_inner()).get(&client).is_some_and(|c| c.shell);
+    if is_shell {
+        apply_shell_event(client, event);
+    }
+}
+
 fn warning_request(state: &Shared, msg: &Value, request_id: &Value, now: i64) -> Value {
     let object = str_field(msg, "object").unwrap_or("").to_lowercase();
     let url = str_field(msg, "url").unwrap_or("");
@@ -279,5 +381,62 @@ fn usage(state: &Shared, msg: &Value, now: i64) {
     };
     if let Some(tag) = tag.filter(|t| t != "ignore") {
         store.add_usage(&tag, seconds, now);
+    }
+}
+
+#[cfg(test)]
+mod gate_tests {
+    use super::message_allowed;
+
+    #[test]
+    fn nothing_but_hello_is_accepted_before_hello() {
+        for kind in ["decision", "set_domain_rule", "add_allow_url", "set_friction", "usage", "warning_request"] {
+            assert!(!message_allowed(kind, false, false), "{kind}");
+            assert!(message_allowed(kind, true, false), "{kind}");
+        }
+        assert!(message_allowed("hello", false, false));
+        assert!(message_allowed("shell_hello", false, false));
+        assert!(!message_allowed("focus", false, false));
+        assert!(!message_allowed("idle", true, false));
+        assert!(message_allowed("focus", false, true));
+        // A shell is not an extension.
+        assert!(!message_allowed("decision", false, true));
+    }
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::*;
+    use std::os::unix::fs::PermissionsExt;
+
+    fn scratch() -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join(format!("dopadam-pipe-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    #[tokio::test]
+    async fn the_socket_is_private_and_a_stale_file_is_replaced() {
+        let dir = scratch();
+        let path = dir.join("dopadam-agent.sock");
+        // A crashed run leaves the file behind with nobody listening.
+        drop(std::os::unix::net::UnixListener::bind(&path).unwrap());
+        assert!(path.exists());
+        let listener = bind_socket(&path).expect("stale socket is removed");
+        assert_eq!(std::fs::metadata(&path).unwrap().permissions().mode() & 0o777, 0o600);
+        // While it listens, a second agent must not take it over.
+        let err = bind_socket(&path).unwrap_err();
+        assert_eq!(err.kind(), std::io::ErrorKind::AddrInUse);
+        assert!(path.exists());
+        drop(listener);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[tokio::test]
+    async fn the_socket_folder_is_created_when_missing() {
+        let dir = scratch();
+        let path = dir.join("nested").join("dopadam-agent.sock");
+        assert!(bind_socket(&path).is_ok());
+        let _ = std::fs::remove_dir_all(dir);
     }
 }

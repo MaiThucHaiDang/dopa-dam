@@ -164,13 +164,18 @@ pub fn check_app_delay(
     }
 }
 
+/// One to four allow-window lengths in minutes, each from 1 to `max`.
+fn valid_allow_options(options: &[i64], max: i64) -> bool {
+    (1..=4).contains(&options.len()) && options.iter().all(|m| (1..=max).contains(m))
+}
+
 pub fn check_friction(old: &Settings, new: &Settings, confirmed: bool, study_active: bool) -> Option<ErrorCode> {
     let valid = new.lock_seconds.len() == 4
         && new.lock_seconds.iter().all(|s| (0..=300).contains(s))
         && (0..=1440).contains(&new.budget_minutes)
         && new.tag_delays.values().all(|d| (0..=120).contains(d))
-        && !new.allow_options_normal.is_empty()
-        && !new.allow_options_restricted.is_empty();
+        && valid_allow_options(&new.allow_options_normal, 120)
+        && valid_allow_options(&new.allow_options_restricted, 10);
     if !valid {
         return Some(ErrorCode::Invalid);
     }
@@ -190,7 +195,11 @@ pub fn check_friction(old: &Settings, new: &Settings, confirmed: bool, study_act
             *new.tag_delays.get(k).unwrap_or(&0),
         )
     });
-    if (lock_weakens || budget_weakens || delay_weakens) && !confirmed {
+    // A longer allow window is the weaker setting.
+    let longest = |v: &[i64]| v.iter().copied().max().unwrap_or(0);
+    let options_weaken = longest(&new.allow_options_normal) > longest(&old.allow_options_normal)
+        || longest(&new.allow_options_restricted) > longest(&old.allow_options_restricted);
+    if (lock_weakens || budget_weakens || delay_weakens || options_weaken) && !confirmed {
         Some(ErrorCode::NeedsConfirm)
     } else {
         None
@@ -336,5 +345,26 @@ mod tests {
         assert_eq!(check_friction(&s, &stronger, true, true), Some(ErrorCode::StudyLocked));
         assert_eq!(check_protection(true, false, false, false), Some(ErrorCode::NeedsConfirm));
         assert_eq!(check_protection(false, true, false, true), None);
+    }
+
+    #[test]
+    fn allow_options_are_validated_and_raising_the_longest_needs_confirmation() {
+        let s = Settings::default();
+        let with = |n: Vec<i64>, r: Vec<i64>| Settings { allow_options_normal: n, allow_options_restricted: r, ..s.clone() };
+        for bad in [
+            with(vec![600], vec![5]),
+            with(vec![0, 5], vec![5]),
+            with(vec![1, 2, 3, 4, 5], vec![5]),
+            with(vec![5], vec![11]),
+            with(vec![5], vec![]),
+        ] {
+            assert_eq!(check_friction(&s, &bad, true, false), Some(ErrorCode::Invalid));
+        }
+        let longer = with(vec![5, 15, 60], vec![5, 10]);
+        assert_eq!(check_friction(&s, &longer, false, false), Some(ErrorCode::NeedsConfirm));
+        assert_eq!(check_friction(&s, &longer, true, false), None);
+        assert_eq!(check_friction(&s, &longer, true, true), Some(ErrorCode::StudyLocked));
+        let shorter = with(vec![5, 15], vec![5]);
+        assert_eq!(check_friction(&s, &shorter, false, false), None);
     }
 }
