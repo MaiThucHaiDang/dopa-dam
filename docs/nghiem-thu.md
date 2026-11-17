@@ -33,6 +33,14 @@ Cần kiểm tra trên máy thật:
 - [x] Android Lint không còn lỗi; APK release được ký và có đủ khai báo (dịch vụ Trợ năng có quyền `BIND_ACCESSIBILITY_SERVICE`, không xin quyền đọc nội dung màn hình).
 - [x] Trên máy ảo Android 14 (`python android/e2e/emulator_test.py`): bật Trợ năng, gán tag Giải trí cho một app qua giao diện, mở app đó thì lớp phủ cảnh báo hiện ra; nút Back là Thoát và đưa về màn hình chính; lần chặn và lựa chọn Thoát được đếm đúng; mở lại thì cảnh báo hiện lại với cấp cao hơn (khóa 10 giây).
 
+- [x] Trên Linux (JDK 17 và Android SDK đặt trong `.toolchain/`): build debug và 54 unit test chạy qua, gồm các ca mới về đồng bộ theo trang, quy tắc khi `updated_at` bằng nhau, đọc cài đặt đồng bộ có giá trị hỏng, kiểm tra tùy chọn số phút, cắt nhãn theo điểm mã, theo dõi dịch vụ canh, và thẻ tiến bộ tuần.
+- [x] Chạy lại `android/e2e/emulator_test.py` trên máy ảo Android 14 với bản mới: đủ 10 bước, gồm cả phiên học và xác nhận khi kết thúc sớm. Bấm "Xóa nhật ký" khi đang trong phiên học thì app báo "Đang trong phiên học nên không chỉnh được". Thẻ "Tiến bộ tuần này" hiện đúng trên màn hình Thống kê.
+
+Chưa kiểm tra được bằng máy (không có server thật và điện thoại thật):
+
+- [ ] Đồng bộ trên Android sau các sửa đổi: kéo theo trang, đổi tài khoản, "Xóa dữ liệu trên server" rồi đăng nhập lại. Phần Room chỉ được kiểm bằng cách đọc mã.
+- [ ] Thông báo "dịch vụ canh không chạy" khi quyền Trợ năng vẫn bật mà dịch vụ không được gắn (trường hợp Xiaomi).
+
 Cần kiểm tra trên điện thoại thật (Xiaomi):
 
 - [ ] Cài APK, làm đủ các bước trong trang Hướng dẫn (Trợ năng, thông báo, pin, Autostart, khóa trong đa nhiệm).
@@ -95,30 +103,34 @@ Cần kiểm tra trên thiết bị thật:
 
 Đã kiểm tra tự động:
 
-- [x] Logic giao thức của tiện ích GNOME Shell (`cd linux/gnome-shell-extension && node --test`): mã hóa tin nhắn, không có tiêu đề cửa sổ trong `focus`, không gửi hai `focus` giống nhau liên tiếp, ghép dòng khi đọc từng phần, bỏ qua JSON hỏng và lệnh sai, kiểm tra lệnh `shell_minimize`, `shell_activate`, `shell_raise`.
+- [x] Logic giao thức của tiện ích GNOME Shell (`cd linux/gnome-shell-extension && node --test`, 16 test): mã hóa tin nhắn, không có tiêu đề cửa sổ trong `focus`, không gửi hai `focus` giống nhau liên tiếp, ghép dòng khi đọc từng phần, bỏ qua JSON hỏng và lệnh sai, kiểm tra lệnh `shell_minimize`, `shell_activate`, `shell_raise`.
 - [x] `fake-agent.mjs` tạo socket, nhận kết nối thử, nhận dòng và gửi lệnh đúng định dạng, rồi xóa socket khi thoát.
 - [x] Mọi file `.js` của tiện ích qua kiểm tra cú pháp; `protocol.js` nạp được trong `gjs`.
-- [x] Extension trình duyệt trên Chromium (`cd extension && npm run check`, rồi `npm run e2e` với `DOPADAM_E2E_CHANNEL=chromium`): 241 unit test và 18 kịch bản đầu-cuối, gồm luật tên miền con không gỡ được chặn khi chưa xác nhận, link được phép kèm `#…` không lặp, và link playlist không làm kẹt các luật chặn khác.
+- [x] Extension trình duyệt trên Chromium (`cd extension && npm run check`, rồi `npm run e2e` với `DOPADAM_E2E_CHANNEL=chromium`): 251 unit test và 18 kịch bản đầu-cuối, gồm luật tên miền con không gỡ được chặn khi chưa xác nhận, link được phép kèm `#…` không lặp, và link playlist không làm kẹt các luật chặn khác.
 - [x] Giao diện agent (`cd agent && npm run check`) và cấu trúc bảng Supabase có thiết bị `linux` (`cd supabase && npm test`).
-- [x] Agent Rust build được trên Linux (`cargo build`); `cargo test` (78 test, gồm test đồng bộ với server giả) và `cargo clippy --all-targets` không lỗi.
+- [x] Agent Rust build được trên Linux (`cargo build`); `cargo test` (114 test, cộng 2 test đồng bộ với server giả) và `cargo clippy --all-targets` không lỗi.
 - [x] Chạy file chương trình của agent ở chế độ ẩn với thư mục dữ liệu tạm: mở socket `dopadam-agent.sock` quyền 0600, trả lời `hello` bằng `welcome` và `config`, bật phiên học qua cầu nối, nhận client của tiện ích GNOME mà không gửi `config` cho nó, ghi manifest native messaging cho Brave.
+
+- [x] Bản Windows biên dịch được từ Linux: `cargo check` và `cargo clippy --all-targets` cho đích `x86_64-pc-windows-gnu` (bộ biên dịch chéo mingw) không lỗi, không cảnh báo, gồm cả `win.rs` và các test. Đây là kiểm tra biên dịch, chưa phải chạy trên Windows.
+- [x] Đóng gói `npx tauri build --bundles deb` ra `DopaDam_0.1.0_amd64.deb` (gói `dopa-dam`, phụ thuộc `libwebkit2gtk-4.1-0`, `libgtk-3-0`, `libayatana-appindicator3-1`).
+- [x] Chạy thật trong một GNOME Shell 50.1 riêng, không màn hình (`linux/e2e/core_flow.py`, 34 bước đều qua): tiện ích nạp không lỗi và nối với agent; cảnh báo hiện toàn màn hình, ở trên cùng và có tiêu điểm; nút Vào bị khóa trong lúc đếm ngược; Enter và Esc là Thoát và thu nhỏ chương trình; Vào rồi chọn 5 phút cho dùng tiếp; "Còn 1 phút" hiện ở góc trên bên phải và không lấy tiêu điểm; hết thời gian thì cảnh báo trở lại; "Làm việc khác" hoạt động; tắt rồi bật agent thì tiện ích nối lại; mở lại chương trình 0,5 giây sau khi Thoát vẫn bị cảnh báo; đóng chương trình khi cảnh báo đang hiện thì cảnh báo biến mất và không sinh thêm lần chặn nào.
+- [x] Đường X11 (Shell chạy kèm Xwayland, không bật tiện ích; `linux/e2e/x11_flow.py`, 10 bước đều qua): agent theo dõi cửa sổ qua X11, ba cảnh báo liên tiếp đều có tiêu điểm, Enter và Esc đóng được.
+- [x] Trang Tổng quan báo "Đã nối với GNOME Shell qua tiện ích DopaDam"; mọi trang của cửa sổ chính mở được, không lỗi bố cục.
 
 Chưa chạy, cần làm:
 
-- [ ] Đóng gói `npx tauri build` ra `.deb` và AppImage.
-- [ ] Build lại và chạy `cargo test` trên Windows sau khi thêm lớp nền tảng (máy phát triển Linux không build được bản Windows).
-- [ ] Tiện ích GNOME Shell tải được trong GNOME Shell thật (chưa từng nạp vào Shell nào).
+- [ ] Chạy bản Windows thật sau khi thêm lớp nền tảng và các sửa đổi ở phần logic dùng chung (mới chỉ kiểm tra biên dịch).
+- [ ] Gói AppImage (chưa thử đóng gói).
+- [ ] Nút "Cài tiện ích GNOME" trong ứng dụng: phần chép file và sửa danh sách tiện ích có unit test, nhưng chưa bấm thật trong một phiên GNOME.
 
-Cần kiểm tra trên phiên Linux thật:
+Cần kiểm tra trên phiên Linux thật (phiên riêng không màn hình không có đăng nhập, khóa màn hình, khay hệ thống và nhiều màn hình):
 
-- [ ] Chạy `linux/gnome-shell-extension/install.sh`, đăng xuất và đăng nhập lại, `gnome-extensions enable dopadam@dang`: Tổng quan của agent báo đã nối với GNOME Shell.
-- [ ] Gắn tag Giải trí cho một chương trình GNOME (ví dụ Files): mở nó thì cảnh báo phủ lên trên, Thoát thu nhỏ chương trình, Vào cho dùng tiếp đúng thời gian.
-- [ ] Cảnh báo không bị cửa sổ khác che, kể cả khi chương trình ở toàn màn hình.
+- [ ] Cài `.deb`, mở DopaDam, bấm "Cài tiện ích GNOME", đăng xuất và đăng nhập lại: Tổng quan báo đã nối với GNOME Shell.
 - [ ] Khóa màn hình rồi mở lại: tiện ích tự tắt và bật, agent nối lại trong vài giây.
-- [ ] Tắt agent: tiện ích không gây lỗi trong `journalctl`; bật agent: tiện ích tự nối lại trong 5 giây.
-- [ ] Phiên X11: Tổng quan báo theo dõi qua X11 và cảnh báo hiện đúng như trên.
+- [ ] Biểu tượng ở khay hệ thống, tự chạy khi đăng nhập, thoát từ khay và từ mục "Thoát DopaDam" trong Cài đặt.
+- [ ] Hai màn hình hoặc màn hình có tỉ lệ phóng khác 100%: cảnh báo phủ đúng màn hình đang dùng.
+- [ ] Phiên X11 thật với trình quản lý cửa sổ khác Mutter.
 - [ ] Phiên không có nguồn nào (ví dụ Wayland trên KDE): Tổng quan báo chưa có nguồn và trỏ tới Hướng dẫn; tray, thống kê và extension vẫn dùng được.
-- [ ] Cài bản `.deb` và AppImage: tự chạy khi đăng nhập, biểu tượng ở khay hệ thống.
 - [ ] Extension trong Chrome, Chromium hoặc Brave (không phải snap): Tổng quan báo "Đã nối"; trong trình duyệt snap: extension chạy riêng, không báo lỗi.
 - [ ] Đăng nhập đồng bộ trên Linux: thiết bị hiện là "Máy tính Linux" trong danh sách thiết bị (đã chạy migration `20261116000000_devices_linux.sql` trên project thật).
 
