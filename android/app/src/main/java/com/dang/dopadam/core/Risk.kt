@@ -100,29 +100,29 @@ fun riskHeatmap(events: List<RiskEvent>, now: Long, tzOffsetMinutes: Int, days: 
 
 data class RiskSuggestion(val days: List<Int>, val start: String, val end: String, val opens: Int, val enters: Int)
 
-/**
- * Is local hour `hour` of weekday `day` entirely inside one existing window? Either a window listing `day`
- * (end already moved 24 h later when it runs past midnight), or one listing the day before that runs past
- * midnight far enough. A window made of two adjacent windows does not count as one.
- */
-private fun hourCovered(spans: List<Span>, day: Int, hour: Int): Boolean {
-    val prev = if (day == 1) 7 else day - 1
-    val from = hour * 60
-    val to = from + 60
-    return spans.any { w ->
-        (day in w.days && w.start <= from && to <= w.end) ||
-            (prev in w.days && w.end > 1440 && to <= w.end - 1440)
+/** Which minutes of the week (0 = Monday 00:00) the windows cover; a window running past Sunday wraps to Monday. */
+private fun weekCoverage(windows: List<RiskWindow>): BooleanArray {
+    val covered = BooleanArray(WEEK_MINUTES)
+    for (w in validSpans(windows)) {
+        for (d in w.days) {
+            for (m in w.start until w.end) covered[((d - 1) * 1440 + m) % WEEK_MINUTES] = true
+        }
     }
+    return covered
 }
+
+/** Does any minute of hours h .. h + RISK_BLOCK_HOURS - 1, on any day of the group, lie in the coverage? */
+private fun blockTouched(covered: BooleanArray, group: List<Int>, h: Int): Boolean =
+    group.any { d -> (h * 60 until (h + RISK_BLOCK_HOURS) * 60).any { m -> covered[(d - 1) * 1440 + m] } }
 
 /**
  * The two-hour block (a group of days, starting hour h, hours h and h+1) with the highest opens per day of the
- * group, among blocks with at least [RISK_MIN_OPENS] warnings that no existing window already covers. Ties:
- * higher enters per day, then weekdays before weekend, then the smaller h. `cells` is a 7 x 24 grid as from
+ * group, among blocks with at least [RISK_MIN_OPENS] warnings that do not touch any existing window (no minute
+ * of the block, on any day of the group, is covered). Ties: higher enters per day, then weekdays before weekend, then the smaller h. `cells` is a 7 x 24 grid as from
  * [riskHeatmap]; missing cells count as zero.
  */
 fun suggestRiskWindow(cells: List<List<RiskCell>>, existing: List<RiskWindow>): RiskSuggestion? {
-    val spans = validSpans(existing)
+    val covered = weekCoverage(existing)
     var bestDays: List<Int>? = null
     var bestH = 0
     var bestOpens = 0
@@ -139,8 +139,7 @@ fun suggestRiskWindow(cells: List<List<RiskCell>>, existing: List<RiskWindow>): 
                 }
             }
             if (opens < RISK_MIN_OPENS) continue
-            val covered = group.all { d -> (h until h + RISK_BLOCK_HOURS).all { x -> hourCovered(spans, d, x) } }
-            if (covered) continue
+            if (blockTouched(covered, group, h)) continue
             val best = bestDays
             if (best != null) {
                 // Per-day comparison by cross-multiplication: a / group.size > b / best.size.
@@ -159,17 +158,6 @@ fun suggestRiskWindow(cells: List<List<RiskCell>>, existing: List<RiskWindow>): 
     }
     val days = bestDays ?: return null
     return RiskSuggestion(days.toList(), hm(bestH * 60), hm(((bestH + RISK_BLOCK_HOURS) % 24) * 60), bestOpens, bestEnters)
-}
-
-/** Which minutes of the week (0 = Monday 00:00) the windows cover; a window running past Sunday wraps to Monday. */
-private fun weekCoverage(windows: List<RiskWindow>): BooleanArray {
-    val covered = BooleanArray(WEEK_MINUTES)
-    for (w in validSpans(windows)) {
-        for (d in w.days) {
-            for (m in w.start until w.end) covered[((d - 1) * 1440 + m) % WEEK_MINUTES] = true
-        }
-    }
-    return covered
 }
 
 /**

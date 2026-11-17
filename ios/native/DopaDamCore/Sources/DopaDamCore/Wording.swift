@@ -81,25 +81,18 @@ public enum Wording {
         return name.prefix(1).uppercased() + name.dropFirst()
     }
 
-    /// "thứ 2 đến thứ 6", "thứ 7 và Chủ nhật", "mọi ngày"; otherwise a list: "thứ 2, thứ 4 và thứ 6".
-    /// Three or more consecutive days collapse into a range.
+    /// "thứ 2 đến thứ 6", "thứ 7 và Chủ nhật", "mỗi ngày"; a run of three or more consecutive days is "A đến B",
+    /// anything else is a list: "thứ 2, thứ 4 và thứ 6". Same wording as extension/src/shared/riskText.ts.
     public static func riskDays(_ days: [Int]) -> String {
         let sorted = cleanDays(days)
-        if sorted.count == 7 { return "mọi ngày" }
-        var parts: [String] = []
-        var i = 0
-        while i < sorted.count {
-            var j = i
-            while j + 1 < sorted.count && sorted[j + 1] == sorted[j] + 1 { j += 1 }
-            if j - i >= 2 {
-                parts.append("\(dayName(sorted[i])) đến \(dayName(sorted[j]))")
-            } else {
-                for k in i...j { parts.append(dayName(sorted[k])) }
-            }
-            i = j + 1
+        if sorted.isEmpty { return "" }
+        if sorted.count == 7 { return "mỗi ngày" }
+        if sorted.count >= 3 && sorted[sorted.count - 1] - sorted[0] == sorted.count - 1 {
+            return "\(dayName(sorted[0])) đến \(dayName(sorted[sorted.count - 1]))"
         }
-        if parts.count <= 1 { return parts.joined() }
-        return "\(parts.dropLast().joined(separator: ", ")) và \(parts[parts.count - 1])"
+        let names = sorted.map(dayName)
+        if names.count == 1 { return names[0] }
+        return "\(names.dropLast().joined(separator: ", ")) và \(names[names.count - 1])"
     }
 
     /// An end of "00:00" reads as "24:00".

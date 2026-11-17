@@ -99,7 +99,7 @@ Mục tiêu: tăng cản trở đúng vào những khung giờ người dùng ha
 
 1. Hai nhóm ngày: trong tuần `[1,2,3,4,5]` và cuối tuần `[6,7]`.
 2. Với mỗi nhóm và mỗi giờ bắt đầu `h` từ 0 đến 22, xét khối 2 giờ gồm cột `h` và `h+1`: `opens` và `enters` của khối là tổng các ô của những ngày trong nhóm.
-3. Khối đủ điều kiện khi `opens >= 6` và chưa được phủ. Khối đã được phủ khi với mọi ngày của nhóm, cả hai giờ của khối đều nằm trọn trong một khung đang có (giờ `x` của thứ `d` nằm trọn trong khung khi `d` thuộc `days` và `start <= x:00`, `(x+1):00 <= end` với `end` đã cộng 24 giờ nếu qua nửa đêm; hoặc ngày liền trước `d` thuộc `days` và khung của ngày đó chạy qua nửa đêm phủ hết giờ ấy).
+3. Khối đủ điều kiện khi `opens >= 6` và không chạm khung nào đang có. Khối chạm một khung khi có ít nhất một phút của khối (từ `h:00` đến trước `(h+2):00`), ở ít nhất một ngày của nhóm, nằm trong phần các khung đang có phủ; cách tính phủ giống `classifyRiskWindowsChange` (từng phút của tuần, khung không hợp lệ không phủ phút nào, khung qua nửa đêm phủ các giờ đầu ngày hôm sau, khung của Chủ nhật vòng sang thứ Hai). Vì vậy khối vừa liền kề vừa không chung phút nào với khung thì vẫn đủ điều kiện (khung 22:00–24:00 không loại khối 20:00–22:00), còn khối chỉ chung một phút thì bị loại.
 4. Chọn khối có `opens` chia cho số ngày của nhóm lớn nhất (so bằng phép nhân chéo số nguyên, không dùng số thực). Bằng nhau thì chọn khối có `enters` chia cho số ngày lớn hơn, rồi nhóm trong tuần trước nhóm cuối tuần, rồi `h` nhỏ hơn.
 5. Kết quả: `{ days, start: "hh:00", end: "hh:00", opens, enters }` (`end` là `"00:00"` khi `h = 22`), hoặc không có gì.
 
@@ -108,16 +108,15 @@ Mục tiêu: tăng cản trở đúng vào những khung giờ người dùng ha
 **Các điểm chốt thêm** (đều có ca kiểm thử trong `risk.json`):
 
 - Khung không hợp lệ coi như không có ở mọi hàm: không phủ phút nào. Ngày ngoài 1..7 bị bỏ, phần còn lại của khung được giữ. Giờ được đọc như khung giờ học (`"7:05"` thành `"07:05"`; `"24:00"`, `"12:60"`, `"7:5"` là sai). Khác khung giờ học ở một điểm: `start == end` là không hợp lệ.
-- Khi xét khối đã được phủ hay chưa, từng giờ của khối phải nằm trọn trong một khung, nhưng hai giờ có thể thuộc hai khung khác nhau (hai khung liền nhau 20:00–21:00 và 21:00–22:00 phủ khối 20:00–22:00).
-- Khung qua nửa đêm của thứ Hai đến thứ Sáu phủ cả các giờ đầu ngày hôm sau; ngày liền trước của thứ Hai là Chủ nhật.
+- Khung qua nửa đêm phủ cả các giờ đầu ngày hôm sau, nên có thể loại khối của nhóm kia: khung thứ Sáu 23:00–02:00 loại khối cuối tuần bắt đầu từ 00:00 (thứ Bảy), khung Chủ nhật 22:00–02:00 loại khối trong tuần bắt đầu từ 00:00 (thứ Hai). Khung kết thúc đúng 00:00 thì không sang ngày hôm sau.
+- Khung chỉ có một số ngày của nhóm (ví dụ chỉ thứ Hai) vẫn loại các khối của nhóm chạm khung ấy, vì chỉ cần chạm ở một ngày. Khung không căn giờ (21:30–23:00) loại mọi khối chung phút với nó (bắt đầu từ 20:00, 21:00 và 22:00).
+- Giới hạn đã biết: một giờ nóng bị kẹp giữa hai khung đang có (ví dụ khung 19:00–21:00 và 22:00–24:00, giờ nóng là 21) không được gợi ý, vì mọi khối 2 giờ chứa giờ đó đều chạm một trong hai khung; muốn bảo vệ giờ ấy thì người dùng tự sửa khung. Đổi lại, gợi ý không bao giờ chồng lên khung đang có.
 - Tỉ lệ theo ngày luôn chia cho số ngày của nhóm (5 hoặc 2), kể cả khi chỉ vài ngày có dữ liệu. Khi tỉ lệ bằng nhau, nhóm trong tuần thắng nhóm cuối tuần trước khi xét `h`.
 - `enters` chỉ đếm lựa chọn đúng bằng `"enter"`.
 - Độ phủ của danh sách khung tính theo từng phút của tuần (khung qua nửa đêm Chủ nhật vòng sang thứ Hai); mã `id` của khung không ảnh hưởng. Tách một khung thành hai khung phủ cùng thời gian là `"ok"`.
 - Trong tệp ca kiểm thử, bản đồ nhiệt được ghi gọn thành danh sách ô khác 0 `{ row, hour, opens, enters }` với `row` 0 = thứ Hai … 6 = Chủ nhật, xếp theo `row` rồi `hour`.
 
-**Giao diện.** Thẻ "Giờ nguy cơ" nằm ở trang Thống kê của agent và của app Android, và ở trang tùy chọn của extension khi extension chạy riêng: bản đồ nhiệt một màu (ô càng đậm càng nhiều lần mở, không dùng màu báo động), một dòng gợi ý kèm nút "Tăng cản trở trong khung này", và danh sách các khung đang bật, mỗi khung có nút "Gỡ". Khi không có khối nào đủ điều kiện thì hiện "Chưa có khung giờ nào nổi bật."
-
-**Điều đã biết.** Sau khi thêm khung 22:00–24:00, gợi ý kế tiếp có thể là 21:00–23:00, vì khối chỉ bị loại khi cả hai giờ của nó đã được phủ. Bấm tiếp sẽ nới khung sớm lên từng giờ; cấp chỉ tăng một bậc dù các khung chồng nhau.
+**Giao diện.** Thẻ "Giờ nguy cơ" nằm ở trang Thống kê của agent và của app Android, và ở trang tùy chọn của extension khi extension chạy riêng: bản đồ nhiệt một màu (ô càng đậm càng nhiều lần mở, không dùng màu báo động), một dòng gợi ý kèm nút "Tăng cản trở trong khung này", và danh sách các khung đang bật, mỗi khung có nút "Gỡ". Khi không có khối nào đủ điều kiện thì hiện "Chưa có khung giờ nào nổi bật." Mọi nền tảng viết một dòng khung đang bật và câu gợi ý giống hệt nhau, ví dụ "22:00–24:00 · thứ 2 đến thứ 6 · thời gian chờ dài hơn một cấp" và "Hay mở nhất: 22:00–24:00, thứ 2 đến thứ 6 (17 lần mở, 9 lần Vào)."; cách viết ngày (dải từ ba ngày liền nhau trở lên, "mỗi ngày" khi đủ bảy ngày, "00:00" cuối khung đọc là "24:00") được ghim bởi các nhóm `describeDays`, `describeWindow`, `describeSuggestion` trong `risk.json`.
 
 ### 2.6 Chế độ bài giảng trên YouTube
 

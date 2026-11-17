@@ -14,16 +14,16 @@ private val DAY_WORDS = listOf("", "thứ 2", "thứ 3", "thứ 4", "thứ 5", "
 val RISK_ROW_LABELS = listOf("T2", "T3", "T4", "T5", "T6", "T7", "CN")
 
 /**
- * "thứ 2 đến thứ 6", "thứ 7 và Chủ nhật", "mọi ngày"; otherwise a list: "thứ 2", "thứ 2 và thứ 4",
- * "thứ 2, thứ 4 và thứ 6". Days are sorted, deduplicated and limited to 1..7.
+ * Days in a sentence: "thứ 2 đến thứ 6", "thứ 7 và Chủ nhật", "mỗi ngày"; a run of three or more consecutive days
+ * is "A đến B", anything else is a list ("thứ 2 và thứ 4", "thứ 2, thứ 4 và thứ 6"). Days are sorted,
+ * deduplicated and limited to 1..7. Same wording as extension/src/shared/riskText.ts.
  */
 fun riskDaysText(days: List<Int>): String {
     val d = days.filter { it in 1..7 }.distinct().sorted()
     return when {
         d.isEmpty() -> ""
-        d == listOf(1, 2, 3, 4, 5) -> "thứ 2 đến thứ 6"
-        d == listOf(6, 7) -> "thứ 7 và Chủ nhật"
-        d.size == 7 -> "mọi ngày"
+        d.size == 7 -> "mỗi ngày"
+        d.size >= 3 && d.last() - d.first() == d.size - 1 -> "${DAY_WORDS[d.first()]} đến ${DAY_WORDS[d.last()]}"
         d.size == 1 -> DAY_WORDS[d[0]]
         else -> d.dropLast(1).joinToString(", ") { DAY_WORDS[it] } + " và " + DAY_WORDS[d.last()]
     }

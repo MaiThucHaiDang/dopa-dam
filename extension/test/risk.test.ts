@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 import { MAX_RISK_WINDOWS, riskHeatmap, suggestRiskWindow, type RiskWindow } from "../src/core";
 import { recordWarning, setRiskWindows, startStudy } from "../src/background/logic";
@@ -150,8 +152,8 @@ describe("setRiskWindows", () => {
     const sug = suggestRiskWindow(heat, s.riskWindows)!;
     expect(sug).toMatchObject({ days: [1, 2, 3, 4, 5], start: "19:00", end: "21:00", opens: 6 });
     expect(setRiskWindows(s, [{ id: "n", days: sug.days, start: sug.start, end: sug.end }], false, NOW, TZ).ok).toBe(true);
-    // The next block that is not fully covered (20:00-22:00 also holds all six opens) comes up instead.
-    expect(suggestRiskWindow(heat, s.riskWindows)).toMatchObject({ start: "20:00", end: "22:00" });
+    // The overlapping block 20:00-22:00 (it also holds all six opens) touches the new window: nothing is suggested.
+    expect(suggestRiskWindow(heat, s.riskWindows)).toBeNull();
   });
 });
 
@@ -166,6 +168,16 @@ describe("risk wording", () => {
     expect(formatRiskDays([5, 6, 7])).toBe("thứ 6 đến Chủ nhật");
     expect(formatRiskDays([1, 1, 2, 9])).toBe("thứ 2 và thứ 3");
     expect(formatRiskDays([])).toBe("");
+  });
+
+  it("writes the shared wording cases", () => {
+    const v = JSON.parse(readFileSync(resolve(__dirname, "../../shared/test-vectors/risk.json"), "utf8"));
+    expect(v.describeDays.length).toBeGreaterThan(10);
+    expect(v.describeWindow.length).toBeGreaterThan(5);
+    expect(v.describeSuggestion.length).toBeGreaterThan(3);
+    for (const c of v.describeDays) expect(formatRiskDays(c.input), c.name).toBe(c.expected);
+    for (const c of v.describeWindow) expect(describeRiskWindow(c.input), c.name).toBe(c.expected);
+    for (const c of v.describeSuggestion) expect(describeSuggestion(c.input), c.name).toBe(c.expected);
   });
 
   it("shows an end of 00:00 as 24:00", () => {

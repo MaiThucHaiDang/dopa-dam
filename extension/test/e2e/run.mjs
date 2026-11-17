@@ -494,7 +494,8 @@ try {
     await risk.locator("#risk-add").click();
     await risk.locator("#risk-list li", { hasText: "21:00–23:00 · thứ 2 đến thứ 6 · thời gian chờ dài hơn một cấp" }).waitFor();
     assert.equal((await send({ type: "options:get" })).risk.windows.length, 1);
-    assert.notEqual(await risk.locator("#risk-suggestion-text").textContent(), `Hay mở nhất: 21:00–23:00, thứ 2 đến thứ 6 (${2 * weekdays} lần mở, ${weekdays} lần Vào).`);
+    // Every other block with enough opens (20:00-22:00, 22:00-24:00) touches the new window, so nothing is left to suggest.
+    assert.equal(await risk.locator("#risk-suggestion-text").textContent(), "Chưa có khung giờ nào nổi bật.");
     await page.close();
   });
 

@@ -1273,8 +1273,8 @@ mod tests {
             (vec![1, 2, 3, 4, 5], "21:00", "23:00", 7, 1)
         );
         assert!(o.windows.is_empty());
-        // Once the suggested window exists, that block is no longer suggested; the next best one is
-        // 22:00-24:00, whose second hour the new window does not cover.
+        // Once the suggested window exists, the overlapping block 22:00-24:00 (it also holds all seven opens)
+        // touches it, so nothing is suggested.
         s.set_risk_windows(
             &[RiskWindow { id: "n".into(), days: vec![1, 2, 3, 4, 5], start: "21:00".into(), end: "23:00".into() }],
             false,
@@ -1282,8 +1282,7 @@ mod tests {
         )
         .unwrap();
         let again = s.risk_overview(monday_22 + 1000, 420);
-        let next = again.suggestion.unwrap();
-        assert_eq!((next.start.as_str(), next.end.as_str(), next.opens), ("22:00", "00:00", 7));
+        assert!(again.suggestion.is_none());
         assert_eq!(again.windows.len(), 1);
     }
 }

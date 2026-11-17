@@ -138,24 +138,28 @@ public struct RiskSuggestion: Codable, Equatable, Sendable {
     public func asWindow(id: String = "") -> RiskWindow { RiskWindow(id: id, days: days, start: start, end: end) }
 }
 
-/// Is local hour `hour` of weekday `day` entirely inside one existing window? Either a window listing `day`
-/// (end already moved 24 h later when it runs past midnight), or one listing the day before that runs past
-/// midnight far enough. A window made of two adjacent windows does not count as one.
-private func hourCovered(_ windows: [ValidWindow], day: Int, hour: Int) -> Bool {
-    let prev = day == 1 ? 7 : day - 1
-    let from = hour * 60
-    let to = from + 60
-    return windows.contains { w in
-        (w.days.contains(day) && w.start <= from && to <= w.end) || (w.days.contains(prev) && w.end > 1440 && to <= w.end - 1440)
+/// Which minutes of the week (0 = Monday 00:00) the windows cover; a window running past Sunday wraps to Monday.
+private func weekCoverage(_ windows: [RiskWindow]) -> [Bool] {
+    var covered = [Bool](repeating: false, count: weekMinutes)
+    for w in validWindows(windows) {
+        for d in w.days {
+            for m in w.start..<w.end { covered[((d - 1) * 1440 + m) % weekMinutes] = true }
+        }
     }
+    return covered
+}
+
+/// Does any minute of hours h ..< h + riskBlockHours, on any day of the group, lie in the coverage?
+private func blockTouched(_ covered: [Bool], group: [Int], h: Int) -> Bool {
+    group.contains { d in (h * 60..<(h + riskBlockHours) * 60).contains { m in covered[(d - 1) * 1440 + m] } }
 }
 
 /// The two-hour block (a group of days, starting hour h, hours h and h+1) with the highest opens per day of the
-/// group, among blocks with at least `riskMinOpens` warnings that no existing window already covers. Ties:
-/// higher enters per day, then weekdays before weekend, then the smaller h. Integer comparisons only.
+/// group, among blocks with at least `riskMinOpens` warnings that do not touch any existing window (no minute of
+/// the block, on any day of the group, is covered). Ties: higher enters per day, then weekdays before weekend, then the smaller h. Integer comparisons only.
 /// `cells` is a 7 x 24 grid as from `riskHeatmap`; missing cells count as zero.
 public func suggestRiskWindow(cells: RiskHeatmap, existing: [RiskWindow]) -> RiskSuggestion? {
-    let windows = validWindows(existing)
+    let covered = weekCoverage(existing)
     func cell(_ d: Int, _ x: Int) -> RiskCell {
         guard d - 1 >= 0, d - 1 < cells.count, x >= 0, x < cells[d - 1].count else { return RiskCell() }
         return cells[d - 1][x]
@@ -171,11 +175,7 @@ public func suggestRiskWindow(cells: RiskHeatmap, existing: [RiskWindow]) -> Ris
                 }
             }
             if opens < riskMinOpens { continue }
-            var covered = true
-            for d in group {
-                for x in h..<(h + riskBlockHours) where !hourCovered(windows, day: d, hour: x) { covered = false }
-            }
-            if covered { continue }
+            if blockTouched(covered, group: group, h: h) { continue }
             if let b = best {
                 let l = group.count, r = b.days.count
                 let byOpens = opens * r - b.opens * l
@@ -188,17 +188,6 @@ public func suggestRiskWindow(cells: RiskHeatmap, existing: [RiskWindow]) -> Ris
     guard let b = best else { return nil }
     return RiskSuggestion(days: b.days, start: formatHm(b.h * 60), end: formatHm(((b.h + riskBlockHours) % 24) * 60),
                           opens: b.opens, enters: b.enters)
-}
-
-/// Which minutes of the week (0 = Monday 00:00) the windows cover; a window running past Sunday wraps to Monday.
-private func weekCoverage(_ windows: [RiskWindow]) -> [Bool] {
-    var covered = [Bool](repeating: false, count: weekMinutes)
-    for w in validWindows(windows) {
-        for d in w.days {
-            for m in w.start..<w.end { covered[((d - 1) * 1440 + m) % weekMinutes] = true }
-        }
-    }
-    return covered
 }
 
 /// `.weaken` when some minute of the week was covered by the old list and is not covered by the new one

@@ -80,12 +80,14 @@ class RiskLogicTest {
     fun dayLists() {
         assertEquals("thứ 2 đến thứ 6", riskDaysText(listOf(5, 4, 3, 2, 1, 1)))
         assertEquals("thứ 7 và Chủ nhật", riskDaysText(listOf(7, 6)))
-        assertEquals("mọi ngày", riskDaysText(listOf(1, 2, 3, 4, 5, 6, 7)))
+        assertEquals("mỗi ngày", riskDaysText(listOf(1, 2, 3, 4, 5, 6, 7)))
         assertEquals("thứ 4", riskDaysText(listOf(3)))
         assertEquals("Chủ nhật", riskDaysText(listOf(7)))
         assertEquals("thứ 2 và thứ 4", riskDaysText(listOf(1, 3)))
         assertEquals("thứ 2, thứ 4 và thứ 6", riskDaysText(listOf(1, 3, 5)))
-        assertEquals("thứ 2, thứ 3 và thứ 4", riskDaysText(listOf(1, 2, 3)))
+        assertEquals("thứ 2 đến thứ 4", riskDaysText(listOf(1, 2, 3)))
+        assertEquals("thứ 6 đến Chủ nhật", riskDaysText(listOf(5, 6, 7)))
+        assertEquals("thứ 2, thứ 3, thứ 4, thứ 6 và thứ 7", riskDaysText(listOf(1, 2, 3, 5, 6)))
         assertEquals("thứ 6 và thứ 7", riskDaysText(listOf(5, 6)))
         assertEquals("", riskDaysText(listOf(0, 8)))
     }

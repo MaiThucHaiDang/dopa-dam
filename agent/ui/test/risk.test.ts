@@ -12,6 +12,7 @@ import {
   heatIntensity,
   suggestionToWindow,
 } from "../src/risk";
+import riskVectors from "../../../shared/test-vectors/risk.json";
 
 describe("risk hours wording", () => {
   it("names the days", () => {
@@ -29,8 +30,18 @@ describe("risk hours wording", () => {
     expect(formatDays([7])).toBe("Chủ nhật");
     expect(formatDays([1, 2])).toBe("thứ 2 và thứ 3");
     expect(formatDays([5, 6, 7])).toBe("thứ 6 đến Chủ nhật");
-    expect(formatDays([1, 2, 3, 5, 6])).toBe("thứ 2 đến thứ 4, thứ 6 và thứ 7");
-    expect(formatDays([1, 2, 3, 4, 5, 6, 7])).toBe("mọi ngày");
+    expect(formatDays([1, 2, 3, 5, 6])).toBe("thứ 2, thứ 3, thứ 4, thứ 6 và thứ 7");
+    expect(formatDays([1, 2, 3, 4, 5, 6, 7])).toBe("mỗi ngày");
+  });
+
+  it("writes the shared wording cases (shared/test-vectors/risk.json)", () => {
+    const v = riskVectors;
+    expect(v.describeDays.length).toBeGreaterThan(10);
+    expect(v.describeWindow.length).toBeGreaterThan(5);
+    expect(v.describeSuggestion.length).toBeGreaterThan(3);
+    for (const c of v.describeDays) expect(formatDays(c.input), c.name).toBe(c.expected);
+    for (const c of v.describeWindow) expect(formatWindow(c.input), c.name).toBe(c.expected);
+    for (const c of v.describeSuggestion) expect(formatSuggestion(c.input), c.name).toBe(c.expected);
   });
 
   it("ignores order, repeats and days outside 1..7", () => {

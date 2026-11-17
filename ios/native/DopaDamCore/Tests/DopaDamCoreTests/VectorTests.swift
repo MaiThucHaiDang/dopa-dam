@@ -143,7 +143,11 @@ final class VectorTests: XCTestCase {
         var constants: RiskConstants
         var inRiskWindow: [InRiskCase]; var heatmap: [HeatCase]; var suggest: [SuggestCase]
         var classify: [ClassifyCase]; var normalize: [NormalizeCase]
+        var describeDays: [DescribeDaysCase]; var describeWindow: [DescribeWindowCase]; var describeSuggestion: [DescribeSuggestionCase]
     }
+    struct DescribeDaysCase: Decodable { var name: String; var input: [Int]; var expected: String }
+    struct DescribeWindowCase: Decodable { var name: String; var input: RiskWindow; var expected: String }
+    struct DescribeSuggestionCase: Decodable { var name: String; var input: RiskSuggestion; var expected: String }
 
     private func toGrid(_ cells: [Sparse]) -> RiskHeatmap {
         var grid = emptyHeatmap()
@@ -189,5 +193,11 @@ final class VectorTests: XCTestCase {
         for c in v.normalize {
             XCTAssertEqual(normalizeRiskWindow(c.input), c.expected, "normalize: \(c.name)")
         }
+        XCTAssertGreaterThan(v.describeDays.count, 10)
+        XCTAssertGreaterThan(v.describeWindow.count, 5)
+        XCTAssertGreaterThan(v.describeSuggestion.count, 3)
+        for c in v.describeDays { XCTAssertEqual(Wording.riskDays(c.input), c.expected, "describeDays: \(c.name)") }
+        for c in v.describeWindow { XCTAssertEqual(Wording.riskWindowLine(c.input), c.expected, "describeWindow: \(c.name)") }
+        for c in v.describeSuggestion { XCTAssertEqual(Wording.riskSuggestionLine(c.input), c.expected, "describeSuggestion: \(c.name)") }
     }
 }

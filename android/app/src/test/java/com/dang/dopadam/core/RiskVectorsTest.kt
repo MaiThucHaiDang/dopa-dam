@@ -1,6 +1,10 @@
 // Runs shared/test-vectors/risk.json against the Kotlin risk-hours core. Every case of every group is checked.
 package com.dang.dopadam.core
 
+import com.dang.dopadam.logic.riskDaysText
+import com.dang.dopadam.logic.riskSuggestionText
+import com.dang.dopadam.logic.riskWindowLine
+
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
@@ -98,8 +102,38 @@ class RiskVectorsTest {
     }
 
     @Test
+    fun describeDays() {
+        assertTrue(group("describeDays").size > 10)
+        for (c in group("describeDays")) {
+            val days = c.getJSONArray("input").let { a -> (0 until a.length()).map { a.getInt(it) } }
+            assertEquals(c.getString("name"), c.getString("expected"), riskDaysText(days))
+        }
+    }
+
+    @Test
+    fun describeWindow() {
+        assertTrue(group("describeWindow").size > 5)
+        for (c in group("describeWindow")) {
+            assertEquals(c.getString("name"), c.getString("expected"), riskWindowLine(window(c.getJSONObject("input"))))
+        }
+    }
+
+    @Test
+    fun describeSuggestion() {
+        assertTrue(group("describeSuggestion").size > 3)
+        for (c in group("describeSuggestion")) {
+            val i = c.getJSONObject("input")
+            val s = RiskSuggestion(
+                i.getJSONArray("days").let { a -> (0 until a.length()).map { a.getInt(it) } },
+                i.getString("start"), i.getString("end"), i.getInt("opens"), i.getInt("enters"),
+            )
+            assertEquals(c.getString("name"), c.getString("expected"), riskSuggestionText(s))
+        }
+    }
+
+    @Test
     fun everyCaseHasAName() {
-        for (g in listOf("inRiskWindow", "heatmap", "suggest", "classify", "normalize")) {
+        for (g in listOf("inRiskWindow", "heatmap", "suggest", "classify", "normalize", "describeDays", "describeWindow", "describeSuggestion")) {
             for (c in group(g)) assertTrue("$g case without a name", c.optString("name").isNotEmpty())
         }
     }

@@ -16,22 +16,17 @@ export function dayNameCapital(day: number): string {
 }
 
 /**
- * "thứ 2 đến thứ 6", "thứ 7 và Chủ nhật", "mọi ngày"; otherwise a list: "thứ 2, thứ 4 và thứ 6".
- * Three or more consecutive days collapse into a range.
+ * Days in a sentence: "thứ 2 đến thứ 6", "thứ 7 và Chủ nhật", "mỗi ngày"; a run of three or more consecutive days
+ * is "A đến B", anything else is a list ("thứ 2, thứ 4 và thứ 6"). Same wording as extension/src/shared/riskText.ts.
  */
 export function formatDays(days: readonly number[]): string {
   const sorted = [...new Set(days)].filter((d) => Number.isInteger(d) && d >= 1 && d <= 7).sort((a, b) => a - b);
-  if (sorted.length === 7) return "mọi ngày";
-  const parts: string[] = [];
-  for (let i = 0; i < sorted.length; ) {
-    let j = i;
-    while (j + 1 < sorted.length && sorted[j + 1] === sorted[j] + 1) j++;
-    if (j - i >= 2) parts.push(`${dayName(sorted[i])} đến ${dayName(sorted[j])}`);
-    else for (let k = i; k <= j; k++) parts.push(dayName(sorted[k]));
-    i = j + 1;
-  }
-  if (parts.length <= 1) return parts.join("");
-  return `${parts.slice(0, -1).join(", ")} và ${parts[parts.length - 1]}`;
+  if (sorted.length === 0) return "";
+  if (sorted.length === 7) return "mỗi ngày";
+  const run = sorted.length >= 3 && sorted[sorted.length - 1] - sorted[0] === sorted.length - 1;
+  if (run) return `${dayName(sorted[0])} đến ${dayName(sorted[sorted.length - 1])}`;
+  const names = sorted.map(dayName);
+  return names.length === 1 ? names[0] : `${names.slice(0, -1).join(", ")} và ${names[names.length - 1]}`;
 }
 
 /** An end of "00:00" reads as "24:00" ("22:00–24:00"); other times are shown as they are. */

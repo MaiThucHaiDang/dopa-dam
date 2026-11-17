@@ -119,30 +119,34 @@ export interface RiskSuggestion {
   enters: number;
 }
 
-/**
- * Is local hour `hour` of weekday `day` entirely inside one existing window? Either a window listing `day`
- * (end already moved 24 h later when it runs past midnight), or one listing the day before that runs past
- * midnight far enough. A window made of two adjacent windows does not count as one.
- */
-function hourCovered(windows: ReturnType<typeof validWindows>, day: number, hour: number): boolean {
-  const prev = day === 1 ? 7 : day - 1;
-  const from = hour * 60;
-  const to = from + 60;
-  return windows.some(
-    (w) =>
-      (w.days.includes(day) && w.start <= from && to <= w.end) ||
-      (w.days.includes(prev) && w.end > 1440 && to <= w.end - 1440),
-  );
+/** Which minutes of the week (0 = Monday 00:00) the windows cover; a window running past Sunday wraps to Monday. */
+function weekCoverage(windows: readonly RiskWindow[]): Uint8Array {
+  const covered = new Uint8Array(WEEK_MINUTES);
+  for (const w of validWindows(windows)) {
+    for (const d of w.days) {
+      for (let m = w.start; m < w.end; m++) covered[((d - 1) * 1440 + m) % WEEK_MINUTES] = 1;
+    }
+  }
+  return covered;
+}
+
+/** Does any minute of hours h .. h + RISK_BLOCK_HOURS - 1, on any day of the group, lie in the coverage? */
+function blockTouched(covered: Uint8Array, group: readonly number[], h: number): boolean {
+  for (const d of group) {
+    for (let m = h * 60; m < (h + RISK_BLOCK_HOURS) * 60; m++) if (covered[(d - 1) * 1440 + m]) return true;
+  }
+  return false;
 }
 
 /**
  * The two-hour block (a group of days, starting hour h, hours h and h+1) with the highest opens per day of the
- * group, among blocks with at least RISK_MIN_OPENS warnings that no existing window already covers. Ties:
+ * group, among blocks with at least RISK_MIN_OPENS warnings that do not touch any existing window (no minute of
+ * the block, on any day of the group, is covered). Ties:
  * higher enters per day, then weekdays before weekend, then the smaller h. Integer comparisons only.
  * `cells` is a 7 x 24 grid as from riskHeatmap; missing cells count as zero.
  */
 export function suggestRiskWindow(cells: readonly (readonly RiskCell[])[], existing: readonly RiskWindow[]): RiskSuggestion | null {
-  const windows = validWindows(existing);
+  const covered = weekCoverage(existing);
   let best: { days: number[]; h: number; opens: number; enters: number } | null = null;
   for (const group of [WEEKDAYS, WEEKEND]) {
     for (let h = 0; h <= 24 - RISK_BLOCK_HOURS; h++) {
@@ -156,11 +160,7 @@ export function suggestRiskWindow(cells: readonly (readonly RiskCell[])[], exist
         }
       }
       if (opens < RISK_MIN_OPENS) continue;
-      let covered = true;
-      for (const d of group) {
-        for (let x = h; x < h + RISK_BLOCK_HOURS; x++) if (!hourCovered(windows, d, x)) covered = false;
-      }
-      if (covered) continue;
+      if (blockTouched(covered, group, h)) continue;
       // Per-day comparison by cross-multiplication: a / group.length > b / best.days.length.
       if (best) {
         const l = group.length;
@@ -181,17 +181,6 @@ export function suggestRiskWindow(cells: readonly (readonly RiskCell[])[], exist
     opens: best.opens,
     enters: best.enters,
   };
-}
-
-/** Which minutes of the week (0 = Monday 00:00) the windows cover; a window running past Sunday wraps to Monday. */
-function weekCoverage(windows: readonly RiskWindow[]): Uint8Array {
-  const covered = new Uint8Array(WEEK_MINUTES);
-  for (const w of validWindows(windows)) {
-    for (const d of w.days) {
-      for (let m = w.start; m < w.end; m++) covered[((d - 1) * 1440 + m) % WEEK_MINUTES] = 1;
-    }
-  }
-  return covered;
 }
 
 /**

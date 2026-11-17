@@ -106,11 +106,9 @@ final class RiskStateTests: XCTestCase {
         let sug = try XCTUnwrap(suggestRiskWindow(cells: heat, existing: s.riskWindows))
         XCTAssertEqual(sug, RiskSuggestion(days: [1, 2, 3, 4, 5], start: "19:00", end: "21:00", opens: 6, enters: 0))
         XCTAssertTrue(isOk(s.setRiskWindows([sug.asWindow(id: "n")], confirmed: false, now: NOW, tz: TZ)))
-        // The next block that is not fully covered (20:00-22:00 also holds all six opens) comes up instead.
-        let next = suggestRiskWindow(cells: heat, existing: s.riskWindows)
-        XCTAssertEqual(next?.start, "20:00")
-        XCTAssertEqual(next?.end, "22:00")
-        XCTAssertEqual(s.riskSuggestion(now: NOW + HOUR, tz: TZ)?.start, "20:00")
+        // The overlapping block 20:00-22:00 (it also holds all six opens) touches the new window: nothing is suggested.
+        XCTAssertNil(suggestRiskWindow(cells: heat, existing: s.riskWindows))
+        XCTAssertNil(s.riskSuggestion(now: NOW + HOUR, tz: TZ))
     }
 
     func testTheRiskCard() {
@@ -142,7 +140,8 @@ final class RiskStateTests: XCTestCase {
     func testWording() {
         XCTAssertEqual(Wording.riskDays([1, 2, 3, 4, 5]), "thứ 2 đến thứ 6")
         XCTAssertEqual(Wording.riskDays([6, 7]), "thứ 7 và Chủ nhật")
-        XCTAssertEqual(Wording.riskDays([1, 2, 3, 4, 5, 6, 7]), "mọi ngày")
+        XCTAssertEqual(Wording.riskDays([1, 2, 3, 4, 5, 6, 7]), "mỗi ngày")
+        XCTAssertEqual(Wording.riskDays([1, 2, 3, 5, 6]), "thứ 2, thứ 3, thứ 4, thứ 6 và thứ 7")
         XCTAssertEqual(Wording.riskDays([2, 4, 6]), "thứ 3, thứ 5 và thứ 7")
         XCTAssertEqual(Wording.riskDays([7, 1]), "thứ 2 và Chủ nhật")
         XCTAssertEqual(Wording.riskDays([3]), "thứ 4")

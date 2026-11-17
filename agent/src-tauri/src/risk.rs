@@ -140,25 +140,30 @@ pub struct RiskSuggestion {
     pub enters: i64,
 }
 
-/// Is local hour `hour` of weekday `day` entirely inside one existing window? Either a window listing `day`
-/// (end already moved 24 h later when it runs past midnight), or one listing the day before that runs past
-/// midnight far enough. A window made of two adjacent windows does not count as one.
-fn hour_covered(windows: &[Valid], day: i64, hour: i64) -> bool {
-    let prev = if day == 1 { 7 } else { day - 1 };
-    let from = hour * 60;
-    let to = from + 60;
-    windows.iter().any(|w| {
-        (w.days.contains(&day) && w.start <= from && to <= w.end)
-            || (w.days.contains(&prev) && w.end > 1440 && to <= w.end - 1440)
-    })
+/// Which minutes of the week (0 = Monday 00:00) the windows cover; a window running past Sunday wraps to Monday.
+fn week_coverage(windows: &[RiskWindow]) -> Vec<bool> {
+    let mut covered = vec![false; WEEK_MINUTES];
+    for w in valid_windows(windows) {
+        for d in &w.days {
+            for m in w.start..w.end {
+                covered[(((d - 1) * 1440 + m) as usize) % WEEK_MINUTES] = true;
+            }
+        }
+    }
+    covered
+}
+
+/// Does any minute of hours h .. h + RISK_BLOCK_HOURS - 1, on any day of the group, lie in the coverage?
+fn block_touched(covered: &[bool], group: &[i64], h: i64) -> bool {
+    group.iter().any(|&d| (h * 60..(h + RISK_BLOCK_HOURS) * 60).any(|m| covered[((d - 1) * 1440 + m) as usize]))
 }
 
 /// The two-hour block (a group of days, starting hour h, hours h and h+1) with the highest opens per day of the
-/// group, among blocks with at least RISK_MIN_OPENS warnings that no existing window already covers. Ties:
-/// higher enters per day, then weekdays before weekend, then the smaller h. Integer comparisons only.
+/// group, among blocks with at least RISK_MIN_OPENS warnings that do not touch any existing window (no minute of
+/// the block, on any day of the group, is covered). Ties: higher enters per day, then weekdays before weekend, then the smaller h. Integer comparisons only.
 /// `cells` is a 7 x 24 grid as from `risk_heatmap`; missing cells count as zero.
 pub fn suggest_risk_window(cells: &[Vec<RiskCell>], existing: &[RiskWindow]) -> Option<RiskSuggestion> {
-    let windows = valid_windows(existing);
+    let covered = week_coverage(existing);
     let cell =
         |d: i64, x: i64| cells.get((d - 1) as usize).and_then(|r| r.get(x as usize)).copied().unwrap_or_default();
     let mut best: Option<(&[i64], i64, i64, i64)> = None;
@@ -175,8 +180,7 @@ pub fn suggest_risk_window(cells: &[Vec<RiskCell>], existing: &[RiskWindow]) -> 
             if opens < RISK_MIN_OPENS {
                 continue;
             }
-            let covered = group.iter().all(|&d| (h..h + RISK_BLOCK_HOURS).all(|x| hour_covered(&windows, d, x)));
-            if covered {
+            if block_touched(&covered, group, h) {
                 continue;
             }
             // Per-day comparison by cross-multiplication: a / group.len() > b / best.len().
@@ -199,19 +203,6 @@ pub fn suggest_risk_window(cells: &[Vec<RiskCell>], existing: &[RiskWindow]) -> 
         opens,
         enters,
     })
-}
-
-/// Which minutes of the week (0 = Monday 00:00) the windows cover; a window running past Sunday wraps to Monday.
-fn week_coverage(windows: &[RiskWindow]) -> Vec<bool> {
-    let mut covered = vec![false; WEEK_MINUTES];
-    for w in valid_windows(windows) {
-        for d in &w.days {
-            for m in w.start..w.end {
-                covered[(((d - 1) * 1440 + m) as usize) % WEEK_MINUTES] = true;
-            }
-        }
-    }
-    covered
 }
 
 /// True ("weaken") when some minute of the week was covered by the old list and is not covered by the new
@@ -322,7 +313,7 @@ mod tests {
     #[test]
     fn suggest_vectors() {
         let v = load();
-        for c in cases(&v, "suggest", 50) {
+        for c in cases(&v, "suggest", 70) {
             let i = &c["input"];
             let got = suggest_risk_window(&grid(&i["cells"]), &windows(&i["windows"]));
             let e = &c["expected"];
