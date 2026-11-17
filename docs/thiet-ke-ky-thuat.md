@@ -83,6 +83,30 @@ Thẻ "Tiến bộ tuần này" (trang Thống kê của agent, và popup của 
 
 Chỉ so sánh khi mỗi tuần có ít nhất 5 lần bị chặn đã có lựa chọn; nếu không thì hiện "Cần ít nhất 5 lần bị chặn mỗi tuần để so sánh". Phần tính nằm ở `agent/ui/src/progress.ts` và `weeklyProgress` trong `extension/src/background/logic.ts`; agent lấy số lần mở trong giờ học từ trường `studyWarnings` của thống kê theo ngày. App Android có cùng thẻ ở màn hình Thống kê (`logic/Progress.kt`, cùng quy tắc và cùng câu chữ). Khi extension nối với agent thì popup không hiện thẻ (xem ở trang Thống kê của agent).
 
+### 2.5 Giờ nguy cơ
+
+Mục tiêu: tăng cản trở đúng vào những khung giờ người dùng hay mở giải trí nhất, dựa trên nhật ký chặn sẵn có. Ba nền tảng dùng cùng quy tắc dưới đây; ca kiểm thử chung nằm ở `shared/test-vectors/risk.json` và các ca `inRisk` trong `level.json`.
+
+**Dữ liệu.** `riskWindows` là danh sách khung `{ id, days, start, end }`, lưu trong cài đặt và đồng bộ cùng cài đặt (khóa `riskWindows` trong JSON cài đặt). `days` là thứ theo ISO (1 = thứ Hai … 7 = Chủ nhật), `start` và `end` là giờ địa phương `"HH:MM"`; `end <= start` nghĩa là khung chạy qua nửa đêm, hệt như khung giờ học. Tối đa 12 khung. Khung không hợp lệ (không có ngày, giờ sai, `start == end`) bị bỏ.
+
+**Đang trong giờ nguy cơ** (`inRiskWindow(windows, now, tz)`): đúng khi `now` nằm trong một lần diễn ra của ít nhất một khung, tính như khung giờ học (bắt đầu tính cả, kết thúc không tính; khung bắt đầu vào một ngày có trong `days` và chạy qua nửa đêm vẫn tính sau nửa đêm).
+
+**Cấp cản trở.** `computeLevel` nhận thêm `inRisk` (mặc định sai). Tính cấp như cũ, rồi nếu `inRisk` và cấp < 3 thì cộng 1. Lên tới cấp 3 thì dùng thời gian khóa và các lựa chọn số phút của cấp 3. Màn hình cảnh báo hiện thêm một dòng: "Đây là khung giờ bạn hay mở giải trí nên thời gian chờ dài hơn một cấp."
+
+**Bản đồ nhiệt** (`riskHeatmap(events, now, tz, days)`): bảng 7 hàng (thứ Hai … Chủ nhật) × 24 cột (giờ 0 … 23), mỗi ô có `opens` và `enters`. Tính mọi lần cảnh báo có `now − days ngày <= shownAt <= now` (`days` là 28 trên agent và Android, 14 trong extension vì extension chỉ giữ 14 ngày). Thứ và giờ lấy theo giờ địa phương của `shownAt` (không dùng mốc 4 giờ sáng). `opens` đếm mọi lần cảnh báo; `enters` đếm lần có lựa chọn Vào.
+
+**Gợi ý khung** (`suggestRiskWindow(cells, existing)`), trả về nhiều nhất một khung:
+
+1. Hai nhóm ngày: trong tuần `[1,2,3,4,5]` và cuối tuần `[6,7]`.
+2. Với mỗi nhóm và mỗi giờ bắt đầu `h` từ 0 đến 22, xét khối 2 giờ gồm cột `h` và `h+1`: `opens` và `enters` của khối là tổng các ô của những ngày trong nhóm.
+3. Khối đủ điều kiện khi `opens >= 6` và chưa được phủ. Khối đã được phủ khi với mọi ngày của nhóm, cả hai giờ của khối đều nằm trọn trong một khung đang có (giờ `x` của thứ `d` nằm trọn trong khung khi `d` thuộc `days` và `start <= x:00`, `(x+1):00 <= end` với `end` đã cộng 24 giờ nếu qua nửa đêm; hoặc ngày liền trước `d` thuộc `days` và khung của ngày đó chạy qua nửa đêm phủ hết giờ ấy).
+4. Chọn khối có `opens` chia cho số ngày của nhóm lớn nhất (so bằng phép nhân chéo số nguyên, không dùng số thực). Bằng nhau thì chọn khối có `enters` chia cho số ngày lớn hơn, rồi nhóm trong tuần trước nhóm cuối tuần, rồi `h` nhỏ hơn.
+5. Kết quả: `{ days, start: "hh:00", end: "hh:00", opens, enters }` (`end` là `"00:00"` khi `h = 22`), hoặc không có gì.
+
+**Thay đổi làm yếu bảo vệ** (`classifyRiskWindowsChange(old, next)`): là `"weaken"` khi có ít nhất một phút trong tuần được danh sách cũ phủ mà danh sách mới không phủ (gỡ khung, bớt ngày, rút ngắn); ngược lại là `"ok"` (thêm khung, mở rộng). `"weaken"` phải qua bước xác nhận của FR14 và bị khóa trong giờ học.
+
+**Giao diện.** Thẻ "Giờ nguy cơ" nằm ở trang Thống kê của agent và của app Android, và ở trang tùy chọn của extension khi extension chạy riêng: bản đồ nhiệt một màu (ô càng đậm càng nhiều lần mở, không dùng màu báo động), một dòng gợi ý kèm nút "Tăng cản trở trong khung này", và danh sách các khung đang bật, mỗi khung có nút "Gỡ". Khi không có khối nào đủ điều kiện thì hiện "Chưa có khung giờ nào nổi bật."
+
 ## 3. Giao thức agent ↔ extension
 
 ```
