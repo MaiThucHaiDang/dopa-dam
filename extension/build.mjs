@@ -28,6 +28,10 @@ await build({
   format: "iife",
 });
 
+// Content script for YouTube (lecture mode); its stylesheet is injected by the manifest.
+await build({ ...common, entryPoints: { lecture: "src/content/lecture.ts" }, format: "iife" });
+cpSync(join(root, "src/content/lecture.css"), join(dist, "lecture.css"));
+
 for (const file of ["warning.html", "options.html", "popup.html", "blank.html", "warning.css", "options.css"]) {
   cpSync(join(root, "src/pages", file), join(dist, file));
 }

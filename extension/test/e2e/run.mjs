@@ -14,11 +14,40 @@ const dist = join(root, "dist");
 const EXTENSION_ID = "oaidmfkacjppoliemldjfbpnilmeejid";
 const EXT = `chrome-extension://${EXTENSION_ID}`;
 
+// A stand-in for a YouTube watch page: the same tags, ids and classes lecture mode targets, with some content each.
+const FAKE_WATCH_PAGE = (url) => `<!doctype html><title>Watch</title>
+  <style>ytd-masthead,ytd-app,ytd-mini-guide-renderer,tp-yt-app-drawer,ytd-reel-shelf-renderer,ytd-playlist-panel-renderer,
+    ytd-watch-next-secondary-results-renderer,ytd-comments,ytd-page-manager,.html5-endscreen,.ytp-ce-element,
+    .ytp-autonav-toggle-button-container,.ytp-next-button,#logo,#guide,#related,#secondary,#secondary-inner,#primary,#player,#title,
+    #guide-button{display:block;min-height:20px}</style>
+  <ytd-app>
+    <ytd-masthead><a id="logo" href="/">YouTube</a><button id="guide-button">Menu</button></ytd-masthead>
+    <tp-yt-app-drawer id="guide">Guide</tp-yt-app-drawer>
+    <ytd-mini-guide-renderer>Mini guide</ytd-mini-guide-renderer>
+    <ytd-page-manager>
+      <div id="primary">
+        <div id="player">Player
+          <div class="html5-endscreen">End wall</div><div class="ytp-ce-element">Card</div>
+          <div class="ytp-autonav-toggle-button-container">Autoplay</div><div class="ytp-next-button">Next</div></div>
+        <h1 id="title">Tiêu đề</h1><h2 id="content">Nội dung giải trí ${url}</h2>
+        <ytd-comments id="comments">Bình luận</ytd-comments>
+      </div>
+      <div id="secondary"><div id="secondary-inner">
+        <ytd-playlist-panel-renderer id="playlist">Danh sách phát</ytd-playlist-panel-renderer>
+        <div id="related"><ytd-watch-next-secondary-results-renderer>Gợi ý</ytd-watch-next-secondary-results-renderer></div>
+        <ytd-reel-shelf-renderer>Shorts</ytd-reel-shelf-renderer>
+      </div></div>
+    </ytd-page-manager>
+  </ytd-app>
+  <button id="go-a2" onclick="history.pushState({}, '', '/watch?v=A2'); document.dispatchEvent(new Event('yt-navigate-finish'))">Sang A2</button>`;
+
 const server = createServer((req, res) => {
   res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
   if (req.url?.startsWith("/learn")) {
     res.end(`<!doctype html><title>Bài học</title><h1>Bài học</h1>
       <button id="spa" onclick="history.pushState({}, '', '/feed')">Sang feed (SPA)</button>`);
+  } else if (req.url?.startsWith("/watch") || req.url?.startsWith("/playlist")) {
+    res.end(FAKE_WATCH_PAGE(req.url));
   } else {
     res.end(`<!doctype html><title>Trang thử nghiệm</title><h1 id="content">Nội dung giải trí ${req.url}</h1>`);
   }
@@ -196,6 +225,76 @@ try {
     await page.goto(url);
     await page.waitForTimeout(1500);
     assert.equal(page.url(), url);
+    await page.close();
+  });
+
+  const LECTURE_HIDDEN = [
+    "#related", "ytd-watch-next-secondary-results-renderer", ".html5-endscreen", ".ytp-ce-element", "ytd-reel-shelf-renderer",
+    "#logo", "#guide-button", "#guide", "ytd-mini-guide-renderer", ".ytp-autonav-toggle-button-container",
+  ];
+  const LECTURE_KEPT = ["#player", "#title", "#comments"];
+  const watchUrl = (query) => `http://www.youtube.com:${PORT}/watch?${query}`;
+  const noteText = "Chế độ bài giảng của DopaDam: đã ẩn gợi ý.";
+  async function assertVisible(page, selectors, visible) {
+    for (const selector of selectors) {
+      assert.equal(await page.locator(selector).first().isVisible(), visible, `${selector} should be ${visible ? "visible" : "hidden"}`);
+    }
+  }
+
+  await test("lecture mode: an allowed video hides the distractions and keeps the lecture", async () => {
+    const page = await context.newPage();
+    await page.goto(watchUrl("v=A"));
+    await page.locator("#dopadam-lecture-note").waitFor({ state: "visible", timeout: 5000 });
+    assert.equal(await page.locator("#dopadam-lecture-note").textContent(), noteText);
+    await assertVisible(page, LECTURE_HIDDEN, false);
+    await assertVisible(page, LECTURE_KEPT, true);
+    // No allowed playlist covers this page, so the playlist panel and next button go too.
+    await assertVisible(page, ["ytd-playlist-panel-renderer", ".ytp-next-button"], false);
+    assert.equal(await page.evaluate(() => document.documentElement.className), "dopadam-lecture dopadam-lecture-no-playlist");
+    await page.close();
+  });
+
+  await test("lecture mode: an allowed playlist keeps its panel", async () => {
+    const page = await context.newPage();
+    await page.goto(watchUrl("v=Z&list=PL1"));
+    await page.locator("#dopadam-lecture-note").waitFor({ state: "visible", timeout: 5000 });
+    await assertVisible(page, LECTURE_HIDDEN, false);
+    await assertVisible(page, [...LECTURE_KEPT, "ytd-playlist-panel-renderer", ".ytp-next-button"], true);
+    assert.equal(await page.evaluate(() => document.documentElement.className), "dopadam-lecture");
+    await page.close();
+  });
+
+  await test("lecture mode: follows in-page navigation between allowed videos, and a removed link", async () => {
+    assert.deepEqual(await send({ type: "options:addAllowUrl", text: "https://www.youtube.com/watch?v=A2", confirmed: true }), { ok: true });
+    const page = await context.newPage();
+    await page.goto(watchUrl("v=A"));
+    await page.locator("#dopadam-lecture-note").waitFor({ state: "visible", timeout: 5000 });
+    await page.locator("#go-a2").click();
+    await page.waitForFunction(() => location.search === "?v=A2");
+    await page.waitForTimeout(800);
+    assert.equal(page.url(), watchUrl("v=A2"));
+    assert.equal(await page.locator("#dopadam-lecture-note").isVisible(), true);
+    await assertVisible(page, LECTURE_HIDDEN, false);
+    // The link is removed while the page is open: the page goes back to what YouTube made it.
+    assert.deepEqual(await send({ type: "options:removeAllowUrl", entry: { kind: "video", id: "A2" } }), { ok: true });
+    await page.waitForFunction(() => !document.documentElement.classList.contains("dopadam-lecture"), null, { timeout: 5000 });
+    assert.equal(await page.locator("#dopadam-lecture-note").count(), 0);
+    await assertVisible(page, [...LECTURE_HIDDEN.filter((s) => s !== ".html5-endscreen" && s !== ".ytp-ce-element"), ...LECTURE_KEPT], true);
+    await page.close();
+  });
+
+  await test("lecture mode: a video entered through Vào is left as YouTube made it", async () => {
+    const page = await context.newPage();
+    await page.goto(watchUrl("v=NotAllowed")).catch(() => undefined);
+    await page.waitForURL((u) => u.href.startsWith(`${EXT}/warning.html`), { timeout: 10_000 });
+    await page.waitForFunction(() => !document.querySelector("#enter").disabled, null, { timeout: 5000 });
+    await page.locator("#enter").click();
+    await page.locator("#allow-buttons").getByRole("button", { name: "5 phút", exact: true }).click();
+    await page.waitForURL(watchUrl("v=NotAllowed"), { timeout: 5000 });
+    await page.waitForTimeout(1200);
+    assert.equal(await page.evaluate(() => document.documentElement.className), "");
+    assert.equal(await page.locator("#dopadam-lecture-note").count(), 0);
+    await assertVisible(page, [...LECTURE_HIDDEN.filter((s) => s !== ".html5-endscreen" && s !== ".ytp-ce-element"), ...LECTURE_KEPT], true);
     await page.close();
   });
 

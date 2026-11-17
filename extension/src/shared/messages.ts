@@ -24,7 +24,9 @@ export type Request =
   | { type: "study:stop"; confirmed: boolean }
   | { type: "study:setRule"; rule: StudyRule; confirmed: boolean }
   | { type: "study:deleteRule"; id: string; confirmed: boolean }
-  | { type: "popup:get" };
+  | { type: "popup:get" }
+  /** From the YouTube content script: is this page open through an allowed link (lecture mode)? */
+  | { type: "lecture:check"; url: string };
 
 export type Failure = { ok: false; error: ErrorCode | "agent" };
 

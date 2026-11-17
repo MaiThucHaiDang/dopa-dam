@@ -11,6 +11,7 @@ import {
   type AllowEntry,
   type StudyStatus,
 } from "../core";
+import { lectureModeFor, type LectureAnswer } from "../shared/lecture";
 import type {
   DecideResponse,
   Failure,
@@ -434,6 +435,15 @@ async function popupView(): Promise<PopupView> {
   };
 }
 
+/**
+ * Lecture mode: only while protection is on and the page's URL matches an allowed link. The allowed links are the
+ * local mirror of the agent's configuration when it is connected, so both modes answer from the same list.
+ */
+async function lectureCheck(url: string): Promise<LectureAnswer> {
+  const state = await readState();
+  return { ok: true, lecture: state.protectionEnabled ? lectureModeFor(url, state.allowUrls) : null };
+}
+
 async function mutate(fn: (d: State, now: number, tz: number) => L.Result, rulesChanged: boolean): Promise<SimpleResponse> {
   const { now, tz } = clock();
   const result = await updateState((d) => fn(d, now, tz));
@@ -456,6 +466,8 @@ async function handle(msg: Request, sender: chrome.runtime.MessageSender): Promi
       return optionsView();
     case "popup:get":
       return popupView();
+    case "lecture:check":
+      return lectureCheck(msg.url);
     case "options:setDomainRule":
       if (agent.connected) {
         const pattern = normalizeDomainInput(msg.pattern);

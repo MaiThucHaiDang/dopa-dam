@@ -1,0 +1,87 @@
+/* DopaDam lecture mode. Every rule is scoped under a class set on <html> by lecture.js, so nothing changes
+   on a YouTube page unless the page is open through an allowed link. Kept on purpose: player, title,
+   description, chapters, transcript, channel line, comments. */
+
+/* Recommendations next to / below the video (the playlist panel is NOT inside #related). */
+html.dopadam-lecture #related,
+html.dopadam-lecture ytd-watch-next-secondary-results-renderer,
+html.dopadam-lecture ytd-compact-autoplay-renderer,
+html.dopadam-lecture ytm-item-section-renderer[section-identifier="related-items"] {
+  display: none !important;
+}
+
+/* End-of-video suggestion wall and the in-player suggestion cards and teasers. */
+html.dopadam-lecture .html5-endscreen,
+html.dopadam-lecture .ytp-endscreen-content,
+html.dopadam-lecture .ytp-ce-element,
+html.dopadam-lecture .ytp-ce-covering-overlay,
+html.dopadam-lecture .ytp-cards-teaser,
+html.dopadam-lecture .ytp-cards-button,
+html.dopadam-lecture .ytp-pause-overlay-container,
+html.dopadam-lecture .ytp-fullscreen-grid,
+html.dopadam-lecture .ytp-suggestion-set,
+html.dopadam-lecture .ytp-videowall-still,
+html.dopadam-lecture .iv-branding,
+html.dopadam-lecture .ytp-autonav-endscreen-countdown-container {
+  display: none !important;
+}
+
+/* Shorts shelves wherever they appear (watch page, search, channel). */
+html.dopadam-lecture ytd-reel-shelf-renderer,
+html.dopadam-lecture ytd-rich-shelf-renderer[is-shorts],
+html.dopadam-lecture ytm-reel-shelf-renderer,
+html.dopadam-lecture ytm-shorts-lockup-view-model,
+html.dopadam-lecture grid-shelf-view-model {
+  display: none !important;
+}
+
+/* Home entry points: the logo link, the hamburger, the left guide and drawer, the mobile bottom bar. */
+html.dopadam-lecture ytd-masthead #logo,
+html.dopadam-lecture ytd-masthead ytd-topbar-logo-renderer,
+html.dopadam-lecture ytd-masthead #guide-button,
+html.dopadam-lecture ytd-app #guide,
+html.dopadam-lecture ytd-app tp-yt-app-drawer,
+html.dopadam-lecture ytd-app ytd-mini-guide-renderer,
+html.dopadam-lecture ytd-app ytd-guide-renderer,
+html.dopadam-lecture ytm-mobile-topbar-renderer .mobile-topbar-logo,
+html.dopadam-lecture ytm-home-logo,
+html.dopadam-lecture ytm-pivot-bar-renderer {
+  display: none !important;
+}
+/* Without the mini guide the page does not need its left gutter. */
+html.dopadam-lecture ytd-page-manager,
+html.dopadam-lecture ytd-app[mini-guide-visible] ytd-page-manager {
+  margin-left: 0 !important;
+}
+
+/* Autoplay-next toggle (player bar, mobile bar). */
+html.dopadam-lecture .ytp-autonav-toggle-button-container,
+html.dopadam-lecture button.ytp-autonav-toggle-button,
+html.dopadam-lecture ytm-autonav-toggle-button-renderer,
+html.dopadam-lecture .ytm-autonav-toggle-button-container {
+  display: none !important;
+}
+
+/* The playlist panel, unless the allowed entry is that playlist (then the class is absent). */
+html.dopadam-lecture-no-playlist.dopadam-lecture ytd-playlist-panel-renderer,
+html.dopadam-lecture-no-playlist.dopadam-lecture ytm-playlist-panel-renderer,
+html.dopadam-lecture-no-playlist.dopadam-lecture .ytp-next-button,
+html.dopadam-lecture-no-playlist.dopadam-lecture .ytp-prev-button {
+  display: none !important;
+}
+
+/* The quiet marker: one line in the bottom-right corner, never in the way, nothing to click. */
+html.dopadam-lecture #dopadam-lecture-note {
+  position: fixed;
+  right: 12px;
+  bottom: 12px;
+  z-index: 2147483000;
+  max-width: calc(100vw - 24px);
+  padding: 6px 12px;
+  border-radius: 10px;
+  background: rgba(23, 26, 31, 0.88);
+  color: #f3efe6;
+  font: 13px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  pointer-events: none;
+  user-select: none;
+}
