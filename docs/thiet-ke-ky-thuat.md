@@ -239,3 +239,21 @@ Không có nguồn nào (`none`) thì agent vẫn chạy khay hệ thống, cài
 - Wayland trên trình quản lý cửa sổ khác GNOME (KDE, Sway, Hyprland…) không có nguồn cửa sổ phía trước, nên desktop không được canh.
 - Trình duyệt cài bằng snap: không có cầu nối với agent, extension chạy riêng, không dùng chung bộ đếm.
 - Chương trình viết bằng ngôn ngữ thông dịch cùng mang một tên file (ví dụ `python3`), nên gán tag cho một chương trình sẽ gán cho tất cả.
+
+## 7. iPhone
+
+iPhone không cho app thường biết app nào đang mở; chỉ Screen Time API làm được, và nó đòi quyền Family Controls mà tài khoản miễn phí không có. Vì vậy cả hai bản iPhone đều dựa vào tự động hóa "khi mở app X" của ứng dụng Phím tắt: tự động hóa hỏi DopaDam có cần cảnh báo không, và nếu cần thì mở màn hình cảnh báo. App được canh là app có tự động hóa; nó được nhận diện bằng tên do người dùng gõ. Ngân sách ngày tính theo số phút đã cho vào, vì không đo được thời gian dùng. Hết khoảng được phép thì không kéo người dùng ra được; cảnh báo hiện lại ở lần mở kế tiếp. Chưa có đồng bộ.
+
+**Bản trang web** (`ios/`). Trang tĩnh dùng lại `extension/src/core` và `extension/src/background/logic.ts`, lưu trạng thái trong `localStorage`, có service worker để chạy khi mất mạng.
+
+- Phím tắt "DopaDam Cổng" mở `<địa chỉ>/#/warn?app=<tên>&t=<thời điểm>` trừ khi tệp `Shortcuts/DopaDam/<tên>.txt` chứa một thời điểm còn ở tương lai.
+- Chọn Vào N phút: trang hiện một liên kết `shortcuts://run-shortcut?name=DopaDam%20Vào&input=text&text=<tên>|<N>`; phím tắt "DopaDam Vào" ghi thời điểm hết hạn vào tệp nói trên.
+- Thoát: liên kết `shortcuts://run-shortcut?name=DopaDam%20Thoát` (về màn hình chính).
+- Cảnh báo bị bỏ dở quá 15 giây thì tính là Thoát ở lần tải trang kế tiếp.
+
+**Bản ứng dụng gốc** (`ios/native/`). `DopaDamCore` là gói Swift chỉ dùng Foundation: quy tắc thuần, máy trạng thái trên `AppState`, các mô hình đọc kèm câu chữ, và `FileStateStore` (một tệp JSON trong Application Support). Gói này chạy test trên Linux với các tệp ca kiểm thử chung áp dụng cho iPhone (`level`, `recent-count`, `day-key`, `budget`, `friction`, `study`, `study-change`, `risk`). Ứng dụng SwiftUI chỉ gắn giao diện vào gói đó.
+
+- Hai App Intent: "DopaDam: có cần hỏi không" (trả về đúng/sai, không mở app) và "DopaDam: mở màn hình hỏi" (mở app vào màn hình cảnh báo). Cả hai chạy trong tiến trình của app nên dùng chung tệp trạng thái, không cần App Group.
+- Thoát đưa app về nền; Vào ghi khoảng được phép, hẹn hai thông báo ("Còn 1 phút", "Hết thời gian") và mở lại app đích bằng URL scheme nếu biết.
+- Biên dịch bằng XcodeGen (`project.yml`) trong workflow `ios-app.yml`, ra tệp `.ipa` chưa ký.
+

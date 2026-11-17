@@ -164,3 +164,22 @@ Cần kiểm tra trên thiết bị thật:
 - [ ] Khung giờ nguy cơ thêm trên máy tính xuất hiện trên điện thoại sau khi đồng bộ, và ngược lại.
 - [ ] Sau vài tuần dùng thật: bản đồ nhiệt khớp với thói quen, gợi ý hợp lý.
 
+## Giai đoạn 9: iPhone
+
+Đã kiểm tra tự động:
+
+- [x] Trang web (`cd ios && npm run check`, `npm run e2e`): 55 unit test và 29 kịch bản trong Chromium ở khung 390×844 có cảm ứng: lần đầu khóa 5 giây và nút Vào chưa bấm được; chọn số phút sinh đúng liên kết `shortcuts://`; Thoát ghi nhận và hiện lối về màn hình chính; lần thứ ba khóa 10 giây, lần thứ tư 20 giây; đang học khóa 30 giây với lựa chọn ngắn; khung giờ nguy cơ tăng một cấp; cảnh báo bỏ dở được tính là Thoát; giảm thời gian khóa đòi xác nhận 60 giây; không tràn ngang ở 320 và 390 px; mở được khi mất mạng sau lần đầu.
+- [x] Lõi Swift của ứng dụng gốc (`cd ios/native/DopaDamCore && swift test` trên Linux, Swift 6.2): 111 test, gồm mọi ca của tám tệp ca kiểm thử chung áp dụng cho iPhone.
+- [x] 18 tệp mã giao diện của ứng dụng gốc qua kiểm tra cú pháp (`swiftc -frontend -parse`).
+
+Chưa làm được trên máy phát triển Linux:
+
+- [ ] Biên dịch ứng dụng gốc (workflow "Ung dung DopaDam cho iPhone" trên GitHub Actions). Giao diện, App Intents và thông báo chưa từng qua trình biên dịch.
+
+Cần kiểm tra trên iPhone thật:
+
+- [ ] Bản trang web: làm đủ 7 bước "Kiểm tra sau khi cài" trong `ios/HUONG-DAN.md` (các bước dựng phím tắt chưa được thử trên máy thật).
+- [ ] Bản ứng dụng gốc: cài bằng Sideloadly, làm đủ 8 bước "Kiểm tra sau khi cài" trong `ios/native/HUONG-DAN.md`.
+- [ ] Điều kiện "Nếu kết quả là đúng" trong tự động hóa nhận được giá trị trả về của hành động "có cần hỏi không".
+- [ ] Thông báo "Còn 1 phút" và "Hết thời gian" đến đúng lúc; app đích mở lại được sau khi bấm Vào.
+

@@ -1,0 +1,80 @@
+# Builds the native DopaDam iPhone app on a macOS runner and uploads an UNSIGNED .ipa.
+# Runs only when started by hand (Actions -> "Ung dung DopaDam cho iPhone" -> Run workflow).
+# The .ipa has no signature: sign it with your own tool (AltStore, Sideloadly, ...) before installing.
+# See ios/native/README.md.
+name: Ung dung DopaDam cho iPhone
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: ios/native
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Show toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+
+      - name: Test the Swift core
+        working-directory: ios/native/DopaDamCore
+        env:
+          DOPADAM_VECTORS: ${{ github.workspace }}/shared/test-vectors
+        run: swift test
+
+      - name: Generate the Xcode project
+        run: xcodegen generate
+
+      - name: Build the app (Release, iphoneos, no signing)
+        run: |
+          set -o pipefail
+          mkdir -p build
+          xcodebuild \
+            -project DopaDam.xcodeproj \
+            -scheme DopaDam \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build/DerivedData \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build 2>&1 | tee build/xcodebuild.log
+
+      - name: Package the unsigned .ipa
+        run: |
+          set -e
+          APP="build/DerivedData/Build/Products/Release-iphoneos/DopaDam.app"
+          test -d "$APP"
+          rm -rf build/ipa
+          mkdir -p build/ipa/Payload
+          cp -R "$APP" build/ipa/Payload/DopaDam.app
+          (cd build/ipa && zip -qry ../DopaDam-unsigned.ipa Payload)
+          ls -l build/DopaDam-unsigned.ipa
+
+      - name: Upload the .ipa
+        uses: actions/upload-artifact@v4
+        with:
+          name: DopaDam-unsigned-ipa
+          path: ios/native/build/DopaDam-unsigned.ipa
+          if-no-files-found: error
+
+      - name: Upload the build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcodebuild-log
+          path: ios/native/build/xcodebuild.log
+          if-no-files-found: warn

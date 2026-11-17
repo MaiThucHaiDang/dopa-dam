@@ -84,7 +84,7 @@ Làm lần lượt; mỗi dòng nêu điều phải thấy.
 
 1. Mở một app đã tạo tự động hóa → Safari mở trang hỏi "Bạn mở … để làm gì?", nút Vào đang đếm ngược 5 giây.
 2. Bấm **Thoát** → trang báo "Đã thoát."; bấm **Về màn hình chính**, Safari hỏi có mở Phím tắt không, đồng ý → về màn hình chính.
-3. Mở lại app → cảnh báo hiện lại; dòng trên cùng ghi "Lần thứ 1 trong 60 phút qua" và thời gian khóa là 10 giây.
+3. Mở lại app → cảnh báo hiện lại; dòng trên cùng ghi "Lần thứ 2 trong 60 phút qua" và thời gian khóa là 10 giây.
 4. Chờ hết đếm ngược, bấm **Vào**, chọn **5 phút**, bấm nút lớn để tiếp tục → Safari hỏi có mở Phím tắt không, đồng ý → có thông báo "Đã cho vào … 5 phút. Mở lại app."
 5. Mở lại app ngay → vào thẳng, không có cảnh báo.
 6. Sau hơn 5 phút, thoát ra màn hình chính rồi mở lại app → cảnh báo hiện lại.
