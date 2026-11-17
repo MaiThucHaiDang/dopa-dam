@@ -117,6 +117,19 @@ Mục tiêu: tăng cản trở đúng vào những khung giờ người dùng ha
 
 **Giao diện.** Thẻ "Giờ nguy cơ" nằm ở trang Thống kê của agent và của app Android, và ở trang tùy chọn của extension khi extension chạy riêng: bản đồ nhiệt một màu (ô càng đậm càng nhiều lần mở, không dùng màu báo động), một dòng gợi ý kèm nút "Tăng cản trở trong khung này", và danh sách các khung đang bật, mỗi khung có nút "Gỡ". Khi không có khối nào đủ điều kiện thì hiện "Chưa có khung giờ nào nổi bật."
 
+**Điều đã biết.** Sau khi thêm khung 22:00–24:00, gợi ý kế tiếp có thể là 21:00–23:00, vì khối chỉ bị loại khi cả hai giờ của nó đã được phủ. Bấm tiếp sẽ nới khung sớm lên từng giờ; cấp chỉ tăng một bậc dù các khung chồng nhau.
+
+### 2.6 Chế độ bài giảng trên YouTube
+
+Chỉ có trong extension. Khi tab đang ở một link được phép trên `www.youtube.com`, `youtube.com` hoặc `m.youtube.com`, content script `lecture.js` đặt lớp `dopadam-lecture` lên `<html>`; mọi luật trong `lecture.css` đều nằm dưới lớp này nên trang không đổi gì khi lớp không có.
+
+- Bị ẩn: cột gợi ý, màn hình gợi ý cuối video và thẻ gợi ý trong trình phát, kệ Shorts, logo và menu trái (lối về trang chủ), nút tự phát video kế. Khi video kết thúc ngoài playlist được phép, script bấm nút hủy tự phát của YouTube.
+- Được giữ: trình phát, tiêu đề, mô tả, chương, bản chép lời, dòng kênh và bình luận. Với link được phép là playlist thì giữ cả bảng playlist và nút trước/sau.
+- Quyết định nằm ở background (`lecture:check`, hàm thuần `lectureModeFor` trong `src/shared/lecture.ts`), vì background biết danh sách link được phép ở cả chế độ chạy riêng lẫn khi nối với agent. Tắt bảo vệ thì không có chế độ bài giảng. Trang hỏi lại khi URL đổi (`yt-navigate-finish`, `popstate`, kiểm tra URL mỗi giây) và khi cài đặt đổi.
+- Hỏng thì mở: background không trả lời trong 4 giây thì trang coi như không ở chế độ bài giảng.
+- Vào bằng nút Vào (khoảng được phép) không bật chế độ này; đó là giờ giải trí.
+- Bộ chọn phần tử đã được thử trên YouTube thật (bố cục máy tính và di động, tháng 11/2026). YouTube đổi bố cục thì cần cập nhật `lecture.css`.
+
 ## 3. Giao thức agent ↔ extension
 
 ```

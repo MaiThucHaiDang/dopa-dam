@@ -145,3 +145,22 @@ Cần kiểm tra trên thiết bị thật:
 
 - [ ] Sau ít nhất hai tuần dùng thật: thẻ trên agent khớp với biểu đồ bên dưới.
 - [ ] Giao diện sáng (nếu bật) và popup khi extension đã nối với agent (thẻ không hiện).
+
+## Giai đoạn 8: Chế độ bài giảng và Giờ nguy cơ
+
+Đã kiểm tra tự động:
+
+- [x] Quy tắc Giờ nguy cơ trên cả ba nền tảng với cùng bộ ca kiểm thử (`shared/test-vectors/risk.json`, 189 ca, và các ca `inRisk` trong `level.json`): TypeScript (`cd extension && npm run check`, 479 test), Rust (`cargo test`, 132 test), Kotlin (80 unit test).
+- [x] Extension trong Chromium (`npm run e2e`, 28 kịch bản): có khung giờ nguy cơ đang chạy thì lần chặn đầu bị khóa 10 giây và trang cảnh báo có dòng giải thích; không có khung thì 5 giây và không có dòng đó; bản đồ nhiệt và gợi ý dựng đúng từ dữ liệu mẫu, nút thêm khung hoạt động; "Gỡ" đòi xác nhận 60 giây; trang tùy chọn không tràn ngang ở 360 px.
+- [x] Agent trong GNOME Shell riêng với 126 lần chặn mẫu: thẻ "Giờ nguy cơ" hiện đúng ở trang Thống kê, nút gợi ý thêm khung vào danh sách, "Gỡ" mở hộp xác nhận, cửa sổ ở bề rộng tối thiểu không tràn; cảnh báo trong khung giờ nguy cơ khóa 10 giây và có dòng giải thích. `linux/e2e/core_flow.py --quick` vẫn qua.
+- [x] App Android trên máy ảo Android 14 với 122 lần chặn mẫu: thẻ hiện đúng và vừa bề rộng màn hình, nút gợi ý thêm khung, "Gỡ" mở hộp xác nhận 60 giây; kịch bản `emulator_test.py` vẫn qua đủ 10 bước.
+- [x] Chế độ bài giảng với trang YouTube giả (`npm run e2e`): video được phép thì gợi ý bị ẩn và có dòng ghi chú; playlist được phép giữ bảng playlist; vào bằng nút Vào thì không ẩn gì; chuyển từ video được phép này sang video được phép khác vẫn giữ chế độ.
+- [x] Chế độ bài giảng trên YouTube thật (Chromium, không đăng nhập), bố cục máy tính và di động: cột gợi ý, logo, menu trái và màn hình cuối video biến mất; mô tả và bình luận còn nguyên; video không tự nhảy sang video kế khi hết.
+
+Cần kiểm tra trên thiết bị thật:
+
+- [ ] Chế độ bài giảng trong Edge khi đã đăng nhập YouTube, và khi extension nối với agent.
+- [ ] Giờ nguy cơ khi extension nối với agent: trang cảnh báo trên web có dòng giải thích (trường `risk` trong `warning_context`).
+- [ ] Khung giờ nguy cơ thêm trên máy tính xuất hiện trên điện thoại sau khi đồng bộ, và ngược lại.
+- [ ] Sau vài tuần dùng thật: bản đồ nhiệt khớp với thói quen, gợi ý hợp lý.
+

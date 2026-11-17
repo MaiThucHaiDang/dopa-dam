@@ -6,6 +6,12 @@ DopaDam chen một khoảng dừng ngắn giữa cú bấm vô thức và nội 
 - Thiết kế kỹ thuật: [docs/thiet-ke-ky-thuat.md](docs/thiet-ke-ky-thuat.md)
 - Checklist nghiệm thu: [docs/nghiem-thu.md](docs/nghiem-thu.md)
 
+## Tính năng thêm ngoài phần chặn
+
+- **Tiến bộ tuần này:** thẻ so 7 ngày gần nhất với 7 ngày trước đó (tỉ lệ rời đi, số giây đến lúc Thoát, số lần mở giải trí trong giờ học), có trên agent, app Android và popup của extension khi chạy riêng.
+- **Giờ nguy cơ:** bản đồ nhiệt cho thấy bạn hay mở giải trí vào giờ nào; một nút thêm khung giờ mà ở đó thời gian chờ dài hơn một cấp. Có trên agent, app Android và trang tùy chọn của extension khi chạy riêng.
+- **Chế độ bài giảng trên YouTube:** khi mở một link được phép, extension ẩn cột gợi ý, Shorts, lối về trang chủ và màn hình cuối video, chỉ để lại bài giảng.
+
 ## Cài lần đầu, theo thứ tự
 
 1. **Agent máy tính:** trên Windows, build bộ cài (mục Agent Windows bên dưới), cài và chạy một lần. Agent tự chạy cùng Windows và tự đăng ký cầu nối với Edge. Trên Linux, làm theo mục "Agent Linux (GNOME)" bên dưới, gồm cả tiện ích GNOME Shell.
