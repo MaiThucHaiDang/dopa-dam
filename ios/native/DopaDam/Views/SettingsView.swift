@@ -3,7 +3,7 @@ import DopaDamCore
 
 struct SettingsView: View {
     @Environment(AppModel.self) private var model
-    @State private var form = SettingsForm(settings: Settings())
+    @State private var form = SettingsForm(settings: DopaDamCore.Settings())
     @State private var loaded = false
     @State private var formProblem: String?
 

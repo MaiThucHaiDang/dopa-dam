@@ -6,7 +6,7 @@ enum SystemActions {
     /// `suspend` to the application is the usual way and may stop working in a future iOS.
     @MainActor
     static func goHome() {
-        _ = UIApplication.shared.perform(#selector(NSXPCConnection.suspend))
+        _ = UIApplication.shared.perform(#selector(URLSessionTask.suspend))
     }
 
     /// Opens another app by its URL scheme. Does nothing when the string is not a URL.
