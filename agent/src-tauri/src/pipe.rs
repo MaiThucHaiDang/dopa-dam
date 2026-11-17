@@ -55,6 +55,19 @@ async fn fresh_instance(pause_first: bool) -> tokio::net::windows::named_pipe::N
     }
 }
 
+/// Set once this process has bound the socket, so only the owner removes the file on exit.
+#[cfg(unix)]
+static SOCKET_BOUND: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// Removes the socket file on a clean exit (a crash leaves it; `bind_socket` cleans that up).
+/// Does nothing when this process never bound it, e.g. a second instance that gave way to the first.
+pub fn remove_socket() {
+    #[cfg(unix)]
+    if SOCKET_BOUND.load(std::sync::atomic::Ordering::SeqCst) {
+        let _ = std::fs::remove_file(crate::nmhost::socket_path());
+    }
+}
+
 /// Binds the socket. A file left by a crashed run is removed, but only when nothing listens on it.
 #[cfg(unix)]
 fn bind_socket(path: &std::path::Path) -> std::io::Result<tokio::net::UnixListener> {
@@ -83,6 +96,7 @@ pub async fn serve(state: Shared) {
             return;
         }
     };
+    SOCKET_BOUND.store(true, std::sync::atomic::Ordering::SeqCst);
     loop {
         match listener.accept().await {
             Ok((stream, _)) => {

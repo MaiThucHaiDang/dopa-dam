@@ -111,7 +111,8 @@ pub fn on_foreground(state: &Shared, raw: isize) {
         if g.foreground.as_ref().is_some_and(|f| f.pid == fg.pid && f.hwnd == fg.hwnd) {
             return;
         }
-        if g.just_exited.is_some_and(|(pid, until)| pid == fg.pid && now < until) {
+        if in_exit_grace(&g, fg.pid, now) {
+            // Only delayed: `tick` looks at the foreground again when the grace is over.
             return;
         }
     }
@@ -138,6 +139,35 @@ fn is_no_program(raw: isize, pid: u32, own_pid: u32) -> bool {
     raw == 0 || pid == own_pid
 }
 
+/// True while a focus event of `pid` is ignored because Thoát just minimised that program.
+fn in_exit_grace(g: &Guard, pid: u32, now: i64) -> bool {
+    g.just_exited.is_some_and(|(p, until)| p == pid && now < until)
+}
+
+/// True exactly once, when the exit grace has run out. The program that Thoát minimised may have
+/// been brought back to the front while its focus events were ignored, so the caller must look at
+/// the foreground again then (a program that really stayed minimised is simply not in front).
+fn take_expired_exit_grace(g: &mut Guard, now: i64) -> bool {
+    if g.just_exited.is_some_and(|(_, until)| now >= until) {
+        g.just_exited = None;
+        return true;
+    }
+    false
+}
+
+/// The warned program has exited: ends its warning and forgets it everywhere, so that nothing can
+/// warn about a program that no longer exists. Returns the id of the event that was on screen.
+fn drop_dead_warning(g: &mut Guard, now: i64, alive: impl Fn(u32) -> bool) -> Option<String> {
+    let pid = g.warning.as_ref().filter(|w| !alive(w.fg.pid)).map(|w| w.fg.pid)?;
+    let w = g.warning.take()?;
+    clear_foreground_of(g, pid, now);
+    g.tracker.forget(pid);
+    if g.just_exited.is_some_and(|(p, _)| p == pid) {
+        g.just_exited = None;
+    }
+    Some(w.context.event_id)
+}
+
 /// Forgets the program in front only if it is `pid`: the user may have switched to another
 /// program while the warning was up, and that one is still in front.
 fn clear_foreground_of(g: &mut Guard, pid: u32, now: i64) {
@@ -159,7 +189,7 @@ fn clear_foreground(g: &mut Guard, now: i64) {
 fn claim_warning(g: &mut Guard, pid: u32, now: i64, delay_ms: i64) -> bool {
     if g.warning.is_some()
         || g.preparing
-        || g.just_exited.is_some_and(|(p, until)| p == pid && now < until)
+        || in_exit_grace(g, pid, now)
         || !g.tracker.is_due(pid, now, delay_ms)
     {
         return false;
@@ -221,6 +251,13 @@ pub fn evaluate(state: &Shared, now: i64) {
         let delay = effective_delay(rule.delay_seconds, &rule.tag, &store.settings().tag_delays);
         (rule.tag, delay * 1000)
     };
+    // A program that has exited cannot be warned about (its window may linger in our records).
+    if !platform::process_alive(fg.pid) {
+        let mut g = state.guard();
+        clear_foreground_of(&mut g, fg.pid, now);
+        g.tracker.forget(fg.pid);
+        return;
+    }
     if !claim_warning(&mut state.guard(), fg.pid, now, delay_ms) {
         return;
     }
@@ -290,6 +327,18 @@ fn present_warning(state: &Shared, fg: &Foreground, context: &WarningContext) {
         let _ = window.emit_to("warning", "warning:show", context);
         // Under Wayland only the shell may put a window above the others and focus it.
         platform::raise_own_window(platform::WARNING_TITLE, true, true);
+        // Under X11 `set_focus()` is refused from the second warning on: activate the window as a
+        // pager would. The window may not be mapped yet, so ask again shortly.
+        let state = state.clone();
+        std::thread::spawn(move || {
+            for wait_ms in [0, 150, 500] {
+                std::thread::sleep(Duration::from_millis(wait_ms));
+                if current_warning(&state).is_none() {
+                    return;
+                }
+                platform::activate_own_window(platform::WARNING_TITLE);
+            }
+        });
     }
 }
 
@@ -390,14 +439,19 @@ pub fn flush_usage(state: &Shared, now: i64) {
 pub fn tick(state: &Shared) {
     let now = now_ms();
     // The warned program was closed: nothing left to decide.
-    let gone = {
-        let g = state.guard();
-        g.warning.as_ref().filter(|w| !platform::process_alive(w.fg.pid)).map(|w| w.context.event_id.clone())
-    };
+    let gone = drop_dead_warning(&mut state.guard(), now, platform::process_alive);
     if let Some(id) = gone {
         state.store().auto_exit(&id, now);
         hide_warning(state);
         state.changed();
+    }
+    // The program that Thoát minimised may be back in front: judge it now that the grace is over.
+    if take_expired_exit_grace(&mut state.guard(), now) {
+        let front = platform::foreground_window();
+        // Not the window Thoát just minimised, should the system still report it as being in front.
+        if !platform::is_minimized(front) {
+            on_foreground(state, front);
+        }
     }
 
     let windows = state.store().allow_windows();
@@ -606,5 +660,94 @@ mod tests {
         g.just_exited = Some((5, 2000));
         assert!(!claim_warning(&mut g, 5, 1000, 0));
         assert!(!g.preparing);
+    }
+    fn context(id: &str) -> WarningContext {
+        WarningContext {
+            event_id: id.into(),
+            app_name: "game".into(),
+            object: "game".into(),
+            level: 1,
+            lock_seconds: 5,
+            allow_options: vec![5],
+            count_this_hour: 1,
+            shown_at: 0,
+            budget: BudgetView { used_minutes: 0.0, budget_minutes: 60, remaining_minutes: None, over: false },
+            study: StudyStatus::none(),
+            activities: vec![],
+        }
+    }
+
+    /// Thoát on program `pid` at time 0: the warning was up, focus went away, the grace starts.
+    fn after_thoat(pid: u32) -> Guard {
+        let mut g = Guard::default();
+        g.tracker.enter(pid, 0);
+        g.tracker.mark_warned(pid);
+        g.foreground = Some(fg(pid));
+        g.just_exited = Some((pid, EXIT_GRACE_MS));
+        clear_foreground_of(&mut g, pid, 0);
+        g
+    }
+
+    #[test]
+    fn program_back_in_front_during_the_grace_is_judged_when_it_ends() {
+        let mut g = after_thoat(5);
+        // Back in front 0.5 s after Thoát: the focus event is ignored and no warning may be claimed...
+        assert!(in_exit_grace(&g, 5, 500));
+        assert!(!claim_warning(&mut g, 5, 500, 0));
+        // ...but the grace only delays: nothing to look at before it ends, exactly one look when it ends.
+        assert!(!take_expired_exit_grace(&mut g, EXIT_GRACE_MS - 1));
+        assert!(take_expired_exit_grace(&mut g, EXIT_GRACE_MS));
+        assert!(!take_expired_exit_grace(&mut g, EXIT_GRACE_MS + 1000));
+        // The look finds the program in front again: it is entered and, being a warned program, due at once.
+        assert!(!in_exit_grace(&g, 5, EXIT_GRACE_MS));
+        g.tracker.enter(5, EXIT_GRACE_MS);
+        g.foreground = Some(fg(5));
+        assert!(claim_warning(&mut g, 5, EXIT_GRACE_MS, 30_000));
+    }
+
+    #[test]
+    fn program_that_stayed_minimised_is_not_warned_again_when_the_grace_ends() {
+        let mut g = after_thoat(5);
+        assert!(take_expired_exit_grace(&mut g, EXIT_GRACE_MS));
+        // The look finds nothing in front (or another program): the minimised one is not entered,
+        // so there is no foreground to evaluate and nothing to claim.
+        assert!(g.foreground.is_none());
+        let other = Foreground { hwnd: 9, pid: 8, exe: "editor".into(), path: "/usr/bin/editor".into() };
+        g.tracker.enter(other.pid, EXIT_GRACE_MS);
+        g.foreground = Some(other);
+        assert!(!g.tracker.is_due(8, EXIT_GRACE_MS, 30_000));
+    }
+
+    #[test]
+    fn closing_the_warned_program_ends_its_warning_for_good() {
+        let mut g = Guard::default();
+        g.tracker.enter(5, 0);
+        g.tracker.mark_warned(5);
+        g.foreground = Some(fg(5));
+        g.warning = Some(ActiveWarning { context: context("e1"), fg: fg(5) });
+        // Still running: nothing happens.
+        assert_eq!(drop_dead_warning(&mut g, 1000, |_| true), None);
+        assert!(g.warning.is_some());
+        // Closed: the event that was on screen is returned once; the warning, the foreground and the
+        // tracker entry are gone, so the next tick cannot claim a new warning for the dead pid.
+        assert_eq!(drop_dead_warning(&mut g, 1000, |_| false), Some("e1".to_string()));
+        assert!(g.warning.is_none());
+        assert!(g.foreground.is_none());
+        assert!(!claim_warning(&mut g, 5, 2000, 0));
+        assert!(!g.preparing);
+        assert_eq!(drop_dead_warning(&mut g, 2000, |_| false), None);
+    }
+
+    #[test]
+    fn closing_the_warned_program_keeps_another_program_in_front() {
+        let mut g = Guard::default();
+        g.tracker.enter(5, 0);
+        g.tracker.mark_warned(5);
+        g.warning = Some(ActiveWarning { context: context("e1"), fg: fg(5) });
+        // The user switched to program 7 while the warning stayed up; then program 5 died.
+        g.tracker.enter(7, 500);
+        g.foreground = Some(fg(7));
+        assert_eq!(drop_dead_warning(&mut g, 1000, |p| p != 5), Some("e1".to_string()));
+        assert_eq!(g.foreground.as_ref().map(|f| f.pid), Some(7));
     }
 }

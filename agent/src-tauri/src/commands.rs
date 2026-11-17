@@ -429,7 +429,7 @@ fn check_credentials(email: &str, password: &str) -> Result<(), String> {
 pub async fn account_sign_in(state: State<'_, Shared>, email: String, password: String) -> Result<(), String> {
     check_credentials(&email, &password)?;
     let session = api(&state)?.sign_in(email.trim(), &password, now_ms()).await?;
-    crate::syncrun::sign_in_with(&state, session)?;
+    crate::syncrun::sign_in_with(&state, session).await?;
     Ok(())
 }
 
@@ -439,7 +439,7 @@ pub async fn account_sign_up(state: State<'_, Shared>, email: String, password: 
     check_credentials(&email, &password)?;
     match api(&state)?.sign_up(email.trim(), &password, now_ms()).await? {
         Some(session) => {
-            crate::syncrun::sign_in_with(&state, session)?;
+            crate::syncrun::sign_in_with(&state, session).await?;
             Ok("signed-in".into())
         }
         None => Ok("confirm-email".into()),
@@ -457,8 +457,9 @@ pub fn account_google(state: State<'_, Shared>) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn account_sign_out(state: State<'_, Shared>) {
-    crate::syncrun::sign_out(&state);
+pub async fn account_sign_out(state: State<'_, Shared>) -> Result<(), String> {
+    crate::syncrun::sign_out(&state).await;
+    Ok(())
 }
 
 #[tauri::command]
@@ -501,6 +502,9 @@ pub async fn delete_server_data(state: State<'_, Shared>, confirmed: bool) -> Cm
         return Err(ErrorCode::NeedsConfirm.into());
     }
     let api = api(&state)?;
+    // No sync round may run between emptying the server and forgetting the sync state: it would
+    // put rows back on the emptied server.
+    let _change = crate::syncrun::begin_account_change().await;
     let token = state.session().map(|s| s.access_token).ok_or_else(|| "Chưa đăng nhập.".to_string())?;
     api.rpc("delete_my_data", &token).await.map_err(|e| e.to_string())?;
     {
@@ -509,7 +513,7 @@ pub async fn delete_server_data(state: State<'_, Shared>, confirmed: bool) -> Cm
         // The server is empty now: everything must be uploaded again after the next sign-in.
         store.reset_sync_state();
     }
-    crate::syncrun::sign_out(&state);
+    crate::syncrun::sign_out_locked(&state);
     state.refreshed();
     Ok(())
 }

@@ -11,6 +11,44 @@ use tauri::Emitter;
 
 const SYNC_EVERY_MS: i64 = 30_000;
 
+/// Keeps a sync round and an account change (sign-in, sign-out, deleting the server data) from
+/// overlapping. A round that is half way holds this account's cursors, rows to push and the token:
+/// letting `switch_account` or the wipe run in the middle would let it write account A's rows and
+/// cursors into account B's data, or put rows back on a server that was just emptied.
+///
+/// A round never waits (a second one is simply refused, as before); an account change waits for
+/// the round that is running, and a round cannot start while one is in progress.
+pub struct SyncGate(tokio::sync::Mutex<()>);
+
+impl SyncGate {
+    pub const fn new() -> SyncGate {
+        SyncGate(tokio::sync::Mutex::const_new(()))
+    }
+
+    /// For a sync round: `None` when a round or an account change is in progress.
+    pub fn try_round(&self) -> Option<tokio::sync::MutexGuard<'_, ()>> {
+        self.0.try_lock().ok()
+    }
+
+    /// For an account change: waits until the running round (if any) has finished.
+    pub async fn account_change(&self) -> tokio::sync::MutexGuard<'_, ()> {
+        self.0.lock().await
+    }
+}
+
+impl Default for SyncGate {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+static SYNC_GATE: SyncGate = SyncGate::new();
+
+/// Taken by the commands that change or delete the account's data, for the whole change.
+pub async fn begin_account_change() -> tokio::sync::MutexGuard<'static, ()> {
+    SYNC_GATE.account_change().await
+}
+
 fn notify(state: &Shared) {
     let _ = state.app.emit("state-changed", ());
 }
@@ -51,13 +89,12 @@ pub async fn run_sync(state: &Shared) -> Result<Report, String> {
     if state.session().is_none() {
         return Err("Chưa đăng nhập.".into());
     }
-    {
-        let mut info = state.sync_info();
-        if info.syncing {
-            return Err("Đang đồng bộ.".into());
-        }
-        info.syncing = true;
+    let Some(_round) = SYNC_GATE.try_round() else { return Err("Đang đồng bộ.".into()) };
+    // The account may have changed or gone while this round was waiting for the gate.
+    if state.session().is_none() {
+        return Err("Chưa đăng nhập.".into());
     }
+    state.sync_info().syncing = true;
     notify(state);
     let device = DeviceInfo { name: crate::platform::device_name(), version: crate::state::AGENT_VERSION.into() };
     // Undecided events are never pushed: close the abandoned ones first (not the warning on screen).
@@ -92,7 +129,8 @@ pub async fn run_sync(state: &Shared) -> Result<Report, String> {
         info.last_error = result.as_ref().err().cloned();
     }
     if expired {
-        sign_out(state);
+        // This round holds the gate itself: no waiting for it here.
+        sign_out_locked(state);
         state.sync_info().last_error = Some("Phiên đăng nhập đã hết hạn, hãy đăng nhập lại.".into());
     }
     match &result {
@@ -124,7 +162,8 @@ pub fn spawn_loop(state: Shared) {
 
 /// Starts using a new session. Another account than last time gets this device's data uploaded fresh.
 /// Fails (without signing in) when the sign-in cannot be kept for the next start.
-pub fn sign_in_with(state: &Shared, session: Session) -> Result<(), String> {
+pub async fn sign_in_with(state: &Shared, session: Session) -> Result<(), String> {
+    let _change = begin_account_change().await;
     account::save(&session.stored)?;
     {
         state.store().switch_account(&session.stored.user_id);
@@ -136,7 +175,14 @@ pub fn sign_in_with(state: &Shared, session: Session) -> Result<(), String> {
     Ok(())
 }
 
-pub fn sign_out(state: &Shared) {
+/// Signs out once the running sync round (if any) has finished.
+pub async fn sign_out(state: &Shared) {
+    let _change = begin_account_change().await;
+    sign_out_locked(state);
+}
+
+/// Signs out; the caller holds the gate (a sync round, or an account change in progress).
+pub fn sign_out_locked(state: &Shared) {
     account::clear();
     state.set_session(None);
     notify(state);
@@ -195,7 +241,7 @@ pub fn handle_deep_link(state: &Shared, url: &str) {
     tauri::async_runtime::spawn(async move {
         match api.exchange_code(&code, &verifier, now_ms()).await {
             Ok(session) => {
-                if let Err(e) = sign_in_with(&state, session) {
+                if let Err(e) = sign_in_with(&state, session).await {
                     state.sync_info().last_error = Some(e);
                     notify(&state);
                 }
@@ -211,6 +257,38 @@ pub fn handle_deep_link(state: &Shared, url: &str) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::atomic::AtomicBool;
+    use std::sync::Arc;
+
+    #[tokio::test]
+    async fn an_account_change_waits_for_the_running_round() {
+        let gate = Arc::new(SyncGate::new());
+        let round = gate.try_round().expect("no round yet");
+        // No second round, and no second account change at the same time as a round.
+        assert!(gate.try_round().is_none());
+        let done = Arc::new(AtomicBool::new(false));
+        let waiter = {
+            let (gate, done) = (gate.clone(), done.clone());
+            tokio::spawn(async move {
+                let _change = gate.account_change().await;
+                done.store(true, Ordering::SeqCst);
+            })
+        };
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        assert!(!done.load(Ordering::SeqCst), "the change must wait while the round runs");
+        drop(round);
+        tokio::time::timeout(Duration::from_secs(2), waiter).await.expect("change proceeds after the round").unwrap();
+        assert!(done.load(Ordering::SeqCst));
+    }
+
+    #[tokio::test]
+    async fn no_round_starts_during_an_account_change() {
+        let gate = SyncGate::new();
+        let change = gate.account_change().await;
+        assert!(gate.try_round().is_none());
+        drop(change);
+        assert!(gate.try_round().is_some());
+    }
 
     #[test]
     fn reads_the_callback_url() {

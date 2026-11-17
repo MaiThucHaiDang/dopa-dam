@@ -81,3 +81,53 @@ test('raise flags default to false', () => {
     assert.equal(c.above, false);
     assert.equal(c.activate, false);
 });
+
+test('cornerPosition puts a notice in the top-right corner of the work area', () => {
+    assert.deepEqual(P.cornerPosition({x: 0, y: 32, width: 1280, height: 768}, 380, 200, 16), {x: 884, y: 48});
+    // Second monitor to the right, offset origin.
+    assert.deepEqual(P.cornerPosition({x: 1280, y: 0, width: 1920, height: 1080}, 380, 130, 16), {x: 2804, y: 16});
+    // Bigger than the area: stays on screen at the top-left.
+    assert.deepEqual(P.cornerPosition({x: 0, y: 0, width: 300, height: 100}, 380, 130, 16), {x: 0, y: 16});
+});
+
+test('NoticeFocus hands focus back to the window that had it before the notice', () => {
+    const f = new P.NoticeFocus(1500);
+    assert.equal(f.onFocus(7, 0), null);            // the user types in window 7
+    assert.equal(f.markNotice(50, 100), null);      // notice raised, does not have focus yet
+    assert.equal(f.onFocus(50, 120), 7);            // Mutter focuses it: give 7 back
+    assert.equal(f.onFocus(7, 130), null);          // 7 is focused again
+    // A second notice later works the same.
+    assert.equal(f.markNotice(51, 5000), null);
+    assert.equal(f.onFocus(51, 5010), 7);
+});
+
+test('NoticeFocus: notice that already took focus before it was recognised', () => {
+    const f = new P.NoticeFocus(1500);
+    f.onFocus(7, 0);
+    assert.equal(f.onFocus(50, 10), null);          // unknown window yet: nothing to undo
+    assert.equal(f.markNotice(50, 60), 7);          // recognised while it holds focus
+});
+
+test('NoticeFocus: a click on the notice after the grace keeps the focus', () => {
+    const f = new P.NoticeFocus(1500);
+    f.onFocus(7, 0);
+    f.markNotice(50, 100);
+    f.onFocus(7, 200);
+    assert.equal(f.onFocus(50, 100 + 1501), null);
+    // And nothing to give back when nothing was focused, or when the previous window is another notice.
+    const g = new P.NoticeFocus(1500);
+    g.markNotice(50, 0);
+    assert.equal(g.onFocus(50, 10), null);
+    g.onFocus(60, 20);
+    g.markNotice(60, 20);
+    assert.equal(g.onFocus(50, 30), null);
+});
+
+test('NoticeFocus forgets closed windows', () => {
+    const f = new P.NoticeFocus(1500);
+    f.onFocus(7, 0);
+    f.markNotice(50, 0);
+    f.forget(50);
+    assert.equal(f.isNotice(50), false);
+    assert.equal(f.onFocus(50, 10), null);
+});

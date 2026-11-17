@@ -1,6 +1,7 @@
 //! X11 source of the foreground program (pure-Rust x11rb, no system headers): the root window's
 //! `_NET_ACTIVE_WINDOW`, the window's `_NET_WM_PID`, `_NET_WM_STATE_FULLSCREEN`, the monitor from
-//! RandR, and idle time from the screensaver extension. Window titles are never read.
+//! RandR, and idle time from the screensaver extension. Window titles of other programs are never
+//! read (only the agent's own warning window is looked up by title).
 //!
 //! Under a Wayland session this only sees XWayland windows; `linux.rs` ignores it while the GNOME
 //! Shell companion is connected.
@@ -187,4 +188,30 @@ pub fn minimize(window: u32) {
 /// Un-minimises and focuses a window.
 pub fn activate(window: u32) {
     let _ = root_message(window, |c| Ok(Atoms::new(c)?.active), [SOURCE_PAGER, 0, 0, 0, 0]);
+}
+
+/// Activates the top-level window of this process whose title is `title`, if the window manager
+/// lists one. The agent's own warning window needs this: `set_focus()` alone is refused by focus-
+/// stealing prevention from the second warning on. Reads only our own window's title.
+pub fn activate_own(title: &str) -> bool {
+    find_own_window(title).map(activate).is_some()
+}
+
+fn find_own_window(title: &str) -> Option<u32> {
+    let (conn, screen_num) = RustConnection::connect(None).ok()?;
+    let root = conn.setup().roots[screen_num].root;
+    let list = intern(&conn, "_NET_CLIENT_LIST").ok()?;
+    let name = intern(&conn, "_NET_WM_NAME").ok()?;
+    let utf8 = intern(&conn, "UTF8_STRING").ok()?;
+    let pid_atom = intern(&conn, "_NET_WM_PID").ok()?;
+    let windows: Vec<u32> =
+        conn.get_property(false, root, list, AtomEnum::WINDOW, 0, 4096).ok()?.reply().ok()?.value32()?.collect();
+    windows.into_iter().rev().find(|&w| {
+        cardinal(&conn, w, pid_atom, AtomEnum::CARDINAL) == Some(std::process::id())
+            && conn
+                .get_property(false, w, name, utf8, 0, 256)
+                .ok()
+                .and_then(|c| c.reply().ok())
+                .is_some_and(|r| r.value == title.as_bytes())
+    })
 }

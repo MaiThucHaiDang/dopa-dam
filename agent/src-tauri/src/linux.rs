@@ -310,6 +310,13 @@ pub fn raise_own_window(title: &str, above: bool, activate: bool) -> bool {
     send_shell(shell_raise_msg(std::process::id(), title, above, activate))
 }
 
+/// X11 source only: activates the agent's own window with the given title (`_NET_ACTIVE_WINDOW`,
+/// source "pager"), which focus-stealing prevention lets through where a plain focus request is
+/// refused. False when the shell extension handles windows or no such window is listed.
+pub fn activate_own_window(title: &str) -> bool {
+    model().source() == Source::X11 && x11::activate_own(title)
+}
+
 pub fn shell_extension_connected() -> bool {
     model().shell.is_some()
 }
@@ -401,6 +408,11 @@ pub fn process_alive(pid: u32) -> bool {
 
 pub fn window_exists(raw: isize) -> bool {
     model().window(raw).is_some_and(|f| process_alive(f.pid))
+}
+
+/// Neither the Shell nor X11 reports a minimised window as the focused one, so there is nothing to check.
+pub fn is_minimized(_raw: isize) -> bool {
+    false
 }
 
 pub fn minimize(raw: isize) {

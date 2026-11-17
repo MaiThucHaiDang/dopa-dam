@@ -2,12 +2,13 @@ import { useCallback, useEffect, useState } from "react";
 import { api, type Overview, type Settings } from "../api";
 import { ErrorBanner, useSubmit } from "../components/Confirm";
 import { AccountSection } from "./AccountSection";
-import { useRefresh } from "./MainApp";
+import { useNavigate, useRefresh } from "./MainApp";
 
 const LEVELS = ["Cấp 0 · lần đầu trong giờ", "Cấp 1 · lần 2–3", "Cấp 2 · từ lần 4", "Cấp 3 · đang học hoặc vượt ngân sách"];
 
 export function SettingsPage() {
   const tick = useRefresh();
+  const navigate = useNavigate();
   const [settings, setSettings] = useState<Settings | null>(null);
   const [overview, setOverview] = useState<Overview | null>(null);
   const [draft, setDraft] = useState<{ locks: string[]; budget: string; game: string; ent: string } | null>(null);
@@ -124,6 +125,13 @@ export function SettingsPage() {
           </button>
         </div>
       </section>
+
+      {/* Same page as the tray menu's "Thoát DopaDam…": a desktop without a tray icon has no other way. */}
+      <div className="row">
+        <button className="btn-quiet" onClick={() => navigate("/quit")}>
+          Thoát DopaDam…
+        </button>
+      </div>
       {dialog}
     </div>
   );

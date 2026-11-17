@@ -18,6 +18,7 @@ as the program to block, and a built agent binary. `python3-pil` is optional (us
 | `probe.py` | Client for the probe, as a library or command: `./probe.py windows`, `./probe.py screenshot out.png`, `./probe.py key Escape`, `./probe.py click 343 539`, `./probe.py ext info dopadam@dang`. |
 | `agentctl.py` | Seeds an agent data folder (the schema is read from `agent/src-tauri/src/db.rs`; programs are tagged by inserting `tag_rules` rows) and starts the agent or another program inside the session. |
 | `core_flow.py` | The scripted run. Exit status 0 when every check passed, 1 otherwise. |
+| `x11_flow.py` | The same kind of run for the agent's X11 path (Xwayland, DopaDam extension disabled): the warning must be focused every time it shows, not only the first time. |
 
 ## Running the scripted flow
 
@@ -32,7 +33,8 @@ It starts the Shell, opens Calculator, tags it as entertainment and starts the a
 that is already in front, focused, above and full screen; Vào stays locked during the countdown; Enter and Esc close the
 warning and minimise the program; Vào + "5 phút" lets the program through and records the allow window; the "Còn 1 phút"
 notice and the warning at the end of the allow window; "Làm việc khác"; the extension reconnects after the agent
-restarts; re-opening the program 0.5 s after Thoát; closing the warned program while the warning is up. The Shell is
+restarts; re-opening the program 0.5 s after Thoát; closing the warned program while the warning is up. With the full run it also
+checks the "Còn 1 phút" notice: top-right corner of the work area, above, and the program keeps the keyboard focus. The Shell is
 stopped at the end (`--keep-session` leaves it running, `--reuse-session` uses one started with `session.sh start`).
 
 Screenshots, the agent's log and its data folder go to `<work>/runs/<timestamp>/`; the Shell's log is `<work>/shell.log`.

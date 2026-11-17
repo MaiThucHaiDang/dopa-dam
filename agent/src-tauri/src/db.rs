@@ -830,11 +830,13 @@ impl Store {
 
     /// Closes warnings nobody decided in twelve hours as Thoát, so they can be synced (an event is only
     /// pushed once it has a decision). `keep` is the warning on screen right now: it stays open.
+    /// `decided_at` stays NULL: nobody chose anything at `now`, and the statistics must not count
+    /// the twelve hours as a slow Thoát (they skip exits without a time in the seconds average).
     pub fn close_abandoned(&self, now: i64, keep: Option<&str>) {
         let _ = self.conn.execute(
-            "UPDATE intercept_events SET decision = 'exit', decided_at = ?1, dirty = 1
-             WHERE decision IS NULL AND shown_at < ?2 AND id != ?3",
-            params![now, now - ABANDONED_AFTER_MS, keep.unwrap_or("")],
+            "UPDATE intercept_events SET decision = 'exit', decided_at = NULL, dirty = 1
+             WHERE decision IS NULL AND shown_at < ?1 AND id != ?2",
+            params![now - ABANDONED_AFTER_MS, keep.unwrap_or("")],
         );
     }
 
@@ -1054,6 +1056,23 @@ mod tests {
         s.start_study(30, Some("x"), NOW + 3 * MIN).unwrap();
         s.record_warning("c", "x.exe", "game", NOW + 4 * MIN);
         assert_eq!(s.stats(NOW + 5 * MIN, 7).last().unwrap().study_warnings, 1);
+    }
+
+    #[test]
+    fn abandoned_warnings_count_as_exits_but_not_in_the_seconds_average() {
+        let s = store();
+        s.record_warning("a", "x.exe", "game", NOW);
+        s.decide("a", Decision::Exit, None, None, None, NOW + 4000).unwrap();
+        s.record_warning("b", "x.exe", "game", NOW + MIN);
+        let later = NOW + MIN + 13 * 3_600_000;
+        s.close_abandoned(later, None);
+        let e = s.event("b").unwrap();
+        assert_eq!((e.decision.as_deref(), e.decided_at), (Some("exit"), None));
+        // On the day of the warnings: two exits, but only one with a time (4 s), so the average is 4 s.
+        let closed = s.stats(later, 7);
+        let d = closed.iter().find(|d| d.exit > 0).unwrap();
+        assert_eq!((d.exit, d.exit_count), (2, 1));
+        assert!((d.exit_seconds_sum - 4.0).abs() < 1e-9);
     }
 
     #[test]

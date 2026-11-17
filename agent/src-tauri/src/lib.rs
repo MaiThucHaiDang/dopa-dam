@@ -241,6 +241,11 @@ pub fn run() {
             commands::set_study_rule,
             commands::delete_study_rule,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running DopaDam");
+        .build(tauri::generate_context!())
+        .expect("error while building DopaDam")
+        .run(|_app, event| {
+            if let tauri::RunEvent::Exit = event {
+                pipe::remove_socket();
+            }
+        });
 }

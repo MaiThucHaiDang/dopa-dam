@@ -236,7 +236,15 @@ class Run:
             self.shot("one-minute-notice")
             check("'Còn 1 phút' notice shows", n, str(n))
             if n:
+                time.sleep(1.0)  # Mutter focuses a new window; the extension gives the focus back
+                n = next((w for w in windows() if w["title"] == NOTICE_TITLE), None) or n
+                t = target()
+                self.shot("one-minute-notice-settled")
+                r = n["rect"]
                 check("the notice does not take the keyboard focus", not n["focused"], str(n))
+                check("the program the user is typing in keeps the focus", t and t["focused"], str(t))
+                check("the notice sits in the top-right corner, above", n["above"] and r["y"] <= 64
+                      and 1280 - (r["x"] + r["width"]) <= 48 and r["x"] > 640, str(r))
             w = wait_for(warning_ready, 75, 0.5)
             need("warning returns when the allow window ends", w)
         else:

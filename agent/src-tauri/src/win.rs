@@ -28,7 +28,7 @@ use windows::Win32::UI::Shell::{
     QUNS_RUNNING_D3D_FULL_SCREEN,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
-    DispatchMessageW, EnumChildWindows, GetForegroundWindow, GetMessageW, GetWindowThreadProcessId, IsWindow,
+    DispatchMessageW, EnumChildWindows, GetForegroundWindow, GetMessageW, GetWindowThreadProcessId, IsIconic, IsWindow,
     SetForegroundWindow, ShowWindow, SystemParametersInfoW, TranslateMessage, EVENT_SYSTEM_FOREGROUND,
     EVENT_SYSTEM_MINIMIZEEND, MSG, SPI_GETWORKAREA, SW_MINIMIZE, SW_RESTORE, SYSTEM_PARAMETERS_INFO_UPDATE_FLAGS,
     WINEVENT_OUTOFCONTEXT, WINEVENT_SKIPOWNPROCESS,
@@ -182,6 +182,12 @@ pub fn minimize(raw: isize) {
     unsafe {
         let _ = ShowWindow(hwnd(raw), SW_MINIMIZE);
     }
+}
+
+/// True for a minimised window. Windows can go on reporting a window that was just minimised as
+/// the foreground one when no other window takes over.
+pub fn is_minimized(raw: isize) -> bool {
+    unsafe { IsIconic(hwnd(raw)).as_bool() }
 }
 
 /// Brings a window to the front. Windows only lets the foreground process do this, so we

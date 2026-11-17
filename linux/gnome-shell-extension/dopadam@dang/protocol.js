@@ -148,3 +148,59 @@ export function parseCommand(line) {
         return null;
     }
 }
+
+// ---- Passive notice windows (shell_raise with activate: false) ----
+
+export const NOTICE_MARGIN = 16;
+export const NOTICE_GRACE_MS = 1500;
+
+// Top-right corner of a work area ({x, y, width, height}) for a window of the given size, `margin`
+// pixels from the edges. A window wider or taller than the area is pinned to its top-left corner.
+export function cornerPosition(area, width, height, margin = NOTICE_MARGIN) {
+    return {
+        x: Math.trunc(Math.max(area.x, area.x + area.width - width - margin)),
+        y: Math.trunc(Math.max(area.y, area.y + margin)),
+    };
+}
+
+// Gives the keyboard focus back to the window that had it before a notice was mapped. Mutter
+// focuses every new window, but a notice must not interrupt typing. Only focus that the notice
+// takes within `graceMs` of being raised is handed back: a click on the notice later is a choice.
+// Windows are plain ids here; 0 means "nothing focused".
+export class NoticeFocus {
+    constructor(graceMs = NOTICE_GRACE_MS) {
+        this._grace = graceMs;
+        this._notices = new Map(); // window id -> time until which taking focus is undone
+        this._prev = 0;
+        this._cur = 0;
+    }
+    // Call on every focus change. Returns the id that should get the focus back, or null.
+    onFocus(id, now) {
+        if (id === this._cur)
+            return null;
+        this._prev = this._cur;
+        this._cur = id;
+        return this._taken(id, now);
+    }
+    // The window `id` is a notice that was just raised. Returns the id to give the focus back to
+    // when the notice already has it.
+    markNotice(id, now) {
+        this._notices.set(id, now + this._grace);
+        return this._cur === id ? this._taken(id, now) : null;
+    }
+    forget(id) {
+        this._notices.delete(id);
+        if (this._cur === id) this._cur = 0;
+        if (this._prev === id) this._prev = 0;
+    }
+    isNotice(id) { return this._notices.has(id); }
+    withinGrace(id, now) {
+        const until = this._notices.get(id);
+        return until !== undefined && now <= until;
+    }
+    _taken(id, now) {
+        if (!this.withinGrace(id, now) || !this._prev || this._prev === id || this._notices.has(this._prev))
+            return null;
+        return this._prev;
+    }
+}

@@ -35,6 +35,21 @@ pub fn user_extension_dir(xdg_data_home: Option<OsString>, home: Option<OsString
     crate::platform::linux_data_home(xdg_data_home, home).join("gnome-shell").join("extensions").join(UUID)
 }
 
+/// The folder `install` may write to: like [`user_extension_dir`], but an error when neither
+/// `XDG_DATA_HOME` nor `HOME` is set (the data home would fall back to the temp directory) or when
+/// the data home is not an absolute path.
+pub fn checked_user_extension_dir(xdg_data_home: Option<OsString>, home: Option<OsString>) -> Result<PathBuf, String> {
+    let set = |v: &Option<OsString>| v.as_ref().is_some_and(|v| !v.is_empty());
+    if !set(&xdg_data_home) && !set(&home) {
+        return Err("Không biết thư mục dữ liệu của người dùng (HOME và XDG_DATA_HOME đều chưa đặt).".to_string());
+    }
+    let data_home = crate::platform::linux_data_home(xdg_data_home, home);
+    if !data_home.is_absolute() {
+        return Err(format!("Thư mục dữ liệu của người dùng không phải đường dẫn tuyệt đối: {}", data_home.display()));
+    }
+    Ok(data_home.join("gnome-shell").join("extensions").join(UUID))
+}
+
 /// The extension folders under the system data directories (`XDG_DATA_DIRS`, default
 /// `/usr/local/share:/usr/share`).
 pub fn system_extension_dirs(xdg_data_dirs: Option<&str>) -> Vec<PathBuf> {
@@ -75,7 +90,8 @@ pub fn sync_files(dir: &Path, files: &[(&str, &str)]) -> std::io::Result<FilesOu
         if std::fs::read_to_string(&path).is_ok_and(|current| current == *content) {
             continue;
         }
-        let tmp = dir.join(format!(".{name}.tmp"));
+        // The process id keeps two running instances from writing the same temporary file.
+        let tmp = dir.join(format!(".{name}.{}.tmp", std::process::id()));
         std::fs::write(&tmp, content)?;
         std::fs::rename(&tmp, &path)?;
         changed = true;
@@ -127,10 +143,13 @@ pub fn parse_string_list(text: &str) -> Option<Vec<String>> {
                 let mut item = String::new();
                 loop {
                     match chars.next()? {
+                        // Only the escapes gsettings prints for these ids; anything else (`\u00XX`, `\r`, …)
+                        // would be rewritten wrongly, so the whole value is refused.
                         '\\' => item.push(match chars.next()? {
+                            c @ ('\\' | '\'' | '"') => c,
                             'n' => '\n',
                             't' => '\t',
-                            other => other,
+                            _ => return None,
                         }),
                         c if c == quote => break,
                         c => item.push(c),
@@ -220,6 +239,10 @@ pub fn install(
     settings: &dyn ShellSettings,
     shell_connected: bool,
 ) -> Result<InstallResult, String> {
+    // A developer may have linked the folder to the repository: never write through it.
+    if std::fs::symlink_metadata(dir).is_ok_and(|m| m.file_type().is_symlink()) {
+        return Err(format!("{} là liên kết (symlink), nên không ghi đè lên đó.", dir.display()));
+    }
     let enabled = settings.get(ENABLED_KEY)?;
     let disabled = settings.get(DISABLED_KEY)?;
     let plan = plan_enable(&enabled, &disabled, UUID)?;
@@ -278,8 +301,8 @@ fn run_gsettings(args: &[&str]) -> Result<String, String> {
     Ok(String::from_utf8_lossy(&output.stdout).into_owned())
 }
 
-fn current_user_dir() -> PathBuf {
-    user_extension_dir(std::env::var_os("XDG_DATA_HOME"), std::env::var_os("HOME"))
+fn current_user_dir() -> Result<PathBuf, String> {
+    checked_user_extension_dir(std::env::var_os("XDG_DATA_HOME"), std::env::var_os("HOME"))
 }
 
 /// Whether the desktop is GNOME, from the environment.
@@ -289,7 +312,12 @@ pub fn running_on_gnome() -> bool {
 
 /// The state of the extension files for the real user and system folders.
 pub fn current_files_status() -> FilesStatus {
-    files_status(&current_user_dir(), &system_extension_dirs(std::env::var("XDG_DATA_DIRS").ok().as_deref()), &FILES)
+    let system = system_extension_dirs(std::env::var("XDG_DATA_DIRS").ok().as_deref());
+    match current_user_dir() {
+        Ok(user) => files_status(&user, &system, &FILES),
+        // No usable user folder: only a system copy can be there.
+        Err(_) => FilesStatus { installed: system.iter().any(|d| d.join("metadata.json").is_file()), update_available: false },
+    }
 }
 
 /// The command behind the "Cài tiện ích GNOME" button.
@@ -297,7 +325,7 @@ pub fn install_for_current_user() -> Result<InstallResult, String> {
     if !running_on_gnome() {
         return Err("Chỉ cài được tiện ích trên màn hình GNOME.".to_string());
     }
-    install(&current_user_dir(), &FILES, &Gsettings, crate::platform::shell_extension_connected())
+    install(&current_user_dir()?, &FILES, &Gsettings, crate::platform::shell_extension_connected())
 }
 
 #[cfg(test)]
@@ -378,6 +406,16 @@ mod tests {
         assert_eq!(parse_string_list("[ 'a' ,\n 'b' , ]"), Some(strings(&["a", "b"])));
         assert_eq!(parse_string_list("[\"a@b\", 'c']"), Some(strings(&["a@b", "c"])));
         assert_eq!(parse_string_list(r"['it\'s', 'back\\slash']"), Some(strings(&["it's", "back\\slash"])));
+        assert_eq!(parse_string_list(r#"['q\"x', 'a\nb', 'c\td']"#), Some(strings(&["q\"x", "a\nb", "c\td"])));
+    }
+
+    #[test]
+    fn unknown_escapes_make_the_list_unreadable() {
+        for bad in [r"['a\u0041']", r"['a\r']", r"['a\a']", r"['a\x41']", r"['a\0']", r"['\q']"] {
+            assert_eq!(parse_string_list(bad), None, "{bad:?}");
+        }
+        // The install then leaves the settings alone.
+        assert!(plan_enable(r"['a\u0041']", "@as []", UUID).is_err());
     }
 
     #[test]
@@ -458,6 +496,29 @@ mod tests {
             system_extension_dirs(Some("/opt/share:rel:")),
             [PathBuf::from("/opt/share/gnome-shell/extensions/dopadam@dang")]
         );
+    }
+
+    #[test]
+    fn install_folder_needs_an_absolute_data_home() {
+        let some = |s: &str| Some(OsString::from(s));
+        assert_eq!(
+            checked_user_extension_dir(some("/x/data"), some("/home/a")),
+            Ok(PathBuf::from("/x/data/gnome-shell/extensions/dopadam@dang"))
+        );
+        assert_eq!(
+            checked_user_extension_dir(None, some("/home/a")),
+            Ok(PathBuf::from("/home/a/.local/share/gnome-shell/extensions/dopadam@dang"))
+        );
+        assert_eq!(
+            checked_user_extension_dir(some(""), some("/home/a")),
+            Ok(PathBuf::from("/home/a/.local/share/gnome-shell/extensions/dopadam@dang"))
+        );
+        // Neither variable set: the data home would be the temp directory.
+        assert!(checked_user_extension_dir(None, None).is_err());
+        assert!(checked_user_extension_dir(some(""), some("")).is_err());
+        // Relative data homes.
+        assert!(checked_user_extension_dir(some("data"), some("/home/a")).is_err());
+        assert!(checked_user_extension_dir(None, some("home/a")).is_err());
     }
 
     #[test]
@@ -577,6 +638,34 @@ mod tests {
         let result = install(&dir, &FILES_A, &settings, false).unwrap();
         assert!(result.enabled_changed);
         assert_eq!(*settings.writes.borrow(), [(DISABLED_KEY.to_string(), "['x@y']".to_string())]);
+    }
+
+    #[test]
+    fn a_symlinked_extension_folder_is_not_written_through() {
+        let scratch = Scratch::new("symlink");
+        let real = scratch.0.join("repo");
+        std::fs::create_dir_all(&real).unwrap();
+        let dir = scratch.0.join("dopadam@dang");
+        std::os::unix::fs::symlink(&real, &dir).unwrap();
+        let settings = FakeSettings::new("@as []", "@as []");
+
+        let err = install(&dir, &FILES_A, &settings, false).unwrap_err();
+        assert!(err.contains("symlink"), "{err}");
+        assert_eq!(std::fs::read_dir(&real).unwrap().count(), 0);
+        assert!(settings.writes.borrow().is_empty());
+    }
+
+    #[test]
+    fn temporary_file_names_carry_the_process_id() {
+        let scratch = Scratch::new("tmpname");
+        let dir = scratch.0.join("dopadam@dang");
+        // A leftover temporary file of another process is neither reused nor removed.
+        std::fs::create_dir_all(&dir).unwrap();
+        let other = dir.join(".extension.js.1.tmp");
+        std::fs::write(&other, "other").unwrap();
+        sync_files(&dir, &FILES_A).unwrap();
+        assert_eq!(std::fs::read_to_string(&other).unwrap(), "other");
+        assert!(!dir.join(format!(".extension.js.{}.tmp", std::process::id())).exists());
     }
 
     #[test]

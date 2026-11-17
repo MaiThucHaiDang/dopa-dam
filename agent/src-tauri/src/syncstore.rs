@@ -433,6 +433,13 @@ mod tests {
         let rows = s.dirty_rows("intercept_events", &dev, later);
         let ids: Vec<&str> = rows.iter().filter_map(|r| r["id"].as_str()).collect();
         assert_eq!(ids, vec!["old"]);
+        // It goes out as an exit with no time, and comes back from the server the same way.
+        assert_eq!(rows[0]["decision"], "exit");
+        assert!(rows[0]["decided_at"].is_null());
+        let other = Store::open_in_memory().unwrap();
+        assert!(other.apply_remote("intercept_events", &rows[0], "another-device"));
+        let got = other.event("old").unwrap();
+        assert_eq!((got.decision.as_deref(), got.decided_at), (Some("exit"), None));
         // The warning on screen can still be decided afterwards.
         assert!(s.decide("shown", crate::logic::Decision::Exit, None, None, None, later).is_ok());
         // Pruning does the same.

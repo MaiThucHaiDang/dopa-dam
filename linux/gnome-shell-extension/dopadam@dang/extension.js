@@ -32,6 +32,8 @@ export default class DopaDamExtension extends Extension {
         this._pendingRaise = [];
         this._deduper = new P.FocusDeduper();
         this._reader = new P.Utf8LineReader();
+        this._noticeFocus = new P.NoticeFocus();
+        this._noticeSignals = new Map(); // window id -> {window, ids}
 
         this._safe(() => {
             this._tracker = Shell.WindowTracker.get_default();
@@ -59,6 +61,10 @@ export default class DopaDamExtension extends Extension {
         for (const p of this._pendingRaise)
             if (p.timerId) GLib.source_remove(p.timerId);
         this._pendingRaise = [];
+        for (const id of [...this._noticeSignals.keys()])
+            this._forgetNotice(id);
+        this._noticeFocus = null;
+        this._noticeSignals = null;
         this._closeConnection();
         this._tracker = null;
         this._deduper = null;
@@ -286,6 +292,7 @@ export default class DopaDamExtension extends Extension {
     _onFocusChanged() {
         this._clearFocusWindow();
         const w = global.display.focus_window;
+        this._safe(() => this._keepFocusFromNotice(w));
         if (w) {
             this._focusWindow = w;
             this._focusSignals.push(w.connect('notify::fullscreen', () => this._safe(() => this._sendFocus())));
@@ -363,8 +370,96 @@ export default class DopaDamExtension extends Extension {
             return false;
         if (above) target.make_above();
         else target.unmake_above();
-        if (activate) this._activate(target);
+        if (activate)
+            this._activate(target);
+        else
+            this._settleNotice(target);
         return true;
+    }
+
+    // ---- passive notices (shell_raise with activate: false) ----
+    // Mutter focuses every new window and places it in the middle. A notice must not interrupt
+    // typing or cover the program: put it in the top-right corner of its monitor's work area and
+    // give the focus back to the window that had it.
+
+    _settleNotice(w) {
+        const id = w.get_id();
+        if (!this._noticeSignals.has(id)) {
+            const ids = [
+                w.connect('size-changed', () => this._safe(() => this._placeNotice(w))),
+                w.connect('position-changed', () => this._safe(() => this._placeNotice(w))),
+                w.connect('unmanaged', () => this._safe(() => this._forgetNotice(id))),
+            ];
+            this._noticeSignals.set(id, {window: w, ids});
+        }
+        const back = this._noticeFocus.markNotice(id, GLib.get_monotonic_time() / 1000);
+        this._placeNotice(w);
+        // Mutter places a new window when it is first mapped, after this request: keep putting the
+        // notice in its corner while it is fresh (the signals above cover most, this the rest).
+        const entry = this._noticeSignals.get(id);
+        if (!entry.timerId) {
+            entry.timerId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, RAISE_POLL_MS, () => {
+                const live = this._safe(() => {
+                    if (!this._enabled || !this._noticeSignals.has(id) ||
+                        !this._noticeFocus.withinGrace(id, GLib.get_monotonic_time() / 1000)) {
+                        return false;
+                    }
+                    this._placeNotice(w);
+                    return true;
+                });
+                if (!live)
+                    entry.timerId = 0;
+                return live ? GLib.SOURCE_CONTINUE : GLib.SOURCE_REMOVE;
+            });
+        }
+        if (back)
+            this._giveFocusBack(back);
+    }
+
+    _placeNotice(w) {
+        // Only while the notice is fresh: the user may move it afterwards.
+        if (!this._noticeFocus.withinGrace(w.get_id(), GLib.get_monotonic_time() / 1000))
+            return;
+        const area = w.get_work_area_current_monitor();
+        const rect = w.get_frame_rect();
+        if (rect.width <= 0 || rect.height <= 0)
+            return;
+        const pos = P.cornerPosition(area, rect.width, rect.height);
+        if (rect.x !== pos.x || rect.y !== pos.y)
+            w.move_frame(true, pos.x, pos.y);
+    }
+
+    _forgetNotice(id) {
+        const entry = this._noticeSignals?.get(id);
+        if (entry) {
+            for (const sid of entry.ids) {
+                try { entry.window.disconnect(sid); } catch (_e) { /* ignore */ }
+            }
+            if (entry.timerId)
+                GLib.source_remove(entry.timerId);
+            this._noticeSignals.delete(id);
+        }
+        this._noticeFocus?.forget(id);
+    }
+
+    _keepFocusFromNotice(w) {
+        const back = this._noticeFocus.onFocus(w ? w.get_id() : 0, GLib.get_monotonic_time() / 1000);
+        if (back)
+            this._giveFocusBack(back);
+    }
+
+    _giveFocusBack(id) {
+        const prev = this._findWindow(id);
+        if (!prev || prev.minimized)
+            return;
+        // Not from inside the focus signal: let Mutter finish mapping the notice first.
+        GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
+            this._safe(() => {
+                if (this._enabled)
+                    prev.activate(global.get_current_time());
+            });
+            return GLib.SOURCE_REMOVE;
+        });
     }
 
     _tryPendingRaises(w) {
