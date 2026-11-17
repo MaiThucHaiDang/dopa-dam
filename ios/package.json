@@ -1,0 +1,12 @@
+{
+  "name": "dopadam-ios",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "typecheck": "../extension/node_modules/.bin/tsc -p tsconfig.json --noEmit",
+    "test": "../extension/node_modules/.bin/vitest run --config vitest.config.mjs",
+    "e2e": "PLAYWRIGHT_HOST_PLATFORM_OVERRIDE=ubuntu24.04-x64 node test/e2e.mjs",
+    "check": "npm run typecheck && npm test && npm run build"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "extends": "../extension/tsconfig.json",
+  "compilerOptions": {
+    "types": ["node", "chrome"],
+    "typeRoots": ["../extension/node_modules/@types"],
+    "paths": { "vitest": ["../extension/node_modules/vitest"], "vitest/config": ["../extension/node_modules/vitest/config"] }
+  },
+  "include": ["src", "test/*.ts", "build.mjs"]
+}

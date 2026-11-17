@@ -1,0 +1,405 @@
+/* DopaDam for iPhone: phone-first layout on top of the shared tokens.css and base.css. */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  min-height: 100dvh;
+  overflow-x: hidden;
+  overflow-wrap: break-word;
+}
+
+button,
+a.btn-primary,
+a.btn-secondary,
+.btn-link {
+  touch-action: manipulation;
+}
+
+button {
+  min-height: 44px;
+}
+
+/* 16px or more, so Safari does not zoom into a field. */
+input,
+select,
+textarea {
+  font-size: 16px;
+  min-height: 44px;
+  max-width: 100%;
+}
+
+input[type="checkbox"] {
+  width: 22px;
+  min-height: 22px;
+  height: 22px;
+  accent-color: var(--dd-accent);
+}
+
+p {
+  margin: 0;
+}
+
+code {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+
+.noscript {
+  padding: var(--dd-space-lg);
+}
+
+/* ---- Pages ------------------------------------------------------------- */
+
+.page,
+.screen {
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto;
+  padding-top: calc(var(--dd-space-md) + env(safe-area-inset-top, 0px));
+  padding-right: calc(var(--dd-space-md) + env(safe-area-inset-right, 0px));
+  padding-bottom: calc(var(--dd-space-lg) + env(safe-area-inset-bottom, 0px));
+  padding-left: calc(var(--dd-space-md) + env(safe-area-inset-left, 0px));
+}
+
+.page {
+  display: grid;
+  gap: var(--dd-space-md);
+}
+
+.screen {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--dd-space-lg);
+  animation: dd-fade 0.2s ease-out;
+}
+
+@keyframes dd-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.screen section {
+  display: grid;
+  gap: var(--dd-space-md);
+}
+
+.meta {
+  color: var(--dd-text-muted);
+  font-size: var(--dd-font-small);
+}
+
+.question {
+  font-size: var(--dd-font-title);
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+
+.app-name {
+  color: var(--dd-accent);
+}
+
+.subtitle {
+  font-size: var(--dd-font-base);
+}
+
+.primary-actions {
+  display: grid;
+  gap: var(--dd-space-sm);
+}
+
+.exit {
+  width: 100%;
+  font-size: var(--dd-font-title);
+  min-height: 72px;
+  border-radius: var(--dd-radius-lg);
+}
+
+.btn-link {
+  justify-self: start;
+  min-height: 44px;
+  padding: 8px 0;
+  font-size: var(--dd-font-base);
+}
+
+.enter-area {
+  display: grid;
+  gap: var(--dd-space-sm);
+  margin-top: var(--dd-space-sm);
+}
+
+.enter {
+  justify-self: start;
+  min-width: 120px;
+}
+
+.allow-buttons,
+.activities,
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--dd-space-sm);
+  align-items: center;
+}
+
+.allow-buttons button,
+.activities button {
+  flex: 1 1 96px;
+  min-height: 52px;
+  font-size: var(--dd-font-base);
+}
+
+.activities button[aria-checked="true"] {
+  background: var(--dd-accent-soft);
+  border-color: var(--dd-accent);
+}
+
+.field {
+  display: grid;
+  gap: var(--dd-space-xs);
+  color: var(--dd-text-muted);
+  min-width: 0;
+}
+
+.field input,
+.field select {
+  width: 100%;
+}
+
+.clock {
+  font-size: 64px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--dd-space-sm) var(--dd-space-md);
+  align-items: center;
+  color: var(--dd-text-muted);
+  font-size: var(--dd-font-small);
+  border-top: 1px solid var(--dd-border);
+  padding-top: var(--dd-space-md);
+}
+
+/* A link that looks and sizes like the primary button (Safari only follows a real tap on a real link). */
+a.big-link {
+  display: block;
+  text-align: center;
+  text-decoration: none;
+  font-size: var(--dd-font-large);
+  line-height: 1.3;
+  padding: 20px 16px;
+  min-height: 64px;
+  border-radius: var(--dd-radius-lg);
+  background: var(--dd-accent);
+  color: var(--dd-accent-text);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+a.big-link:active {
+  filter: brightness(0.92);
+}
+
+/* ---- Home --------------------------------------------------------------- */
+
+.page-header {
+  display: flex;
+  align-items: center;
+  gap: var(--dd-space-md);
+}
+
+.page-header img {
+  border-radius: var(--dd-radius-md);
+}
+
+.card {
+  display: grid;
+  gap: var(--dd-space-md);
+  padding: var(--dd-space-md);
+  min-width: 0;
+}
+
+.card h2 {
+  font-size: var(--dd-font-large);
+}
+
+.card h3 {
+  font-size: var(--dd-font-base);
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: var(--dd-space-sm);
+}
+
+.stat {
+  background: var(--dd-surface-raised);
+  border-radius: var(--dd-radius-md);
+  padding: var(--dd-space-sm) var(--dd-space-md);
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.stat strong {
+  font-size: var(--dd-font-large);
+  font-variant-numeric: tabular-nums;
+}
+
+.stat span {
+  color: var(--dd-text-muted);
+  font-size: var(--dd-font-small);
+}
+
+.plain-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--dd-space-sm);
+}
+
+.plain-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--dd-space-sm);
+  min-width: 0;
+}
+
+.plain-list li > span {
+  flex: 1 1 160px;
+  min-width: 0;
+}
+
+.small-btn {
+  min-height: 44px;
+  padding: 6px 14px;
+}
+
+.weekdays {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--dd-space-sm);
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+
+.weekdays legend {
+  color: var(--dd-text-muted);
+  padding: 0;
+  margin-bottom: var(--dd-space-xs);
+}
+
+.weekdays label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 10px;
+  border: 1px solid var(--dd-border);
+  border-radius: var(--dd-radius-md);
+}
+
+.grid-form {
+  display: grid;
+  gap: var(--dd-space-md);
+}
+
+.two {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--dd-space-sm);
+}
+
+.heatmap {
+  display: grid;
+  grid-template-columns: 1.6rem repeat(24, minmax(0, 1fr));
+  gap: 2px;
+  align-items: center;
+  font-size: 12px;
+  color: var(--dd-text-faint);
+}
+
+.heat-hour {
+  grid-column: span 3;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.heat-row {
+  white-space: nowrap;
+}
+
+.heat-cell {
+  height: 20px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--dd-border) 35%, var(--dd-surface));
+}
+
+.heat-cell[data-shade="1"] {
+  background: color-mix(in srgb, var(--dd-accent) 25%, var(--dd-surface));
+}
+
+.heat-cell[data-shade="2"] {
+  background: color-mix(in srgb, var(--dd-accent) 45%, var(--dd-surface));
+}
+
+.heat-cell[data-shade="3"] {
+  background: color-mix(in srgb, var(--dd-accent) 70%, var(--dd-surface));
+}
+
+.heat-cell[data-shade="4"] {
+  background: var(--dd-accent);
+}
+
+.modal-backdrop {
+  padding: calc(var(--dd-space-md) + env(safe-area-inset-top, 0px)) calc(var(--dd-space-md) + env(safe-area-inset-right, 0px))
+    calc(var(--dd-space-md) + env(safe-area-inset-bottom, 0px)) calc(var(--dd-space-md) + env(safe-area-inset-left, 0px));
+  overflow-y: auto;
+}
+
+.modal {
+  max-height: 100%;
+  overflow-y: auto;
+}
+
+.modal-actions {
+  display: grid;
+  grid-template-columns: 1fr;
+}
+
+.modal-actions button {
+  min-height: 48px;
+}
+
+.modal input {
+  width: 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
