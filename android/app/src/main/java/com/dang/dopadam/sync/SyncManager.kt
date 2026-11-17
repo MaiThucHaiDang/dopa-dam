@@ -12,6 +12,7 @@ import androidx.work.WorkerParameters
 import com.dang.dopadam.BuildConfig
 import com.dang.dopadam.DopaDamApp
 import com.dang.dopadam.data.Repository
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -67,7 +68,8 @@ class SyncManager(context: Context, private val repo: Repository) {
         publish()
     }
 
-    private suspend fun start(newSession: Session) {
+    /** Waits for a running sync: a sync and an account change never interleave. */
+    private suspend fun start(newSession: Session) = mutex.withLock {
         store.switchAccount(newSession.stored.userId)
         sessions.save(newSession.stored)
         session = newSession
@@ -130,7 +132,11 @@ class SyncManager(context: Context, private val repo: Repository) {
         }
     }
 
-    fun signOut() {
+    /** Waits for a running sync, then signs out. */
+    suspend fun signOut() = mutex.withLock { signOutLocked() }
+
+    /** Caller holds [mutex]. */
+    private fun signOutLocked() {
         sessions.clear()
         session = null
         publish()
@@ -154,8 +160,12 @@ class SyncManager(context: Context, private val repo: Repository) {
     /** Runs one sync now; returns an error message or null. */
     suspend fun syncNow(): String? = withContext(Dispatchers.IO) {
         val api = api ?: return@withContext "Chưa cấu hình server đồng bộ."
-        if (session == null) return@withContext "Chưa đăng nhập."
         if (!mutex.tryLock()) return@withContext null
+        // Checked under the lock: an account change cannot slip in between this check and the sync.
+        if (session == null) {
+            mutex.unlock()
+            return@withContext "Chưa đăng nhập."
+        }
         _state.update { it.copy(syncing = true) }
         val device = DeviceInfo("${Build.MANUFACTURER} ${Build.MODEL}".trim(), BuildConfig.VERSION_NAME)
         val error = try {
@@ -167,10 +177,15 @@ class SyncManager(context: Context, private val repo: Repository) {
             repo.prefs.putLong("lastSync", now())
             null
         } catch (e: SyncException.Unauthorized) {
-            signOut()
+            signOutLocked()
             e.message
         } catch (e: SyncException) {
             e.message
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            // A proxy answering 200 with HTML (JSONException), a database error...: show it, never crash the guard.
+            "Đồng bộ lỗi: ${e.message ?: e.javaClass.simpleName}"
         } finally {
             lastSyncAt = now()
             mutex.unlock()
@@ -202,13 +217,15 @@ class SyncManager(context: Context, private val repo: Repository) {
     suspend fun deleteServerData(): String? = withContext(Dispatchers.IO) {
         val api = api ?: return@withContext "Chưa cấu hình server đồng bộ."
         try {
+            mutex.withLock {
             api.rpc("delete_my_data", freshToken(false))
             // Internal wipe: not blocked by study mode. The server is empty now, so the next sign-in (even with
             // the same account) must upload everything again.
             repo.wipeLog()
             store.resetSyncState()
-            signOut()
+            signOutLocked()
             null
+            }
         } catch (e: SyncException) {
             e.message
         }

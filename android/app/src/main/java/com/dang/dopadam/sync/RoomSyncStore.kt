@@ -10,6 +10,7 @@ import com.dang.dopadam.data.StudyRuleEntity
 import com.dang.dopadam.data.StudySessionEntity
 import com.dang.dopadam.data.TagRuleEntity
 import com.dang.dopadam.data.UsageDailyEntity
+import androidx.room.withTransaction
 import org.json.JSONObject
 
 /** org.json drops keys whose value is null; Supabase needs an explicit null. */
@@ -71,7 +72,10 @@ class RoomSyncStore(private val db: AppDatabase, private val prefs: Prefs) : Syn
      * equal while the local row is clean ([remoteWins]); a dirty local row with an equal stamp stays and is pushed.
      * Pulling the same row again (the cursor is read with >=) writes nothing and reports no change.
      */
-    override suspend fun applyRemote(table: String, row: JSONObject, myDevice: String): Boolean {
+    override suspend fun applyRemote(table: String, row: JSONObject, myDevice: String): Boolean =
+        db.withTransaction { applyRemoteInTx(table, row, myDevice) }
+
+    private suspend fun applyRemoteInTx(table: String, row: JSONObject, myDevice: String): Boolean {
         val id = row.str("id") ?: return false
         val updated = row.long("updated_at") ?: 0L
         when (table) {

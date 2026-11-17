@@ -122,7 +122,7 @@ fun AccountSection(vm: MainViewModel) {
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(Tokens.SpaceSm)) {
                     OutlinedButton(onClick = { run { sync.syncNow() ?: "Đã đồng bộ." } }, enabled = !busy && !state.syncing) { Text("Đồng bộ ngay") }
-                    TextButton(onClick = { sync.signOut() }) { Text("Đăng xuất") }
+                    TextButton(onClick = { scope.launch { sync.signOut() } }) { Text("Đăng xuất") }
                 }
                 TextButton(onClick = { vm.deleteServerData() }) { Text("Xóa dữ liệu trên server") }
             }

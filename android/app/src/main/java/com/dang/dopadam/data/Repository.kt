@@ -332,7 +332,7 @@ class Repository(val db: AppDatabase, val prefs: Prefs) {
 
     /** `shownEventId` is the warning on screen right now: it stays open however old it is. */
     suspend fun prune(now: Long, shownEventId: String? = null) {
-        db.events().closeAbandoned(before = abandonedBefore(now), at = now, keep = shownEventId.orEmpty())
+        db.events().closeAbandoned(before = abandonedBefore(now), keep = shownEventId.orEmpty())
         db.events().deleteBefore(now - RETENTION_DAYS * DAY_MS)
         db.usage().deleteBefore(dayKey(now - RETENTION_DAYS * DAY_MS, localTzOffsetMinutes(now)))
         for (w in db.allowWindows().all()) if (w.expiresAt < now - DAY_MS) db.allowWindows().delete(w.obj)

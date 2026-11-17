@@ -76,8 +76,8 @@ interface EventDao {
     suspend fun markClean(id: String, decision: String?)
 
     /** `keep` is the warning on screen right now ("" for none): it stays open however old it is. */
-    @Query("UPDATE intercept_events SET decision = 'exit', decidedAt = :at, dirty = 1 WHERE decision IS NULL AND shownAt < :before AND id != :keep")
-    suspend fun closeAbandoned(before: Long, at: Long, keep: String)
+    @Query("UPDATE intercept_events SET decision = 'exit', decidedAt = NULL, dirty = 1 WHERE decision IS NULL AND shownAt < :before AND id != :keep")
+    suspend fun closeAbandoned(before: Long, keep: String)
 
     @Query("DELETE FROM intercept_events WHERE shownAt < :before")
     suspend fun deleteBefore(before: Long)
