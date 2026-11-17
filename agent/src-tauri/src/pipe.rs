@@ -379,6 +379,8 @@ fn warning_request(state: &Shared, msg: &Value, request_id: &Value, now: i64) ->
         "budget": budget,
         "study": study,
         "activities": ACTIVITIES,
+        // Optional: the risk-hours raise applied (older extensions ignore it).
+        "risk": plan.risk,
     })
 }
 

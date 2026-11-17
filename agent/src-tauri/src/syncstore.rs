@@ -331,6 +331,33 @@ mod tests {
     }
 
     #[test]
+    fn risk_windows_travel_inside_the_settings_row_both_ways() {
+        use crate::risk::RiskWindow;
+        let a = Store::open_in_memory().unwrap();
+        let w = RiskWindow { id: "r1".into(), days: vec![1, 2, 3, 4, 5], start: "22:00".into(), end: "00:00".into() };
+        a.set_risk_windows(std::slice::from_ref(&w), false, NOW).unwrap();
+        let rows = a.dirty_rows("settings", "a", NOW);
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0]["json"]["riskWindows"][0]["id"], "r1");
+        // Another computer applies the pushed row and has the same windows, and its other settings stay.
+        let b = Store::open_in_memory().unwrap();
+        assert!(b.apply_remote("settings", &rows[0], "b"));
+        assert_eq!(b.settings().risk_windows, vec![w]);
+        assert_eq!(b.settings().lock_seconds, vec![5, 10, 20, 30]);
+        // A row from a device that has no such key (older version) means no windows, without touching the rest.
+        let old = json!({"id": "settings", "json": {"budgetMinutes": 45}, "updated_at": NOW + 1});
+        assert!(b.apply_remote("settings", &old, "b"));
+        assert_eq!((b.settings().budget_minutes, b.settings().risk_windows.len()), (45, 0));
+        // One bad entry among good ones is dropped alone.
+        let mixed = json!({"id": "settings", "json": {"budgetMinutes": 50, "riskWindows": [
+            {"id": "x", "days": [1], "start": "7:00", "end": "9:00"}, {"id": "y", "days": [1], "start": "9:00", "end": "9:00"}]},
+            "updated_at": NOW + 2});
+        assert!(b.apply_remote("settings", &mixed, "b"));
+        let s = b.settings();
+        assert_eq!((s.budget_minutes, s.risk_windows.len(), s.risk_windows[0].start.as_str()), (50, 1, "07:00"));
+    }
+
+    #[test]
     fn usage_and_events_from_other_devices_count_here() {
         let s = Store::open_in_memory().unwrap();
         let phone = json!({"id": "d|phone|entertainment", "day": crate::core::day_key(NOW, crate::core::local_tz_offset(NOW)),

@@ -1,9 +1,10 @@
 //! Pure decision rules, mirroring extension/src/background/logic.ts and the Android GuardLogic.
 
 use crate::core::{
-    allow_options_for, budget_status, compute_level, effective_delay, number_change_weakens, recent_count,
+    allow_options_for, base_level, budget_status, compute_level, effective_delay, number_change_weakens, recent_count,
     study_rule_change_weakens, tag_change_weakens, NumberField, Settings, StudyRule, StudyStatus,
 };
+use crate::risk::{in_risk_window, normalize_risk_window, risk_windows_change_weakens, RiskWindow, MAX_RISK_WINDOWS};
 use serde::Serialize;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -42,19 +43,47 @@ pub struct WarningPlan {
     pub allow_options: Vec<i64>,
     pub n: i64,
     pub study_label: Option<String>,
+    /// The risk-hours raise applied: inside a risk window and the base level was below 3.
+    pub risk: bool,
 }
 
-pub fn plan_warning(shown: &[i64], now: i64, study: &StudyStatus, used_minutes: f64, s: &Settings) -> WarningPlan {
+/// `tz` is the local offset in minutes, for the risk windows.
+pub fn plan_warning(
+    shown: &[i64],
+    now: i64,
+    tz: i64,
+    study: &StudyStatus,
+    used_minutes: f64,
+    s: &Settings,
+) -> WarningPlan {
     let n = recent_count(shown, now);
     let over = budget_status(used_minutes, s.budget_minutes).over;
-    let lvl = compute_level(n, study.active, over, s);
+    let in_risk = in_risk_window(&s.risk_windows, now, tz);
+    let lvl = compute_level(n, study.active, over, s, in_risk);
     WarningPlan {
         level: lvl.level,
         lock_seconds: lvl.lock_seconds,
         allow_options: lvl.allow_options,
         n,
         study_label: if study.active { study.label.clone() } else { None },
+        risk: in_risk && base_level(n, study.active, over) < 3,
     }
+}
+
+/// Did the raise apply to a warning that was already recorded (the same event asked for again)? The stored
+/// event has its level, `n` and study label, so the base level is rebuilt from them; the budget is read now.
+pub fn replay_risk(
+    level: i64,
+    n: i64,
+    was_studying: bool,
+    over_budget: bool,
+    shown_at: i64,
+    tz: i64,
+    s: &Settings,
+) -> bool {
+    base_level(n, was_studying, over_budget) < 3
+        && level == base_level(n, was_studying, over_budget) + 1
+        && in_risk_window(&s.risk_windows, shown_at, tz)
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -164,6 +193,30 @@ pub fn check_app_delay(
     }
 }
 
+/// Replacing the list of risk windows (docs 2.5). Any bad entry or more than twelve windows is
+/// invalid. A change that leaves some minute of the week uncovered that was covered is a weakening: locked during
+/// study, otherwise it needs the confirmation. Adding or widening is saved at once.
+pub fn check_risk_windows(
+    old: &[RiskWindow],
+    new: &[RiskWindow],
+    confirmed: bool,
+    study_active: bool,
+) -> Option<ErrorCode> {
+    if new.len() > MAX_RISK_WINDOWS || new.iter().any(|w| normalize_risk_window(w).is_none()) {
+        return Some(ErrorCode::Invalid);
+    }
+    if !risk_windows_change_weakens(old, new) {
+        return None;
+    }
+    if study_active {
+        Some(ErrorCode::StudyLocked)
+    } else if !confirmed {
+        Some(ErrorCode::NeedsConfirm)
+    } else {
+        None
+    }
+}
+
 /// One to four allow-window lengths in minutes, each from 1 to `max`.
 fn valid_allow_options(options: &[i64], max: i64) -> bool {
     (1..=4).contains(&options.len()) && options.iter().all(|m| (1..=max).contains(m))
@@ -258,6 +311,7 @@ mod tests {
 
     const NOW: i64 = 1_791_810_000_000;
     const MIN: i64 = 60_000;
+    const TZ: i64 = 420;
 
     fn studying() -> StudyStatus {
         StudyStatus {
@@ -271,16 +325,16 @@ mod tests {
     #[test]
     fn plan_escalates() {
         let s = Settings::default();
-        assert_eq!(plan_warning(&[], NOW, &StudyStatus::none(), 0.0, &s).level, 0);
-        assert_eq!(plan_warning(&[NOW - MIN], NOW, &StudyStatus::none(), 0.0, &s).level, 1);
-        let p = plan_warning(&[NOW - 3 * MIN, NOW - 2 * MIN, NOW - MIN], NOW, &StudyStatus::none(), 0.0, &s);
+        assert_eq!(plan_warning(&[], NOW, TZ, &StudyStatus::none(), 0.0, &s).level, 0);
+        assert_eq!(plan_warning(&[NOW - MIN], NOW, TZ, &StudyStatus::none(), 0.0, &s).level, 1);
+        let p = plan_warning(&[NOW - 3 * MIN, NOW - 2 * MIN, NOW - MIN], NOW, TZ, &StudyStatus::none(), 0.0, &s);
         assert_eq!((p.level, p.lock_seconds, p.n), (2, 20, 3));
-        let st = plan_warning(&[], NOW, &studying(), 0.0, &s);
+        let st = plan_warning(&[], NOW, TZ, &studying(), 0.0, &s);
         assert_eq!(
             (st.level, st.allow_options.clone(), st.study_label.as_deref()),
             (3, vec![5, 10], Some("Ôn Hệ điều hành"))
         );
-        assert_eq!(plan_warning(&[], NOW, &StudyStatus::none(), 90.0, &s).level, 3);
+        assert_eq!(plan_warning(&[], NOW, TZ, &StudyStatus::none(), 90.0, &s).level, 3);
     }
 
     fn enter(at: i64, minutes: Option<i64>, level: i64) -> Option<ErrorCode> {
@@ -367,5 +421,67 @@ mod tests {
         assert_eq!(check_friction(&s, &longer, true, true), Some(ErrorCode::StudyLocked));
         let shorter = with(vec![5, 15], vec![5]);
         assert_eq!(check_friction(&s, &shorter, false, false), None);
+    }
+
+    fn risk(id: &str, days: &[i64], start: &str, end: &str) -> RiskWindow {
+        RiskWindow { id: id.into(), days: days.to_vec(), start: start.into(), end: end.into() }
+    }
+
+    #[test]
+    fn plan_raises_the_level_in_a_risk_window_and_says_so() {
+        // NOW is Monday 20:00 local (tz 420).
+        let mut s = Settings { risk_windows: vec![risk("a", &[1], "19:00", "21:00")], ..Settings::default() };
+        let p = plan_warning(&[], NOW, TZ, &StudyStatus::none(), 0.0, &s);
+        assert_eq!((p.level, p.lock_seconds, p.risk), (1, 10, true));
+        let p = plan_warning(&[NOW - MIN, NOW - 2 * MIN, NOW - 3 * MIN], NOW, TZ, &StudyStatus::none(), 0.0, &s);
+        assert_eq!((p.level, p.lock_seconds, p.allow_options.clone(), p.risk), (3, 30, vec![5, 10], true));
+        // Already level 3 by study or budget: nothing was raised, no line to show.
+        let st = plan_warning(&[], NOW, TZ, &studying(), 0.0, &s);
+        assert_eq!((st.level, st.risk), (3, false));
+        assert!(!plan_warning(&[], NOW, TZ, &StudyStatus::none(), 90.0, &s).risk);
+        // Outside the window, or no window: the plain level.
+        let p = plan_warning(&[], NOW + 2 * 60 * MIN, TZ, &StudyStatus::none(), 0.0, &s);
+        assert_eq!((p.level, p.risk), (0, false));
+        s.risk_windows.clear();
+        assert!(!plan_warning(&[], NOW, TZ, &StudyStatus::none(), 0.0, &s).risk);
+    }
+
+    #[test]
+    fn replay_risk_rebuilds_the_flag_of_a_recorded_warning() {
+        let s = Settings { risk_windows: vec![risk("a", &[1], "19:00", "21:00")], ..Settings::default() };
+        assert!(replay_risk(1, 0, false, false, NOW, TZ, &s));
+        assert!(replay_risk(3, 3, false, false, NOW, TZ, &s));
+        assert!(!replay_risk(0, 0, false, false, NOW, TZ, &s), "level 0 was not raised");
+        assert!(!replay_risk(3, 0, true, false, NOW, TZ, &s), "study gave level 3");
+        assert!(!replay_risk(3, 0, false, true, NOW, TZ, &s), "budget gave level 3");
+        assert!(!replay_risk(1, 0, false, false, NOW + 120 * MIN, TZ, &s), "shown outside the window");
+    }
+
+    #[test]
+    fn risk_windows_changes_are_checked_like_the_other_weakenings() {
+        let a = risk("a", &[1, 2, 3, 4, 5], "19:00", "21:00");
+        let wider = risk("a", &[1, 2, 3, 4, 5], "18:00", "21:00");
+        let b = risk("b", &[6, 7], "10:00", "12:00");
+        // Adding and widening are saved at once, also during study.
+        assert_eq!(check_risk_windows(&[], std::slice::from_ref(&a), false, false), None);
+        assert_eq!(check_risk_windows(std::slice::from_ref(&a), std::slice::from_ref(&wider), false, true), None);
+        assert_eq!(check_risk_windows(std::slice::from_ref(&a), &[a.clone(), b.clone()], false, true), None);
+        // Removing or shortening weakens: study locks it, otherwise it needs the confirmation.
+        assert_eq!(
+            check_risk_windows(&[a.clone(), b.clone()], std::slice::from_ref(&a), false, false),
+            Some(ErrorCode::NeedsConfirm)
+        );
+        assert_eq!(check_risk_windows(&[a.clone(), b.clone()], std::slice::from_ref(&a), true, false), None);
+        assert_eq!(
+            check_risk_windows(std::slice::from_ref(&wider), std::slice::from_ref(&a), true, true),
+            Some(ErrorCode::StudyLocked)
+        );
+        assert_eq!(check_risk_windows(&[wider], std::slice::from_ref(&a), false, true), Some(ErrorCode::StudyLocked));
+        // Bad lists are invalid whatever the flags are.
+        let none = risk("n", &[], "19:00", "21:00");
+        assert_eq!(check_risk_windows(&[], &[none], true, false), Some(ErrorCode::Invalid));
+        let many: Vec<RiskWindow> = (0..13).map(|i| risk(&format!("w{i}"), &[1], "08:00", "09:00")).collect();
+        assert_eq!(check_risk_windows(&[], &many, true, false), Some(ErrorCode::Invalid));
+        assert_eq!(check_risk_windows(&[], &many[..12], true, false), None);
     }
 }

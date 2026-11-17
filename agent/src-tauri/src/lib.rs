@@ -12,6 +12,7 @@ pub mod logic;
 pub mod nmhost;
 pub mod pipe;
 pub mod platform;
+pub mod risk;
 #[cfg(target_os = "linux")]
 pub mod shellext;
 pub mod state;
@@ -216,6 +217,8 @@ pub fn run() {
             commands::add_allow_url,
             commands::remove_allow_url,
             commands::get_settings,
+            commands::get_risk_overview,
+            commands::set_risk_windows,
             commands::save_settings,
             commands::set_protection,
             commands::clear_log,

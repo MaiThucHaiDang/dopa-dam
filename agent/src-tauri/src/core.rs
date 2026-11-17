@@ -1,5 +1,6 @@
 //! Rust port of the shared core logic. Must give the same results as shared/test-vectors.
 
+use crate::risk::{normalize_risk_window, RiskWindow, MAX_RISK_WINDOWS};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -27,6 +28,10 @@ pub struct Settings {
     pub allow_options_restricted: Vec<i64>,
     pub budget_minutes: i64,
     pub tag_delays: HashMap<String, i64>,
+    /// Weekly windows with one more friction level (docs 2.5). Not sent by the settings page: it only
+    /// changes them through `set_risk_windows`.
+    #[serde(default)]
+    pub risk_windows: Vec<RiskWindow>,
 }
 
 impl Default for Settings {
@@ -37,6 +42,7 @@ impl Default for Settings {
             allow_options_restricted: vec![5, 10],
             budget_minutes: 90,
             tag_delays: HashMap::from([("game".to_string(), 30)]),
+            risk_windows: vec![],
         }
     }
 }
@@ -63,12 +69,25 @@ impl Settings {
             .get("tagDelays")
             .and_then(|d| d.as_object())
             .map(|o| o.iter().filter_map(|(k, x)| x.as_i64().map(|n| (k.clone(), n))).collect::<HashMap<_, _>>());
+        // A bad entry is dropped on its own, like a bad key; a missing or non-list key is an empty list.
+        let risk_windows: Vec<RiskWindow> = v
+            .get("riskWindows")
+            .and_then(|r| r.as_array())
+            .map(|a| {
+                a.iter()
+                    .filter_map(|w| serde_json::from_value::<RiskWindow>(w.clone()).ok())
+                    .filter_map(|w| normalize_risk_window(&w))
+                    .take(MAX_RISK_WINDOWS)
+                    .collect()
+            })
+            .unwrap_or_default();
         Settings {
             lock_seconds: ints("lockSeconds", Some(4)).unwrap_or(d.lock_seconds),
             allow_options_normal: ints("allowOptionsNormal", None).unwrap_or(d.allow_options_normal),
             allow_options_restricted: ints("allowOptionsRestricted", None).unwrap_or(d.allow_options_restricted),
             budget_minutes: v.get("budgetMinutes").and_then(|x| x.as_i64()).unwrap_or(d.budget_minutes),
             tag_delays: delays.unwrap_or(d.tag_delays),
+            risk_windows,
         }
     }
 
@@ -85,9 +104,9 @@ pub struct LevelResult {
     pub allow_options: Vec<i64>,
 }
 
-/// Friction level from warnings in the previous hour, study mode and the daily budget.
-pub fn compute_level(n: i64, in_study: bool, over_budget: bool, s: &Settings) -> LevelResult {
-    let level = if in_study || over_budget {
+/// The level before the risk-hours raise: warnings in the previous hour, study mode and the daily budget.
+pub fn base_level(n: i64, in_study: bool, over_budget: bool) -> i64 {
+    if in_study || over_budget {
         3
     } else if n <= 0 {
         0
@@ -95,7 +114,14 @@ pub fn compute_level(n: i64, in_study: bool, over_budget: bool, s: &Settings) ->
         1
     } else {
         2
-    };
+    }
+}
+
+/// Friction level from warnings in the previous hour, study mode and the daily budget; one more (up to 3)
+/// inside a risk window.
+pub fn compute_level(n: i64, in_study: bool, over_budget: bool, s: &Settings, in_risk: bool) -> LevelResult {
+    let base = base_level(n, in_study, over_budget);
+    let level = if in_risk && base < 3 { base + 1 } else { base };
     let options = if level == 3 { &s.allow_options_restricted } else { &s.allow_options_normal };
     LevelResult { level, lock_seconds: s.lock_seconds[level as usize], allow_options: options.clone() }
 }
@@ -135,7 +161,7 @@ fn civil_from_days(z: i64) -> (i64, i64, i64) {
 }
 
 /// ISO weekday (1 = Monday) of a local day number.
-fn iso_weekday(days: i64) -> i64 {
+pub(crate) fn iso_weekday(days: i64) -> i64 {
     (days + 3).rem_euclid(7) + 1
 }
 
@@ -521,6 +547,7 @@ mod tests {
                 i["inStudy"].as_bool().unwrap(),
                 i["overBudget"].as_bool().unwrap(),
                 &s,
+                i["inRisk"].as_bool().unwrap_or(false),
             );
             let e = &c["expected"];
             let expected = LevelResult {
@@ -727,6 +754,65 @@ mod tests {
         assert_eq!(Settings::from_json(&s.to_json()), s);
         assert_eq!(Settings::from_json("nope"), Settings::default());
         assert_eq!(Settings::from_json(r#"{"lockSeconds":[1,2]}"#).lock_seconds, vec![5, 10, 20, 30]);
+    }
+
+    fn risk(id: &str, start: &str, end: &str) -> RiskWindow {
+        RiskWindow { id: id.into(), days: vec![1, 2, 3, 4, 5], start: start.into(), end: end.into() }
+    }
+
+    #[test]
+    fn risk_windows_round_trip_through_the_settings_json() {
+        let s = Settings {
+            risk_windows: vec![risk("a", "22:00", "00:00"), risk("b", "07:00", "08:30")],
+            ..Settings::default()
+        };
+        let json = s.to_json();
+        assert!(
+            json.contains(r#""riskWindows":[{"id":"a","days":[1,2,3,4,5],"start":"22:00","end":"00:00"}"#),
+            "{json}"
+        );
+        assert_eq!(Settings::from_json(&json), s);
+        // The synced document is the same JSON as an object.
+        let value: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert_eq!(value["riskWindows"].as_array().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn risk_windows_missing_or_bad_entries_do_not_touch_other_settings() {
+        // No key, or a key that is not a list: empty list, everything else as stored.
+        assert_eq!(Settings::from_json(r#"{"budgetMinutes":45}"#).risk_windows, vec![]);
+        let s = Settings::from_json(r#"{"budgetMinutes":45,"riskWindows":"nope"}"#);
+        assert_eq!((s.budget_minutes, s.risk_windows.len()), (45, 0));
+        // Bad entries are dropped one by one; good ones are normalised and kept.
+        let s = Settings::from_json(
+            r#"{"budgetMinutes":45,"riskWindows":[
+                {"id":"ok","days":[3,1,1,9],"start":"7:05","end":"9:00"},
+                {"id":"nodays","days":[],"start":"07:00","end":"08:00"},
+                {"id":"same","days":[1],"start":"07:00","end":"07:00"},
+                {"id":"badtime","days":[1],"start":"25:00","end":"08:00"},
+                {"id":"badtype","days":"x","start":"07:00","end":"08:00"},
+                {"days":[1],"start":"07:00","end":"08:00"},
+                7]}"#,
+        );
+        assert_eq!(s.budget_minutes, 45);
+        assert_eq!(
+            s.risk_windows,
+            vec![RiskWindow { id: "ok".into(), days: vec![1, 3], start: "07:05".into(), end: "09:00".into() }]
+        );
+        // More than twelve: the first twelve.
+        let many: Vec<String> =
+            (0..15).map(|i| format!(r#"{{"id":"w{i}","days":[1],"start":"08:00","end":"09:00"}}"#)).collect();
+        let s = Settings::from_json(&format!(r#"{{"riskWindows":[{}]}}"#, many.join(",")));
+        assert_eq!(s.risk_windows.len(), 12);
+        assert_eq!(s.risk_windows[11].id, "w11");
+    }
+
+    #[test]
+    fn settings_without_risk_windows_still_deserialize_from_the_settings_page() {
+        // The settings page sends the camelCase object it got from get_settings, possibly without the key.
+        let json = r#"{"lockSeconds":[5,10,20,30],"allowOptionsNormal":[5],"allowOptionsRestricted":[5],"budgetMinutes":9,"tagDelays":{}}"#;
+        let s: Settings = serde_json::from_str(json).unwrap();
+        assert!(s.risk_windows.is_empty());
     }
 
     #[test]

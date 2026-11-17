@@ -78,6 +78,11 @@ function Warning({ ctx }: { ctx: WarningContext }) {
       <p className="muted" style={{ margin: 0 }}>
         Lần thứ {ctx.countThisHour} trong 60 phút qua · nút Vào khóa {ctx.lockSeconds} giây
       </p>
+      {ctx.risk && (
+        <p className="muted" style={{ margin: 0 }}>
+          Đây là khung giờ bạn hay mở giải trí nên thời gian chờ dài hơn một cấp.
+        </p>
+      )}
 
       {step === "choice" ? (
         <section style={{ display: "grid", gap: "var(--dd-space-lg)" }}>

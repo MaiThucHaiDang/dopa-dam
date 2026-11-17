@@ -6,8 +6,12 @@ use crate::core::{
     StudyRule, StudyStatus, DAY_MS, MINUTE_MS, STUDY_LABEL_MAX,
 };
 use crate::logic::{
-    check_app_delay, check_decision, check_friction, check_protection, check_study_rule_change, check_study_stop,
-    check_tag_change, plan_warning, Decision, DecisionCheck, ErrorCode, WarningPlan,
+    check_app_delay, check_decision, check_friction, check_protection, check_risk_windows, check_study_rule_change,
+    check_study_stop, check_tag_change, plan_warning, replay_risk, Decision, DecisionCheck, ErrorCode, WarningPlan,
+};
+use crate::risk::{
+    normalize_risk_windows, risk_heatmap, suggest_risk_window, RiskCell, RiskEvent, RiskSuggestion, RiskWindow,
+    HEATMAP_DAYS,
 };
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
@@ -48,6 +52,15 @@ pub struct Event {
     pub allow_minutes: Option<i64>,
     pub activity: Option<String>,
     pub activity_minutes: Option<i64>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RiskOverview {
+    /// 7 rows (0 = Monday ... 6 = Sunday) of 24 local hours.
+    pub cells: Vec<Vec<RiskCell>>,
+    pub suggestion: Option<RiskSuggestion>,
+    pub windows: Vec<RiskWindow>,
 }
 
 #[derive(Clone, Debug, Default, Serialize)]
@@ -532,20 +545,36 @@ impl Store {
 
     /// Records a warning being shown and returns the plan (level, lock, options) it was shown with.
     pub fn record_warning(&self, id: &str, object: &str, tag: &str, now: i64) -> (Event, WarningPlan) {
+        self.record_warning_in(id, object, tag, now, local_tz_offset(now))
+    }
+
+    /// `record_warning` with the local offset (minutes east of UTC) given, for the risk windows.
+    pub fn record_warning_in(&self, id: &str, object: &str, tag: &str, now: i64, tz: i64) -> (Event, WarningPlan) {
         if let Some(existing) = self.event(id) {
             let s = self.settings();
+            let over = crate::core::budget_status(self.used_minutes(now), s.budget_minutes).over;
             let plan = WarningPlan {
                 level: existing.level,
                 lock_seconds: existing.lock_seconds,
                 allow_options: crate::core::allow_options_for(&s, existing.level).to_vec(),
                 n: existing.n,
                 study_label: existing.study_label.clone(),
+                risk: replay_risk(
+                    existing.level,
+                    existing.n,
+                    existing.study_label.is_some(),
+                    over,
+                    existing.shown_at,
+                    tz,
+                    &s,
+                ),
             };
             return (existing, plan);
         }
         let plan = plan_warning(
             &self.shown_since(now - DAY_MS),
             now,
+            tz,
             &self.study_status(now),
             self.used_minutes(now),
             &self.settings(),
@@ -773,15 +802,44 @@ impl Store {
         Ok(())
     }
 
+    /// The friction settings. The risk windows are not part of this call: whatever `new` carries for them is
+    /// ignored and the stored list stays (it changes through `set_risk_windows`, which checks it).
     pub fn set_settings(&self, new: &Settings, confirmed: bool, now: i64) -> Res<()> {
         let old = self.settings();
-        if let Some(e) = check_friction(&old, new, confirmed, self.study_status(now).active) {
+        let new = Settings { risk_windows: old.risk_windows.clone(), ..new.clone() };
+        if let Some(e) = check_friction(&old, &new, confirmed, self.study_status(now).active) {
             return Err(e);
         }
-        if old != *new {
-            self.write_settings(new, now);
+        if old != new {
+            self.write_settings(&new, now);
         }
         Ok(())
+    }
+
+    /// Replaces the list of risk windows. Adding or widening is saved at once; removing or shortening one
+    /// needs `confirmed` and is locked during a study session.
+    pub fn set_risk_windows(&self, windows: &[RiskWindow], confirmed: bool, now: i64) -> Res<()> {
+        let old = self.settings();
+        if let Some(e) = check_risk_windows(&old.risk_windows, windows, confirmed, self.study_status(now).active) {
+            return Err(e);
+        }
+        let new = Settings { risk_windows: normalize_risk_windows(windows), ..old.clone() };
+        if old != new {
+            self.write_settings(&new, now);
+        }
+        Ok(())
+    }
+
+    /// What the "Giờ nguy cơ" card shows: the heat map of the last 28 days, the suggestion and the windows.
+    pub fn risk_overview(&self, now: i64, tz: i64) -> RiskOverview {
+        let events: Vec<RiskEvent> = self
+            .events_since(now - HEATMAP_DAYS * DAY_MS)
+            .iter()
+            .map(|e| RiskEvent { shown_at: e.shown_at, enter: e.decision.as_deref() == Some("enter") })
+            .collect();
+        let cells = risk_heatmap(&events, now, tz, HEATMAP_DAYS);
+        let windows = self.settings().risk_windows;
+        RiskOverview { suggestion: suggest_risk_window(&cells, &windows), cells, windows }
     }
 
     pub fn set_protection(&self, enabled: bool, confirmed: bool, now: i64) -> Res<()> {
@@ -1106,5 +1164,126 @@ mod tests {
         s.add_usage("game", 60.0, NOW + 2 * MIN);
         assert_eq!(s.clear_log(true, NOW + 31 * MIN), Ok(()));
         assert_eq!(rows(&s), 0);
+    }
+
+    fn risk(id: &str, start: &str, end: &str) -> RiskWindow {
+        RiskWindow { id: id.into(), days: vec![1, 2, 3, 4, 5], start: start.into(), end: end.into() }
+    }
+
+    #[test]
+    fn risk_windows_are_saved_checked_and_kept_by_settings_saves() {
+        let s = store();
+        let a = risk("a", "19:00", "21:00");
+        // Adding is saved at once.
+        assert_eq!(s.set_risk_windows(std::slice::from_ref(&a), false, NOW), Ok(()));
+        assert_eq!(s.settings().risk_windows, vec![a.clone()]);
+        // Widening is saved at once, and the other settings stay.
+        let wider = risk("a", "18:00", "22:00");
+        s.set_risk_windows(std::slice::from_ref(&wider), false, NOW).unwrap();
+        assert_eq!(s.settings().budget_minutes, 90);
+        // Removing or shortening needs the confirmation and leaves the list alone until given.
+        assert_eq!(s.set_risk_windows(&[], false, NOW), Err(ErrorCode::NeedsConfirm));
+        assert_eq!(s.set_risk_windows(std::slice::from_ref(&a), false, NOW), Err(ErrorCode::NeedsConfirm));
+        assert_eq!(s.settings().risk_windows, vec![wider.clone()]);
+        assert_eq!(s.set_risk_windows(std::slice::from_ref(&a), true, NOW), Ok(()));
+        // The friction settings page cannot change them, whatever it sends.
+        let mut edited = s.settings();
+        edited.risk_windows.clear();
+        edited.budget_minutes = 60;
+        s.set_settings(&edited, false, NOW).unwrap();
+        assert_eq!((s.settings().budget_minutes, s.settings().risk_windows), (60, vec![a.clone()]));
+        // Bad lists are refused as invalid.
+        assert_eq!(s.set_risk_windows(&[risk("x", "08:00", "08:00")], true, NOW), Err(ErrorCode::Invalid));
+        // The saved list is normalised and marked for sync.
+        s.set_risk_windows(
+            &[a.clone(), RiskWindow { id: "b".into(), days: vec![7, 6, 6], start: "7:05".into(), end: "9:00".into() }],
+            false,
+            NOW,
+        )
+        .unwrap();
+        let saved = s.settings().risk_windows;
+        assert_eq!((saved[1].days.clone(), saved[1].start.as_str()), (vec![6, 7], "07:05"));
+        let dirty: i64 =
+            s.conn().query_row("SELECT dirty FROM settings WHERE id = 'settings'", [], |r| r.get(0)).unwrap();
+        assert_eq!(dirty, 1);
+    }
+
+    #[test]
+    fn risk_windows_are_locked_during_study_when_they_weaken() {
+        let s = store();
+        let a = risk("a", "19:00", "21:00");
+        s.set_risk_windows(std::slice::from_ref(&a), false, NOW).unwrap();
+        s.start_study(30, Some("x"), NOW).unwrap();
+        // Strengthening still works while studying; weakening is locked even when confirmed.
+        s.set_risk_windows(&[a.clone(), risk("b", "07:00", "08:00")], false, NOW).unwrap();
+        assert_eq!(s.set_risk_windows(std::slice::from_ref(&a), true, NOW), Err(ErrorCode::StudyLocked));
+        assert_eq!(s.set_risk_windows(std::slice::from_ref(&a), false, NOW), Err(ErrorCode::StudyLocked));
+        assert_eq!(s.settings().risk_windows.len(), 2);
+    }
+
+    #[test]
+    fn warnings_in_a_risk_window_are_raised_and_flagged() {
+        // NOW is Monday 20:00 local at offset 420.
+        let s = store();
+        s.set_risk_windows(&[risk("a", "19:00", "21:00")], false, NOW).unwrap();
+        let (e, p) = s.record_warning_in("a", "steam.exe", "game", NOW, 420);
+        assert_eq!((p.level, p.risk, e.level, e.lock_seconds), (1, true, 1, 10));
+        // The same event asked for again (a reloaded web warning) keeps level and flag.
+        let (_, again) = s.record_warning_in("a", "steam.exe", "game", NOW + MIN, 420);
+        assert_eq!((again.level, again.risk), (1, true));
+        // Another time zone puts the same instant outside the window.
+        let (_, elsewhere) = s.record_warning_in("b", "steam.exe", "game", NOW + 2 * MIN, 0);
+        assert!(!elsewhere.risk);
+        // The decision check uses the raised level: 1 gives the normal options.
+        assert!(s.decide("a", Decision::Enter, Some(15), None, None, NOW + 11_000).is_ok());
+    }
+
+    #[test]
+    fn risk_overview_counts_the_last_28_days_and_suggests() {
+        let s = store();
+        // Seven warnings on Mondays at 22:00 local (offset 420), within the last 28 days, one Enter.
+        let monday_22 = NOW + 2 * 60 * MIN;
+        for i in 0..7 {
+            let at = monday_22 - (i % 3) * 7 * DAY_MS;
+            let id = format!("e{i}");
+            s.conn()
+                .execute(
+                    "INSERT INTO intercept_events(id, device_id, object, tag, level, lock_seconds, n, shown_at, decision, dirty)
+                     VALUES(?1, 'd', 'x.exe', 'game', 0, 5, 0, ?2, ?3, 0)",
+                    params![id, at + i, if i == 0 { Some("enter") } else { Some("exit") }],
+                )
+                .unwrap();
+        }
+        // One more, too old for the heat map.
+        s.conn()
+            .execute(
+                "INSERT INTO intercept_events(id, device_id, object, tag, level, lock_seconds, n, shown_at, dirty)
+                 VALUES('old', 'd', 'x.exe', 'game', 0, 5, 0, ?1, 0)",
+                [monday_22 - 29 * DAY_MS],
+            )
+            .unwrap();
+        let o = s.risk_overview(monday_22 + 1000, 420);
+        assert_eq!(o.cells.len(), 7);
+        assert!(o.cells.iter().all(|r| r.len() == 24));
+        assert_eq!(o.cells[0][22], RiskCell { opens: 7, enters: 1 });
+        assert_eq!(o.cells.iter().flatten().map(|c| c.opens).sum::<i64>(), 7);
+        let sug = o.suggestion.unwrap();
+        assert_eq!(
+            (sug.days, sug.start.as_str(), sug.end.as_str(), sug.opens, sug.enters),
+            (vec![1, 2, 3, 4, 5], "21:00", "23:00", 7, 1)
+        );
+        assert!(o.windows.is_empty());
+        // Once the suggested window exists, that block is no longer suggested; the next best one is
+        // 22:00-24:00, whose second hour the new window does not cover.
+        s.set_risk_windows(
+            &[RiskWindow { id: "n".into(), days: vec![1, 2, 3, 4, 5], start: "21:00".into(), end: "23:00".into() }],
+            false,
+            NOW,
+        )
+        .unwrap();
+        let again = s.risk_overview(monday_22 + 1000, 420);
+        let next = again.suggestion.unwrap();
+        assert_eq!((next.start.as_str(), next.end.as_str(), next.opens), ("22:00", "00:00", 7));
+        assert_eq!(again.windows.len(), 1);
     }
 }

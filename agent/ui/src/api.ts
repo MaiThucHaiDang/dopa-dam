@@ -143,6 +143,34 @@ export interface Settings {
   tagDelays: Record<string, number>;
 }
 
+/** A weekly window with one more friction level (docs 2.5). Days are ISO (1 = Monday ... 7 = Sunday). */
+export interface RiskWindow {
+  id: string;
+  days: number[];
+  start: string;
+  end: string;
+}
+
+export interface RiskCell {
+  opens: number;
+  enters: number;
+}
+
+export interface RiskSuggestion {
+  days: number[];
+  start: string;
+  end: string;
+  opens: number;
+  enters: number;
+}
+
+/** What the "Giờ nguy cơ" card shows; cells[0] is Monday and each row has 24 hours. */
+export interface RiskOverview {
+  cells: RiskCell[][];
+  suggestion: RiskSuggestion | null;
+  windows: RiskWindow[];
+}
+
 export interface WarningContext {
   eventId: string;
   appName: string;
@@ -155,6 +183,8 @@ export interface WarningContext {
   budget: BudgetView;
   study: StudyStatus;
   activities: string[];
+  /** The risk-hours raise applied: the warning explains why the wait is one level longer. */
+  risk: boolean;
 }
 
 export interface Toast {
@@ -214,6 +244,8 @@ export const api = {
   removeAllowUrl: (entry: AllowEntry) => invoke<void>("remove_allow_url", { entry }),
   settings: () => invoke<Settings>("get_settings"),
   saveSettings: (settings: Settings, confirmed: boolean) => invoke<void>("save_settings", { settings, confirmed }),
+  riskOverview: () => invoke<RiskOverview>("get_risk_overview"),
+  setRiskWindows: (windows: RiskWindow[], confirmed: boolean) => invoke<void>("set_risk_windows", { windows, confirmed }),
   setProtection: (enabled: boolean, confirmed: boolean) => invoke<void>("set_protection", { enabled, confirmed }),
   clearLog: (confirmed: boolean) => invoke<void>("clear_log", { confirmed }),
   setAutostart: (enabled: boolean, confirmed: boolean) => invoke<void>("set_autostart", { enabled, confirmed }),

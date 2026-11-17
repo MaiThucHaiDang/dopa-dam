@@ -35,6 +35,8 @@ pub struct WarningContext {
     pub budget: BudgetView,
     pub study: StudyStatus,
     pub activities: Vec<String>,
+    /// The risk-hours raise applied to this warning (the window shows one line about it).
+    pub risk: bool,
 }
 
 pub struct ActiveWarning {
@@ -283,6 +285,7 @@ fn show_warning(state: &Shared, fg: Foreground, tag: &str, now: i64) {
             budget: budget_view(&store, now),
             study: store.study_status(now),
             activities: ACTIVITIES.iter().map(|s| s.to_string()).collect(),
+            risk: plan.risk,
         }
     };
     {
@@ -674,6 +677,7 @@ mod tests {
             budget: BudgetView { used_minutes: 0.0, budget_minutes: 60, remaining_minutes: None, over: false },
             study: StudyStatus::none(),
             activities: vec![],
+            risk: false,
         }
     }
 

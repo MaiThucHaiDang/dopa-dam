@@ -7,6 +7,7 @@ use crate::db::{AllowEntry, Rule, KIND_DOMAIN, KIND_EXE};
 use crate::guard::{self, Toast, WarningContext};
 use crate::logic::{Decision, ErrorCode};
 use crate::nmhost;
+use crate::risk::RiskWindow;
 use crate::state::{budget_view, BudgetView, Shared, AGENT_VERSION};
 use serde::Serialize;
 use std::collections::BTreeMap;
@@ -285,6 +286,22 @@ pub fn get_settings(state: State<'_, Shared>) -> Settings {
 #[tauri::command]
 pub fn save_settings(state: State<'_, Shared>, settings: Settings, confirmed: bool) -> CmdResult {
     state.store().set_settings(&settings, confirmed, now_ms())?;
+    state.changed();
+    Ok(())
+}
+
+/// The "Giờ nguy cơ" card: the 7 x 24 cells of the last 28 days, the suggestion and the active windows.
+#[tauri::command]
+pub fn get_risk_overview(state: State<'_, Shared>) -> crate::db::RiskOverview {
+    let now = now_ms();
+    state.store().risk_overview(now, local_tz_offset(now))
+}
+
+/// Replaces the list of risk windows. Adding or widening is saved at once; removing or shortening one
+/// needs `confirmed` (`needs-confirm`) and is locked during a study session (`study-locked`).
+#[tauri::command]
+pub fn set_risk_windows(state: State<'_, Shared>, windows: Vec<RiskWindow>, confirmed: bool) -> CmdResult {
+    state.store().set_risk_windows(&windows, confirmed, now_ms())?;
     state.changed();
     Ok(())
 }

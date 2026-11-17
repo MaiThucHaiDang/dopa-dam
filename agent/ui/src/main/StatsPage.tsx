@@ -4,6 +4,7 @@ import { api, type DayStat } from "../api";
 import { BarChart, type Series } from "../components/BarChart";
 import { weeklyProgress, MIN_INTERCEPTIONS, type Verdict, type WeeklyProgress } from "../progress";
 import { useRefresh } from "./MainApp";
+import { RiskCard } from "./RiskCard";
 
 type Range = "days" | "weeks";
 
@@ -114,6 +115,7 @@ export function StatsPage() {
         Gộp mọi thiết bị đã đồng bộ. Mục tiêu: tỉ lệ Thoát tăng dần, số giây đến lúc Thoát giảm dần.
       </p>
       {stats.length > 0 && <ProgressCard p={weeklyProgress(stats, stats[stats.length - 1].day)} />}
+      <RiskCard />
       <div className="row" role="group" aria-label="Khoảng thời gian">
         <button className={range === "days" ? "btn-primary small-btn" : "btn-secondary small-btn"} onClick={() => setRange("days")}>
           14 ngày
