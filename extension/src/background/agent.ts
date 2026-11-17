@@ -33,6 +33,8 @@ export interface WarningContext {
   eventId?: string;
   level?: number;
   lockSeconds?: number;
+  /** Sent by agents that know risk hours: the level was raised by one inside a risk window. Absent from older ones. */
+  risk?: boolean;
   allowOptions?: number[];
   n?: number;
   shownAt?: number;

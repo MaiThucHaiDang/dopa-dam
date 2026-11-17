@@ -2,7 +2,7 @@
 // A local HTTP server plays the "entertainment site" on localhost, so no network is needed.
 // Usage: npm run build && npm run e2e
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -394,6 +394,154 @@ try {
     assert.deepEqual(await send({ type: "options:setProtection", enabled: true, confirmed: false }), { ok: true });
     await page.goto(`http://127.0.0.1:${PORT}/blocked-again`).catch(() => undefined);
     await page.waitForURL((u) => u.href.startsWith(`${EXT}/warning.html`), { timeout: 5000 });
+    await page.close();
+  });
+
+  // ---- Risk hours ----------------------------------------------------------------------------------
+  const SHOTS = process.env.DOPADAM_E2E_SHOTS ?? "";
+  const hhmm = (d) => `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  const DAY_MS = 86_400_000;
+
+  /** Writes events straight into the extension's storage, then stops its worker so the next message re-reads them. */
+  async function seedEvents(events) {
+    const sw = context.serviceWorkers()[0];
+    await sw.evaluate(async (list) => {
+      const { state } = await chrome.storage.local.get("state");
+      state.events = list;
+      await chrome.storage.local.set({ state });
+    }, events);
+    const page = await context.newPage();
+    await page.goto(`${EXT}/popup.html`);
+    const cdp = await context.newCDPSession(page);
+    await cdp.send("ServiceWorker.enable");
+    await cdp.send("ServiceWorker.stopAllWorkers");
+    await page.close();
+    for (let i = 0; i < 50; i++) {
+      const view = await send({ type: "options:get" }).catch(() => null);
+      if (view?.ok && view.risk.heatmap.flat().reduce((a, c) => a + c.opens, 0) === events.length) return;
+      await new Promise((r) => setTimeout(r, 200));
+    }
+    throw new Error("the extension did not load the seeded events");
+  }
+
+  await test("risk hours: set-up (no study rule, default friction, empty log)", async () => {
+    const view = await send({ type: "options:get" });
+    for (const rule of view.studyRules) assert.deepEqual(await send({ type: "study:deleteRule", id: rule.id, confirmed: true }), { ok: true });
+    assert.deepEqual(await send({ type: "options:setFriction", lockSeconds: [5, 10, 20, 30], budgetMinutes: 90, confirmed: true }), { ok: true });
+    assert.deepEqual(await send({ type: "options:clearLog", confirmed: true }), { ok: true });
+    assert.deepEqual((await send({ type: "options:get" })).risk.windows, []);
+  });
+
+  await test("risk hours: without a window the first warning is level 0 and has no risk line", async () => {
+    const page = await openBlocked2("/risk-off");
+    assert.match(await page.locator("#meta").textContent(), /Lần thứ 1 .* khóa 5 giây/);
+    assert.equal(await page.locator("#risk-note").isHidden(), true);
+    await page.close();
+  });
+
+  await test("risk hours: the heat map and the suggestion render from seeded events, and the button adds the window", async () => {
+    assert.deepEqual(await send({ type: "options:clearLog", confirmed: true }), { ok: true });
+    // Weekday evenings of the last 13 days: 21:30 (Vào) and 22:30 (Thoát); a few afternoon opens on any day.
+    const events = [];
+    let weekdays = 0;
+    let tuesdays = 0;
+    for (let k = 1; k <= 13; k++) {
+      const day = new Date(Date.now() - k * DAY_MS);
+      const at = (h, m) => new Date(day.getFullYear(), day.getMonth(), day.getDate(), h, m).getTime();
+      const dow = day.getDay(); // 0 = Sunday
+      const add = (shownAt, decision) =>
+        events.push({
+          id: `seed-${events.length}`, object: "youtube.com", tag: "entertainment", url: "https://www.youtube.com/", level: 0,
+          lockSeconds: 5, n: 0, shownAt, studyLabel: null, decision, decidedAt: shownAt + 8000, allowMinutes: null, activity: null, activityMinutes: null,
+        });
+      if (dow >= 1 && dow <= 5) {
+        weekdays++;
+        if (dow === 2) tuesdays++;
+        add(at(21, 30), "enter");
+        add(at(22, 30), "exit");
+      }
+      if (k % 3 === 0) add(at(13, 10), "exit");
+    }
+    await seedEvents(events);
+
+    const page = await context.newPage();
+    await page.setViewportSize({ width: 1000, height: 900 });
+    await page.goto(`${EXT}/options.html`);
+    const risk = page.locator("#risk");
+    await risk.locator("#heatmap .heat-cell").first().waitFor();
+    assert.equal(await risk.locator("#heatmap .heat-cell").count(), 7 * 24);
+    assert.equal(await risk.locator("#risk-subtitle").textContent(), "2 tuần gần nhất. Ô càng đậm, bạn càng hay mở giải trí vào giờ đó.");
+    const tuesday22 = risk.locator(`#heatmap .heat-cell[aria-label="Thứ 3, 22 giờ: ${tuesdays} lần mở, 0 lần Vào"]`);
+    assert.equal(await tuesday22.count(), 1);
+    assert.equal(await tuesday22.getAttribute("title"), `Thứ 3, 22 giờ: ${tuesdays} lần mở, 0 lần Vào`);
+    assert.equal(await risk.locator('#heatmap .heat-cell[data-shade="4"]').count() > 0, true);
+    assert.equal(await risk.locator('#heatmap .heat-cell[data-shade="0"]').count() > 100, true);
+    assert.equal(
+      await risk.locator("#risk-suggestion-text").textContent(),
+      `Hay mở nhất: 21:00–23:00, thứ 2 đến thứ 6 (${2 * weekdays} lần mở, ${weekdays} lần Vào).`,
+    );
+    assert.equal(await risk.locator("#risk-list li").textContent(), "Chưa có khung nào.");
+    if (SHOTS) {
+      mkdirSync(SHOTS, { recursive: true });
+      await risk.screenshot({ path: join(SHOTS, "options-risk-desktop.png") });
+    }
+    await page.setViewportSize({ width: 360, height: 800 });
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), true, "the options page scrolls sideways at 360 px");
+    assert.equal(await page.evaluate(() => document.querySelector("#heatmap").scrollWidth <= document.querySelector("#heatmap").clientWidth), true);
+    if (SHOTS) await risk.screenshot({ path: join(SHOTS, "options-risk-360.png") });
+    await page.setViewportSize({ width: 1000, height: 900 });
+
+    await risk.locator("#risk-add").click();
+    await risk.locator("#risk-list li", { hasText: "21:00–23:00 · thứ 2 đến thứ 6 · thời gian chờ dài hơn một cấp" }).waitFor();
+    assert.equal((await send({ type: "options:get" })).risk.windows.length, 1);
+    assert.notEqual(await risk.locator("#risk-suggestion-text").textContent(), `Hay mở nhất: 21:00–23:00, thứ 2 đến thứ 6 (${2 * weekdays} lần mở, ${weekdays} lần Vào).`);
+    await page.close();
+  });
+
+  await test("risk hours: a window covering now locks the first warning for the level-1 time and shows the line", async () => {
+    const now = new Date();
+    const windows = [
+      { id: "e2e", days: [1, 2, 3, 4, 5, 6, 7], start: hhmm(new Date(now.getTime() - 3_600_000)), end: hhmm(new Date(now.getTime() + 3_600_000)) },
+    ];
+    // Replacing the seeded window may or may not drop coverage (it depends on the time of day), so confirm.
+    assert.deepEqual(await send({ type: "options:setRiskWindows", windows, confirmed: true }), { ok: true });
+    assert.deepEqual(await send({ type: "options:clearLog", confirmed: true }), { ok: true });
+    const page = await openBlocked2("/risk-on");
+    assert.match(await page.locator("#meta").textContent(), /Lần thứ 1 .* khóa 10 giây/);
+    assert.equal(await page.locator("#risk-note").isVisible(), true);
+    assert.equal(
+      await page.locator("#risk-note").textContent(),
+      "Đây là khung giờ bạn hay mở giải trí nên thời gian chờ dài hơn một cấp.",
+    );
+    assert.match(await page.locator("#enter").textContent(), /^Vào \(\d+\)$/);
+    await page.close();
+  });
+
+  await test("risk hours: removing a window asks for the 60-second confirmation", async () => {
+    const page = await context.newPage();
+    await page.goto(`${EXT}/options.html`);
+    const item = page.locator("#risk-list li");
+    assert.equal(await item.count(), 1);
+    await item.locator("button", { hasText: "Gỡ" }).click();
+    const modal = page.locator(".modal");
+    await modal.waitFor({ state: "visible" });
+    assert.match(await modal.textContent(), /Chờ \d+ giây/);
+    assert.match(await modal.textContent(), /Gỡ khung giờ nguy cơ/);
+    assert.equal(await modal.locator("input").isDisabled(), true);
+    await modal.locator("button", { hasText: "Giữ nguyên bảo vệ" }).click();
+    await page.waitForTimeout(300);
+    assert.equal(await page.locator("#risk-list li").count(), 1);
+    assert.equal((await send({ type: "options:get" })).risk.windows.length, 1);
+    await page.close();
+  });
+
+  await test("risk hours: the last window can be removed once confirmed, and the level drops back", async () => {
+    assert.deepEqual(await send({ type: "options:setRiskWindows", windows: [], confirmed: false }), { ok: false, error: "needs-confirm" });
+    assert.deepEqual(await send({ type: "options:setRiskWindows", windows: [], confirmed: true }), { ok: true });
+    assert.deepEqual(await send({ type: "options:clearLog", confirmed: true }), { ok: true });
+    const page = await openBlocked2("/risk-gone");
+    assert.match(await page.locator("#meta").textContent(), /Lần thứ 1 .* khóa 5 giây/);
+    assert.equal(await page.locator("#risk-note").isHidden(), true);
     await page.close();
   });
 } finally {

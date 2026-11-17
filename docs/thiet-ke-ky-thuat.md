@@ -105,6 +105,16 @@ Mục tiêu: tăng cản trở đúng vào những khung giờ người dùng ha
 
 **Thay đổi làm yếu bảo vệ** (`classifyRiskWindowsChange(old, next)`): là `"weaken"` khi có ít nhất một phút trong tuần được danh sách cũ phủ mà danh sách mới không phủ (gỡ khung, bớt ngày, rút ngắn); ngược lại là `"ok"` (thêm khung, mở rộng). `"weaken"` phải qua bước xác nhận của FR14 và bị khóa trong giờ học.
 
+**Các điểm chốt thêm** (đều có ca kiểm thử trong `risk.json`):
+
+- Khung không hợp lệ coi như không có ở mọi hàm: không phủ phút nào. Ngày ngoài 1..7 bị bỏ, phần còn lại của khung được giữ. Giờ được đọc như khung giờ học (`"7:05"` thành `"07:05"`; `"24:00"`, `"12:60"`, `"7:5"` là sai). Khác khung giờ học ở một điểm: `start == end` là không hợp lệ.
+- Khi xét khối đã được phủ hay chưa, từng giờ của khối phải nằm trọn trong một khung, nhưng hai giờ có thể thuộc hai khung khác nhau (hai khung liền nhau 20:00–21:00 và 21:00–22:00 phủ khối 20:00–22:00).
+- Khung qua nửa đêm của thứ Hai đến thứ Sáu phủ cả các giờ đầu ngày hôm sau; ngày liền trước của thứ Hai là Chủ nhật.
+- Tỉ lệ theo ngày luôn chia cho số ngày của nhóm (5 hoặc 2), kể cả khi chỉ vài ngày có dữ liệu. Khi tỉ lệ bằng nhau, nhóm trong tuần thắng nhóm cuối tuần trước khi xét `h`.
+- `enters` chỉ đếm lựa chọn đúng bằng `"enter"`.
+- Độ phủ của danh sách khung tính theo từng phút của tuần (khung qua nửa đêm Chủ nhật vòng sang thứ Hai); mã `id` của khung không ảnh hưởng. Tách một khung thành hai khung phủ cùng thời gian là `"ok"`.
+- Trong tệp ca kiểm thử, bản đồ nhiệt được ghi gọn thành danh sách ô khác 0 `{ row, hour, opens, enters }` với `row` 0 = thứ Hai … 6 = Chủ nhật, xếp theo `row` rồi `hour`.
+
 **Giao diện.** Thẻ "Giờ nguy cơ" nằm ở trang Thống kê của agent và của app Android, và ở trang tùy chọn của extension khi extension chạy riêng: bản đồ nhiệt một màu (ô càng đậm càng nhiều lần mở, không dùng màu báo động), một dòng gợi ý kèm nút "Tăng cản trở trong khung này", và danh sách các khung đang bật, mỗi khung có nút "Gỡ". Khi không có khối nào đủ điều kiện thì hiện "Chưa có khung giờ nào nổi bật."
 
 ## 3. Giao thức agent ↔ extension

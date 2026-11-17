@@ -4,16 +4,20 @@ import {
   MINUTE_MS,
   truncateStudyLabel,
   activeRuleOccurrences,
+  MAX_RISK_WINDOWS,
   budgetStatus,
   classifyNumberChange,
+  classifyRiskWindowsChange,
   classifyStudyRuleChange,
   classifyTagChange,
   computeLevel,
   dayKey,
+  inRiskWindow,
   isAllowedUrl,
   isBlockedTag,
   matchDomainRule,
   normalizeDomainInput,
+  normalizeRiskWindow,
   normalizeStudyRule,
   normalizeHost,
   parseAllowUrl,
@@ -22,6 +26,7 @@ import {
   sameAllowEntry,
   type AllowEntry,
   type DomainRule,
+  type RiskWindow,
   type StudyRule,
   type StudyStatus,
   type Tag,
@@ -119,7 +124,10 @@ export function recordWarning(
   );
   const study = studyStatus(draft, now, tz);
   const budget = budgetView(draft, now, tz);
-  const lvl = computeLevel(n, study.active, budget.over, draft.settings);
+  const inRisk = inRiskWindow(draft.riskWindows, now, tz);
+  const lvl = computeLevel(n, study.active, budget.over, draft.settings, inRisk);
+  // The raise applied only when the level is higher than without the window (it never goes past 3).
+  const risk = lvl.level > computeLevel(n, study.active, budget.over, draft.settings).level;
   const event: WarningEvent = {
     id: input.id,
     object: input.object,
@@ -127,6 +135,7 @@ export function recordWarning(
     url: input.url,
     level: lvl.level,
     lockSeconds: lvl.lockSeconds,
+    risk,
     n,
     shownAt: now,
     studyLabel: study.active ? study.label : null,
@@ -385,6 +394,34 @@ export function deleteStudyRule(draft: State, id: string, confirmed: boolean, no
     if (!confirmed) return { ok: false, error: "needs-confirm" };
   }
   draft.study.rules = draft.study.rules.filter((r) => r.id !== id);
+  return { ok: true };
+}
+
+/**
+ * Replaces the list of risk windows (docs/thiet-ke-ky-thuat.md, 2.5). Every window must be valid and there are at
+ * most MAX_RISK_WINDOWS. A change that weakens protection is locked during study, then needs the confirmation.
+ */
+export function setRiskWindows(
+  draft: State,
+  windows: RiskWindow[],
+  confirmed: boolean,
+  now: number,
+  tz: number,
+): Result {
+  if (!Array.isArray(windows) || windows.length > MAX_RISK_WINDOWS) return { ok: false, error: "invalid" };
+  const next: RiskWindow[] = [];
+  for (const w of windows) {
+    const clean = w && typeof w === "object" ? normalizeRiskWindow({ ...w, id: typeof w.id === "string" ? w.id : "" }) : null;
+    if (!clean) return { ok: false, error: "invalid" };
+    // A new window (or a repeated id) gets its own id.
+    if (!clean.id || next.some((x) => x.id === clean.id)) clean.id = crypto.randomUUID();
+    next.push(clean);
+  }
+  if (classifyRiskWindowsChange(draft.riskWindows, next) === "weaken") {
+    if (studyLocked(draft, now, tz)) return { ok: false, error: "study-locked" };
+    if (!confirmed) return { ok: false, error: "needs-confirm" };
+  }
+  draft.riskWindows = next;
   return { ok: true };
 }
 

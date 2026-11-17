@@ -3,6 +3,7 @@
 import { ERROR_TEXT, sendRequest, type DecideResponse, type WarningInit } from "../shared/messages";
 import type { Decision } from "../background/state";
 import { resumeVisibleMs } from "../core/countdown";
+import { RISK_LINE } from "../shared/riskText";
 import { byId, el, formatClock, formatMinutes, minutesUntil, show } from "./dom";
 
 type View = "loading" | "choice" | "alternative" | "timer" | "message";
@@ -284,6 +285,9 @@ async function main(): Promise<void> {
   document.title = `DopaDam · ${init.host}`;
   byId("host").textContent = init.host;
   byId("meta").textContent = `Lần thứ ${init.countThisHour} trong 60 phút qua · nút Vào khóa ${init.lockSeconds} giây`;
+  const riskNote = byId("risk-note");
+  riskNote.textContent = RISK_LINE;
+  show(riskNote, init.risk === true);
   renderFooter(init);
   renderAllowOptions(init.allowOptions);
   renderAlternative(init.activities);

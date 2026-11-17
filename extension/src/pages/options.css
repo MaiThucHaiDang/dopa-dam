@@ -180,3 +180,68 @@
   flex: none;
   white-space: nowrap;
 }
+
+/* Risk hours: one hue (the accent), darker where there are more opens. */
+.risk-body {
+  display: grid;
+  gap: var(--dd-space-md);
+}
+
+.risk-body > p {
+  margin: 0;
+}
+
+.heatmap {
+  display: grid;
+  grid-template-columns: 1.75rem repeat(24, minmax(0, 1fr));
+  gap: 2px;
+  align-items: center;
+  font-size: 12px;
+  color: var(--dd-text-faint);
+}
+
+.heat-hour {
+  grid-column: span 3;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.heat-row {
+  white-space: nowrap;
+}
+
+.heat-cell {
+  height: 20px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--dd-border) 35%, var(--dd-surface));
+}
+
+.heat-cell[data-shade="1"] {
+  background: color-mix(in srgb, var(--dd-accent) 25%, var(--dd-surface));
+}
+
+.heat-cell[data-shade="2"] {
+  background: color-mix(in srgb, var(--dd-accent) 45%, var(--dd-surface));
+}
+
+.heat-cell[data-shade="3"] {
+  background: color-mix(in srgb, var(--dd-accent) 70%, var(--dd-surface));
+}
+
+.heat-cell[data-shade="4"] {
+  background: var(--dd-accent);
+}
+
+.risk-suggestion {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--dd-space-sm) var(--dd-space-md);
+  align-items: center;
+  justify-content: space-between;
+}
+
+.risk-suggestion p {
+  margin: 0;
+  flex: 1 1 260px;
+}

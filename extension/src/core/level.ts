@@ -8,9 +8,19 @@ export interface LevelResult {
   allowOptions: number[];
 }
 
-/** Friction level from the number of warnings in the previous hour, study mode and the daily budget. */
-export function computeLevel(n: number, inStudy: boolean, overBudget: boolean, settings: FrictionSettings): LevelResult {
-  const level: Level = inStudy || overBudget ? 3 : n <= 0 ? 0 : n <= 2 ? 1 : 2;
+/**
+ * Friction level from the number of warnings in the previous hour, study mode and the daily budget; one more
+ * (up to 3) inside a risk window.
+ */
+export function computeLevel(
+  n: number,
+  inStudy: boolean,
+  overBudget: boolean,
+  settings: FrictionSettings,
+  inRisk = false,
+): LevelResult {
+  const base: Level = inStudy || overBudget ? 3 : n <= 0 ? 0 : n <= 2 ? 1 : 2;
+  const level = (inRisk && base < 3 ? base + 1 : base) as Level;
   const options = level === 3 ? settings.allowOptionsRestricted : settings.allowOptionsNormal;
   return { level, lockSeconds: settings.lockSeconds[level], allowOptions: [...options] };
 }

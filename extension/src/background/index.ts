@@ -8,6 +8,8 @@ import {
   matchDomainRule,
   normalizeDomainInput,
   parseAllowUrl,
+  riskHeatmap,
+  suggestRiskWindow,
   type AllowEntry,
   type StudyStatus,
 } from "../core";
@@ -208,6 +210,7 @@ function warningView(state: State, event: WarningEvent, now: number, tz: number)
     tag: event.tag,
     level: event.level,
     lockSeconds: event.lockSeconds,
+    risk: event.risk === true,
     allowOptions: L.allowOptionsFor(state, event.level),
     countThisHour: event.n + 1,
     elapsedMs: Math.max(0, now - event.shownAt),
@@ -239,6 +242,7 @@ async function agentWarning(eventId: string, url: string, object: string, tag: W
         url,
         level: ctx.level!,
         lockSeconds: ctx.lockSeconds!,
+        risk: ctx.risk === true,
         n: ctx.n ?? 0,
         shownAt: ctx.shownAt!,
         studyLabel: ctx.study?.active ? ctx.study.label : null,
@@ -262,6 +266,7 @@ async function agentWarning(eventId: string, url: string, object: string, tag: W
     tag,
     level: ctx.level,
     lockSeconds: ctx.lockSeconds!,
+    risk: ctx.risk === true,
     allowOptions: ctx.allowOptions ?? [],
     countThisHour: (ctx.n ?? 0) + 1,
     elapsedMs: Math.max(0, now - ctx.shownAt),
@@ -392,6 +397,7 @@ chrome.runtime.onConnect.addListener((port) => {
 async function optionsView(): Promise<OptionsView> {
   const { now, tz } = clock();
   const state = await readState();
+  const heatmap = riskHeatmap(state.events, now, tz, L.RETENTION_DAYS);
   return {
     ok: true,
     protectionEnabled: state.protectionEnabled,
@@ -401,6 +407,7 @@ async function optionsView(): Promise<OptionsView> {
     suggestions: DOMAIN_SUGGESTIONS,
     study: agent.connected && agent.config ? agent.config.study : L.studyStatus(state, now, tz),
     studyRules: agent.connected && agent.config ? (agent.config.studyRules ?? []) : state.study.rules,
+    risk: { windows: state.riskWindows, heatmap, suggestion: suggestRiskWindow(heatmap, state.riskWindows) },
     agent: agent.status,
   };
 }
@@ -502,6 +509,10 @@ async function handle(msg: Request, sender: chrome.runtime.MessageSender): Promi
       }
       return mutate((d, now, tz) => L.clearLog(d, msg.confirmed, now, tz), false);
     }
+    case "options:setRiskWindows":
+      // With the agent connected, risk hours are viewed and changed in the app on the computer.
+      if (agent.connected) return { ok: false, error: "invalid" };
+      return mutate((d, now, tz) => L.setRiskWindows(d, msg.windows, msg.confirmed, now, tz), false);
     case "study:start":
       if (agent.connected) return viaAgent({ type: "start_study", minutes: msg.minutes, label: msg.label });
       return mutate((d, now) => L.startStudy(d, msg.minutes, msg.label, now), false);

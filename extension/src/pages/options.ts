@@ -5,13 +5,27 @@ import {
   TAG_LABELS,
   describeAllowEntry,
   formatLocalDate,
+  MAX_RISK_WINDOWS,
   formatStudyDays,
   shortDate,
+  type RiskWindow,
   type AllowEntry,
   type StudyRule,
   type Tag,
 } from "../core";
 import { ERROR_TEXT, sendRequest, type OptionsView, type Request, type SimpleResponse } from "../shared/messages";
+import {
+  RISK_AGENT_NOTE,
+  RISK_NONE,
+  RISK_ROW_LABELS,
+  RISK_SUBTITLE,
+  describeHeatCell,
+  describeRiskWindow,
+  describeSuggestion,
+  formatRiskDays,
+  formatRiskRange,
+  heatShade,
+} from "../shared/riskText";
 import { confirmWeakening } from "./confirm";
 import { byId, el, show } from "./dom";
 
@@ -137,8 +151,71 @@ function renderStudy(v: OptionsView): void {
   );
 }
 
+/** Replaces the whole list of risk windows; removing or shortening one goes through the 60-second confirmation. */
+function setRiskWindows(windows: RiskWindow[], action: string): Promise<boolean> {
+  return submit((confirmed) => ({ type: "options:setRiskWindows", windows, confirmed }), action);
+}
+
+function renderRisk(v: OptionsView): void {
+  const connected = v.agent.connected;
+  const note = byId("risk-agent");
+  note.textContent = RISK_AGENT_NOTE;
+  show(note, connected);
+  show(byId("risk-body"), !connected);
+  if (connected) return;
+
+  byId("risk-subtitle").textContent = RISK_SUBTITLE;
+  const { windows, heatmap, suggestion } = v.risk;
+  const max = Math.max(0, ...heatmap.flat().map((c) => c.opens));
+  const cells: Node[] = [el("span")];
+  for (let h = 0; h < 24; h += 3) cells.push(el("span", { class: "heat-hour", text: String(h), "aria-hidden": "true" }));
+  heatmap.forEach((row, r) => {
+    cells.push(el("span", { class: "heat-row", text: RISK_ROW_LABELS[r], "aria-hidden": "true" }));
+    row.forEach((cell, hour) => {
+      const label = describeHeatCell(r, hour, cell);
+      cells.push(el("div", { class: "heat-cell", role: "img", "data-shade": heatShade(cell.opens, max), title: label, "aria-label": label }));
+    });
+  });
+  byId("heatmap").replaceChildren(...cells);
+
+  const full = windows.length >= MAX_RISK_WINDOWS;
+  byId("risk-suggestion-text").textContent = suggestion
+    ? describeSuggestion(suggestion) + (full ? ` Đã đủ ${MAX_RISK_WINDOWS} khung, gỡ bớt một khung để thêm.` : "")
+    : RISK_NONE;
+  const add = byId<HTMLButtonElement>("risk-add");
+  show(add, suggestion !== null);
+  add.disabled = full;
+  add.onclick = () => {
+    if (!suggestion || full) return;
+    const next: RiskWindow = { id: crypto.randomUUID(), days: suggestion.days, start: suggestion.start, end: suggestion.end };
+    void setRiskWindows([...windows, next], "Thêm khung giờ nguy cơ.");
+  };
+
+  byId("risk-list").replaceChildren(
+    ...(windows.length
+      ? windows.map((w) =>
+          el("li", {}, [
+            el("span", { text: describeRiskWindow(w) }),
+            el("button", {
+              class: "btn-quiet small-btn",
+              type: "button",
+              disabled: v.study.active,
+              text: "Gỡ",
+              onclick: (() =>
+                void setRiskWindows(
+                  windows.filter((x) => x !== w),
+                  `Gỡ khung giờ nguy cơ ${formatRiskRange(w.start, w.end)}, ${formatRiskDays(w.days)}: thời gian chờ trong khung này sẽ không còn dài hơn một cấp.`,
+                )) as EventListener,
+            }),
+          ]),
+        )
+      : [el("li", { class: "faint", text: "Chưa có khung nào." })]),
+  );
+}
+
 function render(v: OptionsView): void {
   renderStudy(v);
+  renderRisk(v);
   const locked = v.study.active;
   byId("status-line").textContent = v.protectionEnabled ? "Bảo vệ đang bật" : "Bảo vệ đang TẮT";
 

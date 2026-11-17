@@ -1,8 +1,11 @@
 import {
   DEFAULT_SETTINGS,
+  MAX_RISK_WINDOWS,
   isTag,
+  normalizeRiskWindow,
   type AllowEntry,
   type DomainRule,
+  type RiskWindow,
   type Session,
   type Settings,
   type StudyRule,
@@ -20,6 +23,8 @@ export interface WarningEvent {
   url: string;
   level: number;
   lockSeconds: number;
+  /** The level was raised by one because the warning came inside a risk window. Absent in older stored events. */
+  risk?: boolean;
   /** Warnings shown in the previous hour, not counting this one. */
   n: number;
   shownAt: number;
@@ -50,6 +55,8 @@ export interface State {
   domainRules: DomainRule[];
   allowUrls: AllowEntry[];
   settings: Settings;
+  /** Weekly windows in which the friction level is one higher (standalone mode; at most MAX_RISK_WINDOWS). */
+  riskWindows: RiskWindow[];
   allowWindows: AllowWindow[];
   events: WarningEvent[];
   /** dayKey -> tag -> seconds of active use. */
@@ -88,6 +95,7 @@ export function initialState(profileId: string): State {
     domainRules: DEFAULT_DOMAIN_RULES.map((r) => ({ ...r })),
     allowUrls: [],
     settings: structuredClone(DEFAULT_SETTINGS),
+    riskWindows: [],
     allowWindows: [],
     events: [],
     usage: {},
@@ -103,6 +111,19 @@ function isNumberArray(value: unknown, length?: number): value is number[] {
     value.every((x) => typeof x === "number" && Number.isFinite(x)) &&
     (length === undefined || value.length === length)
   );
+}
+
+/** Stored risk windows: valid ones only, cleaned, at most MAX_RISK_WINDOWS. */
+function migrateRiskWindows(raw: unknown): RiskWindow[] {
+  if (!Array.isArray(raw)) return [];
+  const out: RiskWindow[] = [];
+  for (const w of raw) {
+    if (!w || typeof w !== "object" || !Array.isArray(w.days) || typeof w.start !== "string" || typeof w.end !== "string") continue;
+    const clean = normalizeRiskWindow({ id: typeof w.id === "string" ? w.id : "", days: w.days, start: w.start, end: w.end });
+    if (clean) out.push(clean);
+    if (out.length >= MAX_RISK_WINDOWS) break;
+  }
+  return out;
 }
 
 /** Accepts whatever is in storage and fills in anything missing or malformed with defaults. */
@@ -129,6 +150,7 @@ export function migrateState(raw: unknown, profileId: string): State {
       : base.domainRules,
     allowUrls: Array.isArray(r.allowUrls) ? r.allowUrls.filter((a) => a && typeof a.kind === "string") : [],
     settings,
+    riskWindows: migrateRiskWindows(r.riskWindows),
     allowWindows: Array.isArray(r.allowWindows) ? r.allowWindows.filter((w) => w && typeof w.object === "string") : [],
     events: Array.isArray(r.events) ? r.events.filter((e) => e && typeof e.id === "string") : [],
     usage: r.usage && typeof r.usage === "object" ? r.usage : {},

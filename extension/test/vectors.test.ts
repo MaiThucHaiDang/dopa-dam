@@ -6,19 +6,29 @@ import {
   activeRuleOccurrences,
   budgetStatus,
   classifyNumberChange,
+  classifyRiskWindowsChange,
   classifyStudyRuleChange,
   classifyTagChange,
   computeLevel,
   dayKey,
   effectiveDelay,
+  inRiskWindow,
   isAllowedUrl,
+  MAX_RISK_WINDOWS,
   matchDomainTag,
+  normalizeRiskWindow,
   parseAllowUrl,
   recentCount,
+  RISK_BLOCK_HOURS,
+  RISK_MIN_OPENS,
   resolveStudy,
+  riskHeatmap,
+  suggestRiskWindow,
   type AllowEntry,
   type DomainRule,
   type NumberField,
+  type RiskCell,
+  type RiskWindow,
   type Session,
   type StudyRule,
   type Tag,
@@ -35,7 +45,7 @@ describe("level.json", () => {
   for (const c of v.cases) {
     it(c.name, () => {
       const s = c.settings ?? v.defaultSettings;
-      expect(computeLevel(c.input.n, c.input.inStudy, c.input.overBudget, s)).toEqual(c.expected);
+      expect(computeLevel(c.input.n, c.input.inStudy, c.input.overBudget, s, c.input.inRisk ?? false)).toEqual(c.expected);
     });
   }
 });
@@ -120,5 +130,46 @@ describe("study-change.json", () => {
   for (const c of v.activeCases) {
     it(`đang diễn ra: ${c.name}`, () =>
       expect(activeRuleOccurrences((c.rules as string[]).map((k) => rules[k]), c.now, c.tzOffsetMinutes)).toEqual(c.expected));
+  }
+});
+
+describe("risk.json", () => {
+  const v = vectors("risk.json");
+  type SparseCell = { row: number; hour: number; opens: number; enters: number };
+  const toGrid = (cells: SparseCell[]): RiskCell[][] => {
+    const grid = Array.from({ length: 7 }, () => Array.from({ length: 24 }, () => ({ opens: 0, enters: 0 })));
+    for (const c of cells) grid[c.row][c.hour] = { opens: c.opens, enters: c.enters };
+    return grid;
+  };
+  const toSparse = (grid: RiskCell[][]): SparseCell[] =>
+    grid.flatMap((cells, row) => cells.map((c, hour) => ({ row, hour, ...c }))).filter((c) => c.opens > 0 || c.enters > 0);
+
+  it("constants", () => {
+    expect(MAX_RISK_WINDOWS).toBe(v.constants.maxWindows);
+    expect(RISK_MIN_OPENS).toBe(v.constants.minOpens);
+    expect(RISK_BLOCK_HOURS).toBe(v.constants.blockHours);
+  });
+  for (const c of v.inRiskWindow) {
+    it(`inRiskWindow: ${c.name}`, () =>
+      expect(inRiskWindow(c.input.windows as RiskWindow[], c.input.now, c.input.tzOffsetMinutes)).toBe(c.expected));
+  }
+  for (const c of v.heatmap) {
+    it(`heatmap: ${c.name}`, () => {
+      const grid = riskHeatmap(c.input.events, c.input.now, c.input.tzOffsetMinutes, c.input.days);
+      expect(grid).toHaveLength(7);
+      for (const row of grid) expect(row).toHaveLength(24);
+      expect(toSparse(grid)).toEqual(c.expected);
+    });
+  }
+  for (const c of v.suggest) {
+    it(`suggest: ${c.name}`, () =>
+      expect(suggestRiskWindow(toGrid(c.input.cells), c.input.windows as RiskWindow[])).toEqual(c.expected));
+  }
+  for (const c of v.classify) {
+    it(`classify: ${c.name}`, () =>
+      expect(classifyRiskWindowsChange(c.input.old as RiskWindow[], c.input.new as RiskWindow[])).toBe(c.expected));
+  }
+  for (const c of v.normalize) {
+    it(`normalize: ${c.name}`, () => expect(normalizeRiskWindow(c.input as RiskWindow)).toEqual(c.expected));
   }
 });

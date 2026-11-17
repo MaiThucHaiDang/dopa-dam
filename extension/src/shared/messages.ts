@@ -1,5 +1,15 @@
 // Messages between extension pages (warning, options, popup) and the background service worker.
-import type { AllowEntry, DomainRule, Settings, StudyRule, StudyStatus, Tag } from "../core";
+import type {
+  AllowEntry,
+  DomainRule,
+  RiskHeatmap,
+  RiskSuggestion,
+  RiskWindow,
+  Settings,
+  StudyRule,
+  StudyStatus,
+  Tag,
+} from "../core";
 import type { BudgetView, ErrorCode, WeeklyProgress } from "../background/logic";
 import type { Decision } from "../background/state";
 
@@ -20,6 +30,8 @@ export type Request =
   | { type: "options:setFriction"; lockSeconds: number[]; budgetMinutes: number; confirmed: boolean }
   | { type: "options:setProtection"; enabled: boolean; confirmed: boolean }
   | { type: "options:clearLog"; confirmed: boolean }
+  /** Standalone mode only: replaces the whole list of risk windows. */
+  | { type: "options:setRiskWindows"; windows: RiskWindow[]; confirmed: boolean }
   | { type: "study:start"; minutes: number; label: string | null }
   | { type: "study:stop"; confirmed: boolean }
   | { type: "study:setRule"; rule: StudyRule; confirmed: boolean }
@@ -41,6 +53,8 @@ export type WarningInit =
       tag: Tag;
       level: number;
       lockSeconds: number;
+      /** True when the level was raised by one because the warning came inside a risk window. */
+      risk: boolean;
       allowOptions: number[];
       /** How many times this hour, counting this one. */
       countThisHour: number;
@@ -70,6 +84,8 @@ export interface OptionsView {
   suggestions: string[];
   study: StudyStatus;
   studyRules: StudyRule[];
+  /** Standalone risk hours: the windows, the last 14 days as a heat map, and the suggested window if any. */
+  risk: { windows: RiskWindow[]; heatmap: RiskHeatmap; suggestion: RiskSuggestion | null };
   agent: AgentStatus;
 }
 

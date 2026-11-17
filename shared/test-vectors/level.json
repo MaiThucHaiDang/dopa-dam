@@ -1,5 +1,5 @@
 {
-  "description": "computeLevel: cấp cản trở theo số lần bị chặn trong 60 phút (n), phiên học và ngân sách ngày. Ca nào có settings riêng thì dùng settings đó thay cho mặc định.",
+  "description": "computeLevel: cấp cản trở theo số lần bị chặn trong 60 phút (n), phiên học và ngân sách ngày. Ca nào có settings riêng thì dùng settings đó thay cho mặc định. input.inRisk (đang trong giờ nguy cơ, thiếu nghĩa là false) cộng thêm 1 vào cấp khi cấp < 3, rồi lock và allowOptions lấy theo cấp mới.",
   "defaultSettings": {
     "lockSeconds": [5, 10, 20, 30],
     "allowOptionsNormal": [5, 15, 30],
@@ -25,6 +25,33 @@
       "settings": { "lockSeconds": [3, 6, 9, 45], "allowOptionsNormal": [10, 20], "allowOptionsRestricted": [3] },
       "input": { "n": 0, "inStudy": true, "overBudget": false },
       "expected": { "level": 3, "lockSeconds": 45, "allowOptions": [3] }
+    },
+    { "name": "giờ nguy cơ: cấp 0 lên 1", "input": { "n": 0, "inStudy": false, "overBudget": false, "inRisk": true }, "expected": { "level": 1, "lockSeconds": 10, "allowOptions": [5, 15, 30] } },
+    { "name": "giờ nguy cơ: cấp 1 lên 2 (n = 1)", "input": { "n": 1, "inStudy": false, "overBudget": false, "inRisk": true }, "expected": { "level": 2, "lockSeconds": 20, "allowOptions": [5, 15, 30] } },
+    { "name": "giờ nguy cơ: cấp 1 lên 2 (n = 2)", "input": { "n": 2, "inStudy": false, "overBudget": false, "inRisk": true }, "expected": { "level": 2, "lockSeconds": 20, "allowOptions": [5, 15, 30] } },
+    { "name": "giờ nguy cơ: cấp 2 lên 3, dùng lựa chọn hạn chế", "input": { "n": 3, "inStudy": false, "overBudget": false, "inRisk": true }, "expected": { "level": 3, "lockSeconds": 30, "allowOptions": [5, 10] } },
+    { "name": "giờ nguy cơ: mở rất nhiều vẫn tối đa cấp 3", "input": { "n": 25, "inStudy": false, "overBudget": false, "inRisk": true }, "expected": { "level": 3, "lockSeconds": 30, "allowOptions": [5, 10] } },
+    { "name": "giờ nguy cơ: đang học giữ cấp 3", "input": { "n": 0, "inStudy": true, "overBudget": false, "inRisk": true }, "expected": { "level": 3, "lockSeconds": 30, "allowOptions": [5, 10] } },
+    { "name": "giờ nguy cơ: vượt ngân sách giữ cấp 3", "input": { "n": 0, "inStudy": false, "overBudget": true, "inRisk": true }, "expected": { "level": 3, "lockSeconds": 30, "allowOptions": [5, 10] } },
+    { "name": "giờ nguy cơ: đang học và vượt ngân sách giữ cấp 3", "input": { "n": 5, "inStudy": true, "overBudget": true, "inRisk": true }, "expected": { "level": 3, "lockSeconds": 30, "allowOptions": [5, 10] } },
+    { "name": "inRisk = false nói rõ thì như không có", "input": { "n": 0, "inStudy": false, "overBudget": false, "inRisk": false }, "expected": { "level": 0, "lockSeconds": 5, "allowOptions": [5, 15, 30] } },
+    {
+      "name": "thông số tự chỉnh, giờ nguy cơ: cấp 0 lên 1 dùng lựa chọn thường",
+      "settings": { "lockSeconds": [3, 6, 9, 45], "allowOptionsNormal": [10, 20], "allowOptionsRestricted": [3] },
+      "input": { "n": 0, "inStudy": false, "overBudget": false, "inRisk": true },
+      "expected": { "level": 1, "lockSeconds": 6, "allowOptions": [10, 20] }
+    },
+    {
+      "name": "thông số tự chỉnh, giờ nguy cơ: cấp 2 lên 3 dùng lựa chọn hạn chế",
+      "settings": { "lockSeconds": [3, 6, 9, 45], "allowOptionsNormal": [10, 20], "allowOptionsRestricted": [3] },
+      "input": { "n": 4, "inStudy": false, "overBudget": false, "inRisk": true },
+      "expected": { "level": 3, "lockSeconds": 45, "allowOptions": [3] }
+    },
+    {
+      "name": "thông số tự chỉnh, giờ nguy cơ: cấp 1 lên 2 vẫn lựa chọn thường",
+      "settings": { "lockSeconds": [3, 6, 9, 45], "allowOptionsNormal": [10, 20], "allowOptionsRestricted": [3] },
+      "input": { "n": 1, "inStudy": false, "overBudget": false, "inRisk": true },
+      "expected": { "level": 2, "lockSeconds": 9, "allowOptions": [10, 20] }
     }
   ]
 }
