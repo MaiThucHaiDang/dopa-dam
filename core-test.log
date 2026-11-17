@@ -1,0 +1,324 @@
+Building for debugging...
+[0/7] /Users/runner/work/dopa-dam/dopa-dam/ios/native/DopaDamCore/.build/arm64-apple-macosx/debug/DopaDamCorePackageTests.derived/runner.swift
+[0/7] Write sources
+[4/7] Write swift-version--79AA4F9932D1E87A.txt
+[6/21] Emitting module DopaDamCore
+[7/27] Compiling DopaDamCore Store.swift
+[8/27] Compiling DopaDamCore Study.swift
+[9/27] Compiling DopaDamCore Time.swift
+[10/27] Compiling DopaDamCore Warning.swift
+[11/27] Compiling DopaDamCore WarningFlow.swift
+[12/27] Compiling DopaDamCore Wording.swift
+[13/27] Compiling DopaDamCore AppLinks.swift
+[14/27] Compiling DopaDamCore Forms.swift
+[15/27] Compiling DopaDamCore Friction.swift
+[16/27] Compiling DopaDamCore Guide.swift
+[17/27] Compiling DopaDamCore Level.swift
+[18/27] Compiling DopaDamCore Models.swift
+[19/27] Compiling DopaDamCore Notifications.swift
+[20/27] Compiling DopaDamCore Operations.swift
+[21/27] Compiling DopaDamCore Overview.swift
+[22/27] Compiling DopaDamCore Progress.swift
+[23/27] Compiling DopaDamCore ReadModels.swift
+[24/27] Compiling DopaDamCore Risk.swift
+[25/27] Compiling DopaDamCore StateChange.swift
+[26/34] Emitting module DopaDamCoreTests
+[27/34] Compiling DopaDamCoreTests RiskStateTests.swift
+[28/34] Compiling DopaDamCoreTests StorageTests.swift
+[29/34] Compiling DopaDamCoreTests Support.swift
+[30/36] Compiling DopaDamCoreTests LogicTests.swift
+[31/36] Compiling DopaDamCoreTests PresentationTests.swift
+[32/36] Compiling DopaDamCoreTests ProgressTests.swift
+[33/36] Compiling DopaDamCoreTests VectorTests.swift
+[34/36] Compiling DopaDamCoreTests Vectors.swift
+[35/38] Compiling DopaDamCorePackageTests runner.swift
+[36/38] Emitting module DopaDamCorePackageTests
+[36/38] Write Objects.LinkFileList
+[37/38] Linking DopaDamCorePackageTests
+Build complete! (22.38s)
+Test Suite 'All tests' started at 2026-11-17 10:06:29.495.
+Test Suite 'DopaDamCorePackageTests.xctest' started at 2026-11-17 10:06:29.497.
+Test Suite 'AllowWindowTests' started at 2026-11-17 10:06:29.497.
+Test Case '-[DopaDamCoreTests.AllowWindowTests testANewEnterReplacesTheWindowOfTheSameApp]' started.
+Test Case '-[DopaDamCoreTests.AllowWindowTests testANewEnterReplacesTheWindowOfTheSameApp]' passed (0.004 seconds).
+Test Case '-[DopaDamCoreTests.AllowWindowTests testAppNamesMatchIgnoringCaseSpacingAndAccentComposition]' started.
+Test Case '-[DopaDamCoreTests.AllowWindowTests testAppNamesMatchIgnoringCaseSpacingAndAccentComposition]' passed (0.002 seconds).
+Test Case '-[DopaDamCoreTests.AllowWindowTests testPruneKeeps30DaysAndDropsExpiredWindows]' started.
+Test Case '-[DopaDamCoreTests.AllowWindowTests testPruneKeeps30DaysAndDropsExpiredWindows]' passed (0.000 seconds).
+Test Case '-[DopaDamCoreTests.AllowWindowTests testShouldAskIsFalseOnlyWhileTheWindowRuns]' started.
+Test Case '-[DopaDamCoreTests.AllowWindowTests testShouldAskIsFalseOnlyWhileTheWindowRuns]' passed (0.000 seconds).
+Test Case '-[DopaDamCoreTests.AllowWindowTests testWhenTheAllowWindowEndsAndWhenToNotify]' started.
+Test Case '-[DopaDamCoreTests.AllowWindowTests testWhenTheAllowWindowEndsAndWhenToNotify]' passed (0.000 seconds).
+Test Case '-[DopaDamCoreTests.AllowWindowTests testWindowsArePerApp]' started.
+Test Case '-[DopaDamCoreTests.AllowWindowTests testWindowsArePerApp]' passed (0.000 seconds).
+Test Suite 'AllowWindowTests' passed at 2026-11-17 10:06:29.503.
+	 Executed 6 tests, with 0 failures (0 unexpected) in 0.006 (0.007) seconds
+Test Suite 'AppLinksTests' started at 2026-11-17 10:06:29.503.
+Test Case '-[DopaDamCoreTests.AppLinksTests testEveryKnownNameIsInTheTable]' started.
+Test Case '-[DopaDamCoreTests.AppLinksTests testEveryKnownNameIsInTheTable]' passed (0.000 seconds).
+Test Case '-[DopaDamCoreTests.AppLinksTests testKnownAppsHaveTheirSchemes]' started.
+Test Case '-[DopaDamCoreTests.AppLinksTests testKnownAppsHaveTheirSchemes]' passed (0.000 seconds).
+Test Case '-[DopaDamCoreTests.AppLinksTests testSpellingDoesNotMatter]' started.
+Test Case '-[DopaDamCoreTests.AppLinksTests testSpellingDoesNotMatter]' passed (0.000 seconds).
+Test Case '-[DopaDamCoreTests.AppLinksTests testUnknownOrEmptyHasNoLink]' started.
+Test Case '-[DopaDamCoreTests.AppLinksTests testUnknownOrEmptyHasNoLink]' passed (0.000 seconds).
+Test Suite 'AppLinksTests' passed at 2026-11-17 10:06:29.504.
+	 Executed 4 tests, with 0 failures (0 unexpected) in 0.001 (0.001) seconds
+Test Suite 'ConfirmGateTests' started at 2026-11-17 10:06:29.504.
+Test Case '-[DopaDamCoreTests.ConfirmGateTests testWaitsSixtySecondsThenNeedsThePhrase]' started.
+Test Case '-[DopaDamCoreTests.ConfirmGateTests testWaitsSixtySecondsThenNeedsThePhrase]' passed (0.000 seconds).
+Test Suite 'ConfirmGateTests' passed at 2026-11-17 10:06:29.504.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'DecisionTests' started at 2026-11-17 10:06:29.504.
+Test Case '-[DopaDamCoreTests.DecisionTests testAutoExitRecordsAClosedScreenAsLeaving]' started.
+Test Case '-[DopaDamCoreTests.DecisionTests testAutoExitRecordsAClosedScreenAsLeaving]' passed (0.000 seconds).
+Test Case '-[DopaDamCoreTests.DecisionTests testEnterOpensAnAllowWindowAndAddsGrantedMinutes]' started.
+Test Case '-[DopaDamCoreTests.DecisionTests testEnterOpensAnAllowWindowAndAddsGrantedMinutes]' passed (0.000 seconds).
+Test Case '-[DopaDamCoreTests.DecisionTests testExitIsImmediateAndADecisionIsNotMadeTwice]' started.
+Test Case '-[DopaDamCoreTests.DecisionTests testExitIsImmediateAndADecisionIsNotMadeTwice]' passed (0.000 seconds).
+Test Case '-[DopaDamCoreTests.DecisionTests testOnlyAcceptsTheAllowOptionsOfTheEventsLevel]' started.
+Test Case '-[DopaDamCoreTests.DecisionTests testOnlyAcceptsTheAllowOptionsOfTheEventsLevel]' passed (0.000 seconds).
+Test Case '-[DopaDamCoreTests.DecisionTests testPendingWarningsAndAbandonedOnes]' started.
+Test Case '-[DopaDamCoreTests.DecisionTests testPendingWarningsAndAbandonedOnes]' passed (0.000 seconds).
+Test Case '-[DopaDamCoreTests.DecisionTests testRefusesToEnterWhileTheButtonIsStillLocked]' started.
+Test Case '-[DopaDamCoreTests.DecisionTests testRefusesToEnterWhileTheButtonIsStillLocked]' passed (0.000 seconds).
+Test Case '-[DopaDamCoreTests.DecisionTests testRepeatingEnterDoesNotGrantTwice]' started.
+Test Case '-[DopaDamCoreTests.DecisionTests testRepeatingEnterDoesNotGrantTwice]' passed (0.000 seconds).
+Test Case '-[DopaDamCoreTests.DecisionTests testShouldAskAndRecordWarningCloseAbandonedWarnings]' started.
+Test Case '-[DopaDamCoreTests.DecisionTests testShouldAskAndRecordWarningCloseAbandonedWarnings]' passed (0.000 seconds).
+Test Case '-[DopaDamCoreTests.DecisionTests testUnknownEvent]' started.
+Test Case '-[DopaDamCoreTests.DecisionTests testUnknownEvent]' passed (0.000 seconds).
+Test Case '-[DopaDamCoreTests.DecisionTests testValidatesTheAlternativeActivity]' started.
+Test Case '-[DopaDamCoreTests.DecisionTests testValidatesTheAlternativeActivity]' passed (0.000 seconds).
+Test Suite 'DecisionTests' passed at 2026-11-17 10:06:29.506.
+	 Executed 10 tests, with 0 failures (0 unexpected) in 0.002 (0.002) seconds
+Test Suite 'DecodingTests' started at 2026-11-17 10:06:29.506.
+Test Case '-[DopaDamCoreTests.DecodingTests testAtMost12RiskWindowsAreKept]' started.
+Test Case '-[DopaDamCoreTests.DecodingTests testAtMost12RiskWindowsAreKept]' passed (0.001 seconds).
+Test Case '-[DopaDamCoreTests.DecodingTests testEmptyObjectIsTheDefaultState]' started.
+Test Case '-[DopaDamCoreTests.DecodingTests testEmptyObjectIsTheDefaultState]' passed (0.000 seconds).
+Test Case '-[DopaDamCoreTests.DecodingTests testFillsDefaultsAndDropsMalformedParts]' started.
+Test Case '-[DopaDamCoreTests.DecodingTests testFillsDefaultsAndDropsMalformedParts]' passed (0.001 seconds).
+Test Case '-[DopaDamCoreTests.DecodingTests testNotAnObjectThrows]' started.
+Test Case '-[DopaDamCoreTests.DecodingTests testNotAnObjectThrows]' passed (0.000 seconds).
+Test Case '-[DopaDamCoreTests.DecodingTests testRoundTripKeepsEverything]' started.
+Test Case '-[DopaDamCoreTests.DecodingTests testRoundTripKeepsEverything]' passed (0.002 seconds).
+Test Case '-[DopaDamCoreTests.DecodingTests testWrongTypesForWholeSectionsGiveDefaults]' started.
+Test Case '-[DopaDamCoreTests.DecodingTests testWrongTypesForWholeSectionsGiveDefaults]' passed (0.000 seconds).
+Test Suite 'DecodingTests' passed at 2026-11-17 10:06:29.511.
+	 Executed 6 tests, with 0 failures (0 unexpected) in 0.005 (0.005) seconds
+Test Suite 'FormTests' started at 2026-11-17 10:06:29.511.
+Test Case '-[DopaDamCoreTests.FormTests testFormRoundTripsTheDefaults]' started.
+Test Case '-[DopaDamCoreTests.FormTests testFormRoundTripsTheDefaults]' passed (0.000 seconds).
+Test Case '-[DopaDamCoreTests.FormTests testFormValidation]' started.
+Test Case '-[DopaDamCoreTests.FormTests testFormValidation]' passed (0.000 seconds).
+Test Case '-[DopaDamCoreTests.FormTests testListParsing]' started.
+Test Case '-[DopaDamCoreTests.FormTests testListParsing]' passed (0.000 seconds).
+Test Case '-[DopaDamCoreTests.FormTests testStudyRuleForm]' started.
+Test Case '-[DopaDamCoreTests.FormTests testStudyRuleForm]' passed (0.000 seconds).
+Test Suite 'FormTests' passed at 2026-11-17 10:06:29.512.
+	 Executed 4 tests, with 0 failures (0 unexpected) in 0.001 (0.001) seconds
+Test Suite 'NotificationTests' started at 2026-11-17 10:06:29.512.
+Test Case '-[DopaDamCoreTests.NotificationTests testActivityNotification]' started.
+Test Case '-[DopaDamCoreTests.NotificationTests testActivityNotification]' passed (0.000 seconds).
+Test Case '-[DopaDamCoreTests.NotificationTests testAllowWindowGivesHeadsUpAndEnd]' started.
+Test Case '-[DopaDamCoreTests.NotificationTests testAllowWindowGivesHeadsUpAndEnd]' passed (0.000 seconds).
+Test Case '-[DopaDamCoreTests.NotificationTests testDelayIsAtLeastOneSecond]' started.
+Test Case '-[DopaDamCoreTests.NotificationTests testDelayIsAtLeastOneSecond]' passed (0.000 seconds).
+Test Case '-[DopaDamCoreTests.NotificationTests testPermissionText]' started.
+Test Case '-[DopaDamCoreTests.NotificationTests testPermissionText]' passed (0.000 seconds).
+Test Case '-[DopaDamCoreTests.NotificationTests testShortWindowHasNoHeadsUp]' started.
+Test Case '-[DopaDamCoreTests.NotificationTests testShortWindowHasNoHeadsUp]' passed (0.000 seconds).
+Test Suite 'NotificationTests' passed at 2026-11-17 10:06:29.513.
+	 Executed 5 tests, with 0 failures (0 unexpected) in 0.001 (0.001) seconds
+Test Suite 'OverviewTests' started at 2026-11-17 10:06:29.513.
+Test Case '-[DopaDamCoreTests.OverviewTests testChartMax]' started.
+Test Case '-[DopaDamCoreTests.OverviewTests testChartMax]' passed (0.000 seconds).
+Test Case '-[DopaDamCoreTests.OverviewTests testGuideMentionsBothActionsAndEveryKnownAppHasALink]' started.
+Test Case '-[DopaDamCoreTests.OverviewTests testGuideMentionsBothActionsAndEveryKnownAppHasALink]' passed (0.000 seconds).
+Test Case '-[DopaDamCoreTests.OverviewTests testStudyPanel]' started.
+Test Case '-[DopaDamCoreTests.OverviewTests testStudyPanel]' passed (0.000 seconds).
+Test Case '-[DopaDamCoreTests.OverviewTests testTodayItemsAndAppLines]' started.
+Test Case '-[DopaDamCoreTests.OverviewTests testTodayItemsAndAppLines]' passed (0.000 seconds).
+Test Suite 'OverviewTests' passed at 2026-11-17 10:06:29.514.
+	 Executed 4 tests, with 0 failures (0 unexpected) in 0.001 (0.001) seconds
+Test Suite 'ProgressTests' started at 2026-11-17 10:06:29.514.
+Test Case '-[DopaDamCoreTests.ProgressTests testComparesFullWeeksAndLeavesUndecidedEventsOut]' started.
+Test Case '-[DopaDamCoreTests.ProgressTests testComparesFullWeeksAndLeavesUndecidedEventsOut]' passed (0.000 seconds).
+Test Case '-[DopaDamCoreTests.ProgressTests testLeaveRateBoundaryIs5Points]' started.
+Test Case '-[DopaDamCoreTests.ProgressTests testLeaveRateBoundaryIs5Points]' passed (0.000 seconds).
+Test Case '-[DopaDamCoreTests.ProgressTests testNotEnoughDataWhenAWeekIsEmptyOrUnder5]' started.
+Test Case '-[DopaDamCoreTests.ProgressTests testNotEnoughDataWhenAWeekIsEmptyOrUnder5]' passed (0.000 seconds).
+Test Case '-[DopaDamCoreTests.ProgressTests testSecondsBoundaryIs1Second]' started.
+Test Case '-[DopaDamCoreTests.ProgressTests testSecondsBoundaryIs1Second]' passed (0.000 seconds).
+Test Case '-[DopaDamCoreTests.ProgressTests testSentencesAndNumberFormats]' started.
+Test Case '-[DopaDamCoreTests.ProgressTests testSentencesAndNumberFormats]' passed (0.001 seconds).
+Test Case '-[DopaDamCoreTests.ProgressTests testStateReadModelsUseTheAppDay]' started.
+Test Case '-[DopaDamCoreTests.ProgressTests testStateReadModelsUseTheAppDay]' passed (0.000 seconds).
+Test Case '-[DopaDamCoreTests.ProgressTests testStudyOpensLowerBetterHigherWorseEqualSame]' started.
+Test Case '-[DopaDamCoreTests.ProgressTests testStudyOpensLowerBetterHigherWorseEqualSame]' passed (0.000 seconds).
+Test Suite 'ProgressTests' passed at 2026-11-17 10:06:29.516.
+	 Executed 7 tests, with 0 failures (0 unexpected) in 0.002 (0.002) seconds
+Test Suite 'ReadModelTests' started at 2026-11-17 10:06:29.516.
+Test Case '-[DopaDamCoreTests.ReadModelTests testAppsSeen]' started.
+Test Case '-[DopaDamCoreTests.ReadModelTests testAppsSeen]' passed (0.000 seconds).
+Test Case '-[DopaDamCoreTests.ReadModelTests testDayStats]' started.
+Test Case '-[DopaDamCoreTests.ReadModelTests testDayStats]' passed (0.000 seconds).
+Test Case '-[DopaDamCoreTests.ReadModelTests testTodaySummary]' started.
+Test Case '-[DopaDamCoreTests.ReadModelTests testTodaySummary]' passed (0.000 seconds).
+Test Suite 'ReadModelTests' passed at 2026-11-17 10:06:29.517.
+	 Executed 3 tests, with 0 failures (0 unexpected) in 0.001 (0.001) seconds
+Test Suite 'ResumeTests' started at 2026-11-17 10:06:29.517.
+Test Case '-[DopaDamCoreTests.ResumeTests testAnOldWarningIsClosedNotResumed]' started.
+Test Case '-[DopaDamCoreTests.ResumeTests testAnOldWarningIsClosedNotResumed]' passed (0.000 seconds).
+Test Case '-[DopaDamCoreTests.ResumeTests testNothingPending]' started.
+Test Case '-[DopaDamCoreTests.ResumeTests testNothingPending]' passed (0.000 seconds).
+Test Case '-[DopaDamCoreTests.ResumeTests testResumesOnlyTheNewestYoungWarningAndClosesTheRest]' started.
+Test Case '-[DopaDamCoreTests.ResumeTests testResumesOnlyTheNewestYoungWarningAndClosesTheRest]' passed (0.000 seconds).
+Test Suite 'ResumeTests' passed at 2026-11-17 10:06:29.517.
+	 Executed 3 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+Test Suite 'RiskStateTests' started at 2026-11-17 10:06:29.517.
+Test Case '-[DopaDamCoreTests.RiskStateTests testAdditionsAreSavedAtOnceEvenDuringStudy]' started.
+Test Case '-[DopaDamCoreTests.RiskStateTests testAdditionsAreSavedAtOnceEvenDuringStudy]' passed (0.004 seconds).
+Test Case '-[DopaDamCoreTests.RiskStateTests testAsksForConfirmationToRemoveOrShortenAWindow]' started.
+Test Case '-[DopaDamCoreTests.RiskStateTests testAsksForConfirmationToRemoveOrShortenAWindow]' passed (0.001 seconds).
+Test Case '-[DopaDamCoreTests.RiskStateTests testCleansWindowsAndGivesNewOrRepeatedIdsTheirOwnId]' started.
+Test Case '-[DopaDamCoreTests.RiskStateTests testCleansWindowsAndGivesNewOrRepeatedIdsTheirOwnId]' passed (0.002 seconds).
+Test Case '-[DopaDamCoreTests.RiskStateTests testDoesNotFlagAWarningAlreadyAtLevel3]' started.
+Test Case '-[DopaDamCoreTests.RiskStateTests testDoesNotFlagAWarningAlreadyAtLevel3]' passed (0.000 seconds).
+Test Case '-[DopaDamCoreTests.RiskStateTests testDoesNothingOutsideAWindow]' started.
+Test Case '-[DopaDamCoreTests.RiskStateTests testDoesNothingOutsideAWindow]' passed (0.000 seconds).
+Test Case '-[DopaDamCoreTests.RiskStateTests testIsLockedDuringStudyEvenWhenConfirmed]' started.
+Test Case '-[DopaDamCoreTests.RiskStateTests testIsLockedDuringStudyEvenWhenConfirmed]' passed (0.001 seconds).
+Test Case '-[DopaDamCoreTests.RiskStateTests testRaisesLevel0To1And1To2And2To3]' started.
+Test Case '-[DopaDamCoreTests.RiskStateTests testRaisesLevel0To1And1To2And2To3]' passed (0.000 seconds).
+Test Case '-[DopaDamCoreTests.RiskStateTests testRaisesTheLevelByOneInsideAWindowAndFlagsTheEvent]' started.
+Test Case '-[DopaDamCoreTests.RiskStateTests testRaisesTheLevelByOneInsideAWindowAndFlagsTheEvent]' passed (0.000 seconds).
+Test Case '-[DopaDamCoreTests.RiskStateTests testRejectsInvalidWindowsAndMoreThan12]' started.
+Test Case '-[DopaDamCoreTests.RiskStateTests testRejectsInvalidWindowsAndMoreThan12]' passed (0.002 seconds).
+Test Case '-[DopaDamCoreTests.RiskStateTests testTheRiskCard]' started.
+Test Case '-[DopaDamCoreTests.RiskStateTests testTheRiskCard]' passed (0.002 seconds).
+Test Case '-[DopaDamCoreTests.RiskStateTests testTheSuggestionFromTheHeatMapCanBeAddedAsAWindow]' started.
+Test Case '-[DopaDamCoreTests.RiskStateTests testTheSuggestionFromTheHeatMapCanBeAddedAsAWindow]' passed (0.003 seconds).
+Test Case '-[DopaDamCoreTests.RiskStateTests testWording]' started.
+Test Case '-[DopaDamCoreTests.RiskStateTests testWording]' passed (0.000 seconds).
+Test Suite 'RiskStateTests' passed at 2026-11-17 10:06:29.534.
+	 Executed 12 tests, with 0 failures (0 unexpected) in 0.016 (0.016) seconds
+Test Suite 'SettingsAndStudyTests' started at 2026-11-17 10:06:29.534.
+Test Case '-[DopaDamCoreTests.SettingsAndStudyTests testAsksForConfirmationOnlyWhenFrictionGetsWeaker]' started.
+Test Case '-[DopaDamCoreTests.SettingsAndStudyTests testAsksForConfirmationOnlyWhenFrictionGetsWeaker]' passed (0.000 seconds).
+Test Case '-[DopaDamCoreTests.SettingsAndStudyTests testClearLogNeedsConfirmationAndIsRefusedDuringStudy]' started.
+Test Case '-[DopaDamCoreTests.SettingsAndStudyTests testClearLogNeedsConfirmationAndIsRefusedDuringStudy]' passed (0.000 seconds).
+Test Case '-[DopaDamCoreTests.SettingsAndStudyTests testCutsStudyLabelsByCodePointsNotUTF16Units]' started.
+Test Case '-[DopaDamCoreTests.SettingsAndStudyTests testCutsStudyLabelsByCodePointsNotUTF16Units]' passed (0.000 seconds).
+Test Case '-[DopaDamCoreTests.SettingsAndStudyTests testRaisingTheLongestAllowOptionWeakensAndShorteningDoesNot]' started.
+Test Case '-[DopaDamCoreTests.SettingsAndStudyTests testRaisingTheLongestAllowOptionWeakensAndShorteningDoesNot]' passed (0.000 seconds).
+Test Case '-[DopaDamCoreTests.SettingsAndStudyTests testRefusesRulesThatCannotBeAWindow]' started.
+Test Case '-[DopaDamCoreTests.SettingsAndStudyTests testRefusesRulesThatCannotBeAWindow]' passed (0.000 seconds).
+Test Case '-[DopaDamCoreTests.SettingsAndStudyTests testSettingsAreLockedDuringStudyUnlessNothingChanges]' started.
+Test Case '-[DopaDamCoreTests.SettingsAndStudyTests testSettingsAreLockedDuringStudyUnlessNothingChanges]' passed (0.000 seconds).
+Test Case '-[DopaDamCoreTests.SettingsAndStudyTests testStartsAManualSessionAndEndsItEarlyOnlyWithConfirmation]' started.
+Test Case '-[DopaDamCoreTests.SettingsAndStudyTests testStartsAManualSessionAndEndsItEarlyOnlyWithConfirmation]' passed (0.000 seconds).
+Test Case '-[DopaDamCoreTests.SettingsAndStudyTests testStudyHelpers]' started.
+Test Case '-[DopaDamCoreTests.SettingsAndStudyTests testStudyHelpers]' passed (0.000 seconds).
+Test Case '-[DopaDamCoreTests.SettingsAndStudyTests testValidatesLikeTheAgent]' started.
+Test Case '-[DopaDamCoreTests.SettingsAndStudyTests testValidatesLikeTheAgent]' passed (0.000 seconds).
+Test Case '-[DopaDamCoreTests.SettingsAndStudyTests testWeeklyRulesWeakeningAndTheStudyLock]' started.
+Test Case '-[DopaDamCoreTests.SettingsAndStudyTests testWeeklyRulesWeakeningAndTheStudyLock]' passed (0.000 seconds).
+Test Suite 'SettingsAndStudyTests' passed at 2026-11-17 10:06:29.536.
+	 Executed 10 tests, with 0 failures (0 unexpected) in 0.002 (0.002) seconds
+Test Suite 'StateChangeTests' started at 2026-11-17 10:06:29.536.
+Test Case '-[DopaDamCoreTests.StateChangeTests testClearLogNeedsConfirm]' started.
+Test Case '-[DopaDamCoreTests.StateChangeTests testClearLogNeedsConfirm]' passed (0.000 seconds).
+Test Case '-[DopaDamCoreTests.StateChangeTests testRiskWindowAddThenRemoveNeedsConfirm]' started.
+Test Case '-[DopaDamCoreTests.StateChangeTests testRiskWindowAddThenRemoveNeedsConfirm]' passed (0.002 seconds).
+Test Case '-[DopaDamCoreTests.StateChangeTests testStrengtheningNeedsNoConfirm]' started.
+Test Case '-[DopaDamCoreTests.StateChangeTests testStrengtheningNeedsNoConfirm]' passed (0.000 seconds).
+Test Case '-[DopaDamCoreTests.StateChangeTests testStudyIsLockedEvenWhenConfirmed]' started.
+Test Case '-[DopaDamCoreTests.StateChangeTests testStudyIsLockedEvenWhenConfirmed]' passed (0.000 seconds).
+Test Case '-[DopaDamCoreTests.StateChangeTests testStudyRuleAddAndDelete]' started.
+Test Case '-[DopaDamCoreTests.StateChangeTests testStudyRuleAddAndDelete]' passed (0.000 seconds).
+Test Case '-[DopaDamCoreTests.StateChangeTests testWeakeningSettingsNeedsConfirmThenSucceeds]' started.
+Test Case '-[DopaDamCoreTests.StateChangeTests testWeakeningSettingsNeedsConfirmThenSucceeds]' passed (0.000 seconds).
+Test Suite 'StateChangeTests' passed at 2026-11-17 10:06:29.539.
+	 Executed 6 tests, with 0 failures (0 unexpected) in 0.003 (0.003) seconds
+Test Suite 'StoreTests' started at 2026-11-17 10:06:29.539.
+Test Case '-[DopaDamCoreTests.StoreTests testCorruptFileIsKeptAsideAndAFreshStateReturned]' started.
+Test Case '-[DopaDamCoreTests.StoreTests testCorruptFileIsKeptAsideAndAFreshStateReturned]' passed (0.003 seconds).
+Test Case '-[DopaDamCoreTests.StoreTests testMemoryStoreRoundTripsThroughJSON]' started.
+Test Case '-[DopaDamCoreTests.StoreTests testMemoryStoreRoundTripsThroughJSON]' passed (0.001 seconds).
+Test Case '-[DopaDamCoreTests.StoreTests testMissingFileGivesAFreshStateAndSavingCreatesFoldersAndRoundTrips]' started.
+Test Case '-[DopaDamCoreTests.StoreTests testMissingFileGivesAFreshStateAndSavingCreatesFoldersAndRoundTrips]' passed (0.002 seconds).
+Test Case '-[DopaDamCoreTests.StoreTests testTimeHelpers]' started.
+Test Case '-[DopaDamCoreTests.StoreTests testTimeHelpers]' passed (0.001 seconds).
+Test Case '-[DopaDamCoreTests.StoreTests testUpdateLoadsAppliesAndSaves]' started.
+Test Case '-[DopaDamCoreTests.StoreTests testUpdateLoadsAppliesAndSaves]' passed (0.004 seconds).
+Test Suite 'StoreTests' passed at 2026-11-17 10:06:29.550.
+	 Executed 5 tests, with 0 failures (0 unexpected) in 0.010 (0.011) seconds
+Test Suite 'VectorTests' started at 2026-11-17 10:06:29.550.
+Test Case '-[DopaDamCoreTests.VectorTests testBudget]' started.
+Test Case '-[DopaDamCoreTests.VectorTests testBudget]' passed (0.001 seconds).
+Test Case '-[DopaDamCoreTests.VectorTests testConfirmPhrase]' started.
+Test Case '-[DopaDamCoreTests.VectorTests testConfirmPhrase]' passed (0.000 seconds).
+Test Case '-[DopaDamCoreTests.VectorTests testDayKey]' started.
+Test Case '-[DopaDamCoreTests.VectorTests testDayKey]' passed (0.001 seconds).
+Test Case '-[DopaDamCoreTests.VectorTests testFriction]' started.
+Test Case '-[DopaDamCoreTests.VectorTests testFriction]' passed (0.001 seconds).
+Test Case '-[DopaDamCoreTests.VectorTests testLevel]' started.
+Test Case '-[DopaDamCoreTests.VectorTests testLevel]' passed (0.001 seconds).
+Test Case '-[DopaDamCoreTests.VectorTests testRecentCount]' started.
+Test Case '-[DopaDamCoreTests.VectorTests testRecentCount]' passed (0.001 seconds).
+Test Case '-[DopaDamCoreTests.VectorTests testRisk]' started.
+Test Case '-[DopaDamCoreTests.VectorTests testRisk]' passed (0.079 seconds).
+Test Case '-[DopaDamCoreTests.VectorTests testStudy]' started.
+Test Case '-[DopaDamCoreTests.VectorTests testStudy]' passed (0.001 seconds).
+Test Case '-[DopaDamCoreTests.VectorTests testStudyChange]' started.
+Test Case '-[DopaDamCoreTests.VectorTests testStudyChange]' passed (0.001 seconds).
+Test Suite 'VectorTests' passed at 2026-11-17 10:06:29.638.
+	 Executed 9 tests, with 0 failures (0 unexpected) in 0.087 (0.088) seconds
+Test Suite 'WarningFlowTests' started at 2026-11-17 10:06:29.638.
+Test Case '-[DopaDamCoreTests.WarningFlowTests testActivityFormClampsAndValidates]' started.
+Test Case '-[DopaDamCoreTests.WarningFlowTests testActivityFormClampsAndValidates]' passed (0.000 seconds).
+Test Case '-[DopaDamCoreTests.WarningFlowTests testActivityTimer]' started.
+Test Case '-[DopaDamCoreTests.WarningFlowTests testActivityTimer]' passed (0.000 seconds).
+Test Case '-[DopaDamCoreTests.WarningFlowTests testBackFromQuestionDoesNothing]' started.
+Test Case '-[DopaDamCoreTests.WarningFlowTests testBackFromQuestionDoesNothing]' passed (0.000 seconds).
+Test Case '-[DopaDamCoreTests.WarningFlowTests testEnterDecisionMovesToAllowed]' started.
+Test Case '-[DopaDamCoreTests.WarningFlowTests testEnterDecisionMovesToAllowed]' passed (0.000 seconds).
+Test Case '-[DopaDamCoreTests.WarningFlowTests testEnterIsRefusedWhileLockedAndOpensTheMinutesWhenFree]' started.
+Test Case '-[DopaDamCoreTests.WarningFlowTests testEnterIsRefusedWhileLockedAndOpensTheMinutesWhenFree]' passed (0.000 seconds).
+Test Case '-[DopaDamCoreTests.WarningFlowTests testExitDecisionMovesToExited]' started.
+Test Case '-[DopaDamCoreTests.WarningFlowTests testExitDecisionMovesToExited]' passed (0.000 seconds).
+Test Case '-[DopaDamCoreTests.WarningFlowTests testResumedDecidedWarningStartsInItsResultPhase]' started.
+Test Case '-[DopaDamCoreTests.WarningFlowTests testResumedDecidedWarningStartsInItsResultPhase]' passed (0.000 seconds).
+Test Case '-[DopaDamCoreTests.WarningFlowTests testStartsOnTheQuestionWithTheCountdown]' started.
+Test Case '-[DopaDamCoreTests.WarningFlowTests testStartsOnTheQuestionWithTheCountdown]' passed (0.000 seconds).
+Test Suite 'WarningFlowTests' passed at 2026-11-17 10:06:29.639.
+	 Executed 8 tests, with 0 failures (0 unexpected) in 0.001 (0.001) seconds
+Test Suite 'WarningTests' started at 2026-11-17 10:06:29.639.
+Test Case '-[DopaDamCoreTests.WarningTests testAMidnightWarningCountsForTheDayBefore]' started.
+Test Case '-[DopaDamCoreTests.WarningTests testAMidnightWarningCountsForTheDayBefore]' passed (0.000 seconds).
+Test Case '-[DopaDamCoreTests.WarningTests testAnEmptyAppNameIsInvalidAndNamesAreCleaned]' started.
+Test Case '-[DopaDamCoreTests.WarningTests testAnEmptyAppNameIsInvalidAndNamesAreCleaned]' passed (0.000 seconds).
+Test Case '-[DopaDamCoreTests.WarningTests testContextCarriesEverythingTheScreenShows]' started.
+Test Case '-[DopaDamCoreTests.WarningTests testContextCarriesEverythingTheScreenShows]' passed (0.000 seconds).
+Test Case '-[DopaDamCoreTests.WarningTests testEscalatesWithTheNumberOfWarningsInTheLastHour]' started.
+Test Case '-[DopaDamCoreTests.WarningTests testEscalatesWithTheNumberOfWarningsInTheLastHour]' passed (0.000 seconds).
+Test Case '-[DopaDamCoreTests.WarningTests testGoesToLevel3DuringStudyAndRemembersTheLabel]' started.
+Test Case '-[DopaDamCoreTests.WarningTests testGoesToLevel3DuringStudyAndRemembersTheLabel]' passed (0.000 seconds).
+Test Case '-[DopaDamCoreTests.WarningTests testGoesToLevel3OnceTheDailyBudgetIsUsedUp]' started.
+Test Case '-[DopaDamCoreTests.WarningTests testGoesToLevel3OnceTheDailyBudgetIsUsedUp]' passed (0.000 seconds).
+Test Case '-[DopaDamCoreTests.WarningTests testTheSameWarningScreenReloadedReturnsTheSameEvent]' started.
+Test Case '-[DopaDamCoreTests.WarningTests testTheSameWarningScreenReloadedReturnsTheSameEvent]' passed (0.000 seconds).
+Test Case '-[DopaDamCoreTests.WarningTests testWarningsOfDifferentAppsCountTogether]' started.
+Test Case '-[DopaDamCoreTests.WarningTests testWarningsOfDifferentAppsCountTogether]' passed (0.000 seconds).
+Test Suite 'WarningTests' passed at 2026-11-17 10:06:29.640.
+	 Executed 8 tests, with 0 failures (0 unexpected) in 0.001 (0.001) seconds
+Test Suite 'DopaDamCorePackageTests.xctest' passed at 2026-11-17 10:06:29.640.
+	 Executed 111 tests, with 0 failures (0 unexpected) in 0.139 (0.144) seconds
+Test Suite 'All tests' passed at 2026-11-17 10:06:29.641.
+	 Executed 111 tests, with 0 failures (0 unexpected) in 0.139 (0.146) seconds
+◇ Test run started.
+↳ Testing Library Version: 124.4
+↳ Target Platform: arm64e-apple-macos14.0
+✔ Test run with 0 tests passed after 0.001 seconds.

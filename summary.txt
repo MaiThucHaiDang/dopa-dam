@@ -1,0 +1,5 @@
+commit: 82eb0d5674cbe1c7b8f2f06fb2433ae97c01f2d6
+run: https://github.com/MaiThucHaiDang/dopa-dam/actions/runs/44061616984
+status: success
+ipa: build/DopaDam-unsigned.ipa
+Xcode 16.4
