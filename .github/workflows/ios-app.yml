@@ -6,9 +6,20 @@ name: Ung dung DopaDam cho iPhone
 
 on:
   workflow_dispatch:
+  push:
+    branches: [linux-port]
+    paths:
+      - "ios/native/**"
+      - "shared/test-vectors/**"
+      - ".github/workflows/ios-app.yml"
 
+# contents: write only for the last step, which publishes the logs on the ci-logs branch.
 permissions:
-  contents: read
+  contents: write
+
+concurrency:
+  group: ios-app-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -32,10 +43,16 @@ jobs:
         working-directory: ios/native/DopaDamCore
         env:
           DOPADAM_VECTORS: ${{ github.workspace }}/shared/test-vectors
-        run: swift test
+        run: |
+          set -o pipefail
+          mkdir -p ../build
+          swift test 2>&1 | tee ../build/core-test.log
 
       - name: Generate the Xcode project
-        run: xcodegen generate
+        run: |
+          set -o pipefail
+          mkdir -p build
+          xcodegen generate 2>&1 | tee build/xcodegen.log
 
       - name: Build the app (Release, iphoneos, no signing)
         run: |
@@ -78,3 +95,29 @@ jobs:
           name: xcodebuild-log
           path: ios/native/build/xcodebuild.log
           if-no-files-found: warn
+
+      # Puts the logs and the error lines on the ci-logs branch (one commit, replaced on every run), so they can
+      # be read with a plain `git fetch`, without signing in to GitHub.
+      - name: Publish the logs on the ci-logs branch
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          set +e
+          out="$RUNNER_TEMP/ci-logs"
+          rm -rf "$out" && mkdir -p "$out"
+          cp build/*.log "$out"/ 2>/dev/null
+          grep -hE "(error|warning): " build/*.log | sort -u > "$out/errors.txt"
+          {
+            echo "commit: $GITHUB_SHA"
+            echo "run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+            echo "status: $JOB_STATUS"
+            echo "ipa: $(ls build/DopaDam-unsigned.ipa 2>/dev/null || echo none)"
+            xcodebuild -version | head -1
+          } > "$out/summary.txt"
+          cd "$out"
+          git init -q
+          git add -A
+          git -c user.name="ci" -c user.email="ci@users.noreply.github.com" commit -qm "iOS build logs for $GITHUB_SHA"
+          git push -qf "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:refs/heads/ci-logs
