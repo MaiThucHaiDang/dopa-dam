@@ -32,6 +32,8 @@ data class Settings(
     val budgetMinutes: Int = 90,
     /** Default warning delay per tag id, in seconds. */
     val tagDelays: Map<String, Int> = mapOf(Tag.GAME.id to 30),
+    /** Weekly windows in which the friction level is one higher (max [MAX_RISK_WINDOWS]). */
+    val riskWindows: List<RiskWindow> = emptyList(),
 ) {
     val friction: FrictionSettings get() = FrictionSettings(lockSeconds, allowOptionsNormal, allowOptionsRestricted)
 }

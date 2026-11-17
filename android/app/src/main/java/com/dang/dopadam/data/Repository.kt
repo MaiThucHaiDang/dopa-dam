@@ -4,7 +4,13 @@ import com.dang.dopadam.core.DAY_MS
 import com.dang.dopadam.core.MINUTE_MS
 import com.dang.dopadam.core.STUDY_LABEL_MAX
 import com.dang.dopadam.core.Session
+import com.dang.dopadam.core.RiskEvent
+import com.dang.dopadam.core.RiskHeatmap
+import com.dang.dopadam.core.RiskWindow
 import com.dang.dopadam.core.Settings
+import com.dang.dopadam.core.cleanRiskWindows
+import com.dang.dopadam.core.inRiskWindow
+import com.dang.dopadam.core.riskHeatmap
 import com.dang.dopadam.core.StudyRule
 import com.dang.dopadam.core.StudyStatus
 import com.dang.dopadam.core.Tag
@@ -22,6 +28,7 @@ import com.dang.dopadam.logic.checkAppDelay
 import com.dang.dopadam.logic.checkDecision
 import com.dang.dopadam.logic.checkFriction
 import com.dang.dopadam.logic.checkProtection
+import com.dang.dopadam.logic.checkRiskWindowsChange
 import com.dang.dopadam.logic.checkStudyRuleChange
 import com.dang.dopadam.logic.checkStudyStop
 import com.dang.dopadam.logic.checkTagChange
@@ -96,12 +103,14 @@ class Repository(val db: AppDatabase, val prefs: Prefs) {
 
     suspend fun recordWarning(id: String, obj: String, tag: String, now: Long): Pair<InterceptEventEntity, WarningPlan> =
         mutex.withLock {
+            val settings = settings()
             val plan = planWarning(
                 db.events().shownSince(now - DAY_MS),
                 now,
                 studyStatus(now),
                 budgetView(now).usedMinutes,
-                settings(),
+                settings,
+                inRiskWindow(settings.riskWindows, now, localTzOffsetMinutes(now)),
             )
             val event = InterceptEventEntity(
                 id = id,
@@ -234,13 +243,38 @@ class Repository(val db: AppDatabase, val prefs: Prefs) {
         null
     }
 
-    suspend fun setSettings(new: Settings, confirmed: Boolean, now: Long): ErrorCode? = mutex.withLock {
+    suspend fun setSettings(input: Settings, confirmed: Boolean, now: Long): ErrorCode? = mutex.withLock {
         val old = settings()
+        // The risk windows have their own checked path ([setRiskWindows]); a stale copy must not overwrite them.
+        val new = input.copy(riskWindows = old.riskWindows)
         val error = checkFriction(old, new, confirmed, studyStatus(now).active)
         if (error != null || old == new) return@withLock error
         db.settings().upsert(SettingsEntity(json = SettingsCodec.encode(new), updatedAt = now, dirty = true))
         null
     }
+
+    /**
+     * Replaces the list of risk windows (each one normalised). Strengthening is saved at once; uncovering
+     * any minute of the week needs [confirmed], and is refused during study (see [checkRiskWindowsChange]).
+     */
+    suspend fun setRiskWindows(windows: List<RiskWindow>, confirmed: Boolean, now: Long): ErrorCode? =
+        editRiskWindows(confirmed, now) { windows }
+
+    /** Same as [setRiskWindows], but the new list is made from the current one under the lock (add or remove one). */
+    suspend fun editRiskWindows(confirmed: Boolean, now: Long, edit: (List<RiskWindow>) -> List<RiskWindow>): ErrorCode? =
+        mutex.withLock {
+            val old = settings()
+            val windows = edit(old.riskWindows)
+            val error = checkRiskWindowsChange(old.riskWindows, windows, confirmed, studyStatus(now).active)
+            val clean = cleanRiskWindows(windows)
+            if (error != null || clean == null || clean == old.riskWindows) return@withLock error
+            db.settings().upsert(SettingsEntity(json = SettingsCodec.encode(old.copy(riskWindows = clean)), updatedAt = now, dirty = true))
+            null
+        }
+
+    /** The risk-hours heat map of the last `days` days, every synced device (the events table holds them all). */
+    suspend fun riskHeatmap(now: Long, days: Int = 28): RiskHeatmap =
+        riskHeatmap(db.events().since(now - days * DAY_MS).map { RiskEvent(it.shownAt, it.decision) }, now, localTzOffsetMinutes(now), days)
 
     suspend fun setProtection(enabled: Boolean, confirmed: Boolean, now: Long): ErrorCode? {
         val error = checkProtection(prefs.protectionEnabled, enabled, confirmed, studyStatus(now).active)

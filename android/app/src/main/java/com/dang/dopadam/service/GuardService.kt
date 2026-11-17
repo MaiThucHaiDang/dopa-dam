@@ -240,6 +240,7 @@ class GuardService : AccessibilityService() {
                     countThisHour = plan.n + 1,
                     lockSeconds = plan.lockSeconds,
                     allowOptions = plan.allowOptions,
+                    riskRaised = plan.riskRaised,
                     usedMinutes = budget.usedMinutes,
                     budgetMinutes = budget.budgetMinutes,
                     studyLabel = if (study.active) study.label else null,

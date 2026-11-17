@@ -43,6 +43,8 @@ data class WarningUiState(
     val studyLabel: String?,
     val studyMinutesLeft: Int?,
     val activities: List<String>,
+    /** The wait is one level longer because this is a risk window (see core/Risk.kt). */
+    val riskRaised: Boolean = false,
     val error: String? = null,
 )
 
@@ -51,6 +53,8 @@ interface WarningActions {
     fun enter(minutes: Int)
     fun alternative(activity: String, minutes: Int)
 }
+
+const val RISK_RAISED_LINE = "Đây là khung giờ bạn hay mở giải trí nên thời gian chờ dài hơn một cấp."
 
 private enum class Step { CHOICE, ALTERNATIVE }
 
@@ -74,6 +78,9 @@ fun WarningScreen(state: WarningUiState?, actions: WarningActions) {
             color = Tokens.TextMuted,
             style = MaterialTheme.typography.bodySmall,
         )
+        if (state.riskRaised) {
+            Text(RISK_RAISED_LINE, color = Tokens.TextMuted, style = MaterialTheme.typography.bodySmall)
+        }
         when (step) {
             Step.CHOICE -> Choice(state, actions) { step = Step.ALTERNATIVE }
             Step.ALTERNATIVE -> Alternative(state, actions) { step = Step.CHOICE }

@@ -142,7 +142,7 @@ private fun App(vm: MainViewModel, requestedRoute: String?, onRouteHandled: () -
                 )
             }
             composable(MainActivity.ROUTE_STUDY) { StudyScreen(vm) }
-            composable(MainActivity.ROUTE_STATS) { StatsScreen() }
+            composable(MainActivity.ROUTE_STATS) { StatsScreen(vm) }
             composable(MainActivity.ROUTE_APPS) { AppsScreen(vm) }
             composable(MainActivity.ROUTE_SETTINGS) {
                 SettingsScreen(vm, openGuide = { nav.navigate(MainActivity.ROUTE_GUIDE) }, accountSection = { AccountSection(vm) })

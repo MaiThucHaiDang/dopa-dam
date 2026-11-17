@@ -12,14 +12,21 @@ const val MAX_DELAY_SECONDS = 120
 
 data class LevelResult(val level: Int, val lockSeconds: Int, val allowOptions: List<Int>)
 
-/** Friction level from warnings in the previous hour, study mode and the daily budget. */
-fun computeLevel(n: Int, inStudy: Boolean, overBudget: Boolean, settings: FrictionSettings): LevelResult {
-    val level = when {
-        inStudy || overBudget -> 3
-        n <= 0 -> 0
-        n <= 2 -> 1
-        else -> 2
-    }
+/** Level before the risk-window raise. */
+fun baseLevel(n: Int, inStudy: Boolean, overBudget: Boolean): Int = when {
+    inStudy || overBudget -> 3
+    n <= 0 -> 0
+    n <= 2 -> 1
+    else -> 2
+}
+
+/**
+ * Friction level from warnings in the previous hour, study mode and the daily budget; one more (up to 3)
+ * inside a risk window.
+ */
+fun computeLevel(n: Int, inStudy: Boolean, overBudget: Boolean, settings: FrictionSettings, inRisk: Boolean = false): LevelResult {
+    val base = baseLevel(n, inStudy, overBudget)
+    val level = if (inRisk && base < 3) base + 1 else base
     val options = if (level == 3) settings.allowOptionsRestricted else settings.allowOptionsNormal
     return LevelResult(level, settings.lockSeconds[level], options.toList())
 }

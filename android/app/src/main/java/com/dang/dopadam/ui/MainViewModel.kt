@@ -5,7 +5,12 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.dang.dopadam.DopaDamApp
 import com.dang.dopadam.core.DAY_MS
+import com.dang.dopadam.core.RiskSuggestion
+import com.dang.dopadam.core.RiskWindow
 import com.dang.dopadam.core.Settings
+import com.dang.dopadam.logic.riskDaysText
+import com.dang.dopadam.logic.riskTimeText
+import java.util.UUID
 import com.dang.dopadam.core.StudyRule
 import com.dang.dopadam.core.StudyStatus
 import com.dang.dopadam.core.formatStudyDays
@@ -165,6 +170,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun saveSettings(new: Settings) = submit("Giảm thời gian khóa nút Vào, nới ngân sách hoặc tăng độ trễ.") { confirmed ->
         repo.setSettings(new, confirmed, System.currentTimeMillis())
+    }
+
+    /** Strengthens (a new window), so it is saved at once without the confirmation. */
+    fun addRiskWindow(s: RiskSuggestion) = submit("Thêm khung giờ nguy cơ.") { confirmed ->
+        val window = RiskWindow(UUID.randomUUID().toString(), s.days, s.start, s.end)
+        repo.editRiskWindows(confirmed, System.currentTimeMillis()) { it + window }
+    }
+
+    fun removeRiskWindow(w: RiskWindow) = submit(
+        "Gỡ khung giờ nguy cơ ${riskTimeText(w.start, w.end)}, ${riskDaysText(w.days)}: thời gian chờ trong khung này sẽ không còn dài hơn.",
+    ) { confirmed ->
+        repo.editRiskWindows(confirmed, System.currentTimeMillis()) { list -> list.filter { it.id != w.id } }
     }
 
     fun setProtection(enabled: Boolean) = submit("Tắt bảo vệ: mọi app sẽ mở thẳng, không có cảnh báo.") { confirmed ->

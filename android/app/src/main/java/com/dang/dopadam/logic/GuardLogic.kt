@@ -5,8 +5,12 @@ import com.dang.dopadam.core.NumberField
 import com.dang.dopadam.core.Settings
 import com.dang.dopadam.core.StudyRule
 import com.dang.dopadam.core.StudyStatus
+import com.dang.dopadam.core.RiskWindow
+import com.dang.dopadam.core.baseLevel
 import com.dang.dopadam.core.budgetStatus
+import com.dang.dopadam.core.cleanRiskWindows
 import com.dang.dopadam.core.computeLevel
+import com.dang.dopadam.core.riskWindowsChangeWeakens
 import com.dang.dopadam.core.effectiveDelay
 import com.dang.dopadam.core.numberChangeWeakens
 import com.dang.dopadam.core.recentCount
@@ -35,13 +39,24 @@ data class WarningPlan(
     val allowOptions: List<Int>,
     val n: Int,
     val studyLabel: String?,
+    /** The level is one higher because the warning came in a risk window (the screen says so). */
+    val riskRaised: Boolean = false,
 )
 
-fun planWarning(shownTimes: List<Long>, now: Long, study: StudyStatus, usedMinutes: Double, settings: Settings): WarningPlan {
+/** [inRisk]: `inRiskWindow(settings.riskWindows, now, tz)`, computed by the caller (it needs the timezone). */
+fun planWarning(
+    shownTimes: List<Long>,
+    now: Long,
+    study: StudyStatus,
+    usedMinutes: Double,
+    settings: Settings,
+    inRisk: Boolean = false,
+): WarningPlan {
     val n = recentCount(shownTimes, now)
     val over = budgetStatus(usedMinutes, settings.budgetMinutes).over
-    val lvl = computeLevel(n, study.active, over, settings.friction)
-    return WarningPlan(lvl.level, lvl.lockSeconds, lvl.allowOptions, n, if (study.active) study.label else null)
+    val lvl = computeLevel(n, study.active, over, settings.friction, inRisk)
+    val raised = inRisk && baseLevel(n, study.active, over) < 3
+    return WarningPlan(lvl.level, lvl.lockSeconds, lvl.allowOptions, n, if (study.active) study.label else null, raised)
 }
 
 fun allowOptionsFor(settings: Settings, level: Int): List<Int> =
@@ -154,4 +169,19 @@ fun checkProtection(current: Boolean, enabled: Boolean, confirmed: Boolean, stud
     studyActive -> ErrorCode.STUDY_LOCKED
     !confirmed -> ErrorCode.NEEDS_CONFIRM
     else -> null
+}
+
+/**
+ * Replacing the list of risk windows. Invalid input (too many, a bad window) is refused; adding or widening
+ * is always fine; anything that uncovers a minute (removing, fewer days, shorter) is locked while studying
+ * and otherwise waits for the confirmation, like the other weakening settings.
+ */
+fun checkRiskWindowsChange(old: List<RiskWindow>, new: List<RiskWindow>, confirmed: Boolean, studyActive: Boolean): ErrorCode? {
+    val clean = cleanRiskWindows(new) ?: return ErrorCode.INVALID
+    return when {
+        !riskWindowsChangeWeakens(old, clean) -> null
+        studyActive -> ErrorCode.STUDY_LOCKED
+        !confirmed -> ErrorCode.NEEDS_CONFIRM
+        else -> null
+    }
 }

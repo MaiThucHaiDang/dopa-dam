@@ -32,7 +32,7 @@ class VectorsTest {
             val s = friction(c.optJSONObject("settings") ?: v.getJSONObject("defaultSettings"))
             val i = c.getJSONObject("input")
             val e = c.getJSONObject("expected")
-            val r = computeLevel(i.getInt("n"), i.getBoolean("inStudy"), i.getBoolean("overBudget"), s)
+            val r = computeLevel(i.getInt("n"), i.getBoolean("inStudy"), i.getBoolean("overBudget"), s, i.optBoolean("inRisk", false))
             assertEquals(c.getString("name"), LevelResult(e.getInt("level"), e.getInt("lockSeconds"), e.getJSONArray("allowOptions").ints()), r)
         }
     }

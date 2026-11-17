@@ -77,7 +77,7 @@ private fun niceMax(v: Double): Double {
 }
 
 @Composable
-fun StatsScreen() {
+fun StatsScreen(vm: MainViewModel) {
     val app = LocalContext.current.applicationContext as DopaDamApp
     var stats by remember { mutableStateOf<List<DayStat>?>(null) }
     var budget by remember { mutableIntStateOf(0) }
@@ -105,6 +105,7 @@ fun StatsScreen() {
         Text("Thống kê", style = MaterialTheme.typography.headlineSmall)
         Muted("Gộp mọi thiết bị đã đồng bộ. Mục tiêu: tỉ lệ Thoát tăng dần, số giây đến lúc Thoát giảm dần.")
         if (all.isNotEmpty()) ProgressCard(weeklyProgress(all, all.last().day))
+        RiskHoursCard(vm)
         Row(horizontalArrangement = Arrangement.spacedBy(Tokens.SpaceSm)) {
             FilterChip(selected = !weeks, onClick = { weeks = false }, label = { Text("14 ngày") })
             FilterChip(selected = weeks, onClick = { weeks = true }, label = { Text("4 tuần") })
