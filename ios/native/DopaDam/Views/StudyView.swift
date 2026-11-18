@@ -18,6 +18,7 @@ struct StudyView: View {
             Card {
                 SectionTitle("Phiên học")
                 BodyText(panel.statusLine)
+                    .accessibilityIdentifier("study.status")
                 if panel.canStop {
                     Button {
                         model.request(.stopStudy)
@@ -39,6 +40,7 @@ struct StudyView: View {
                             Text(OverviewText.minuteButton(minutes))
                         }
                         .buttonStyle(PrimaryButtonStyle())
+                        .accessibilityIdentifier("study.start.\(minutes)")
                     }
                 }
                 Muted("Trong phiên học, các thay đổi làm yếu bảo vệ bị khóa.")

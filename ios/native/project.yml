@@ -4,6 +4,7 @@ name: DopaDam
 
 options:
   bundleIdPrefix: com.dang
+  developmentLanguage: vi
   deploymentTarget:
     iOS: "17.0"
   createIntermediateGroups: true
@@ -27,6 +28,13 @@ targets:
       - path: DopaDam
     dependencies:
       - package: DopaDamCore
+    info:
+      # Merged with the INFOPLIST_KEY_* settings below into the generated Info.plist. Vietnamese is the only
+      # localisation, so the system's own strings (alerts, keyboard keys, edit menu) come in Vietnamese too.
+      path: Generated/DopaDam-Info.plist
+      properties:
+        CFBundleDevelopmentRegion: vi
+        CFBundleLocalizations: [vi]
     settings:
       base:
         PRODUCT_NAME: DopaDam
@@ -48,3 +56,53 @@ targets:
         INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: UIInterfaceOrientationPortrait
         INFOPLIST_KEY_UIUserInterfaceStyle: Dark
+
+  # Unit tests that run inside the app process: the two App Intents, on a temporary state file.
+  DopaDamTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: DopaDamTests
+    dependencies:
+      - target: DopaDam
+      - package: DopaDamCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.dang.dopadam.tests
+        GENERATE_INFOPLIST_FILE: YES
+        TARGETED_DEVICE_FAMILY: "1"
+
+  # UI tests: drive the app on the simulator with the DEBUG launch arguments (see Support/DebugLaunch.swift).
+  DopaDamUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: DopaDamUITests
+    dependencies:
+      - target: DopaDam
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.dang.dopadam.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        TARGETED_DEVICE_FAMILY: "1"
+
+# One scheme. Building it (Release, iphoneos) builds only the app; `xcodebuild test` also builds and runs both
+# test targets, in Debug (the DEBUG launch hooks exist only there).
+schemes:
+  DopaDam:
+    build:
+      targets:
+        DopaDam: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - name: DopaDamTests
+        - name: DopaDamUITests
+    profile:
+      config: Release
+    archive:
+      config: Release

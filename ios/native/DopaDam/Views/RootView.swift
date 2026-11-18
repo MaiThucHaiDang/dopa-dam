@@ -31,11 +31,15 @@ struct RootView: View {
         .sheet(isPresented: confirmBinding) {
             ConfirmSheet()
         }
-        .alert(Wording.errorTitle, isPresented: errorBinding) {
-            Button("Đã hiểu", role: .cancel) {}
-        } message: {
-            Text(model.errorMessage ?? "")
+        .overlay(alignment: .top) {
+            if let message = model.errorMessage {
+                ErrorBanner(title: Wording.errorTitle, message: message) {
+                    model.errorMessage = nil
+                }
+                .transition(.move(edge: .top).combined(with: .opacity))
+            }
         }
+        .animation(.easeInOut(duration: 0.2), value: model.errorMessage)
     }
 
     private var confirmBinding: Binding<Bool> {
@@ -43,14 +47,6 @@ struct RootView: View {
             get: { model.pendingChange != nil },
             set: { shown in
                 if !shown { model.cancelPendingChange() }
-            })
-    }
-
-    private var errorBinding: Binding<Bool> {
-        Binding(
-            get: { model.errorMessage != nil },
-            set: { shown in
-                if !shown { model.errorMessage = nil }
             })
     }
 }

@@ -129,3 +129,42 @@ struct TabPage<Content: View>: View {
         .background(Theme.bg.ignoresSafeArea())
     }
 }
+
+/// The error message, shown over the top of the screen until the user dismisses it. It hangs off the root view
+/// as a plain overlay, not as an alert, because an alert is dropped when a sheet is closing in the same moment
+/// (a confirmed change that fails sets the error and closes the confirmation together).
+struct ErrorBanner: View {
+    let title: String
+    let message: String
+    let dismiss: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Theme.Space.sm) {
+            Text(title)
+                .font(.system(size: Theme.FontSize.large, weight: .bold))
+                .foregroundColor(Theme.text)
+                .accessibilityIdentifier("error.title")
+            Text(message)
+                .font(.system(size: Theme.FontSize.base))
+                .foregroundColor(Theme.text)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("error.message")
+            Button {
+                dismiss()
+            } label: {
+                Text("Đã hiểu")
+            }
+            .buttonStyle(PrimaryButtonStyle())
+            .accessibilityIdentifier("error.dismiss")
+        }
+        .padding(Theme.Space.md)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.surfaceRaised)
+        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.lg))
+        .overlay(
+            RoundedRectangle(cornerRadius: Theme.Radius.lg)
+                .stroke(Theme.accent, lineWidth: 2))
+        .padding(.horizontal, Theme.Space.md)
+        .padding(.top, Theme.Space.sm)
+    }
+}

@@ -29,6 +29,7 @@ struct ConfirmSheet: View {
         let gate = model.confirmGate ?? ConfirmGate(startedAt: now)
         return VStack(alignment: .leading, spacing: Theme.Space.md) {
             BodyText(gate.countdownText(now: now))
+                .accessibilityIdentifier("confirm.countdown")
             Muted(Wording.confirmTypeLabel)
             Muted(ConfirmGate.hint)
             TextField(confirmPhrase, text: $typed)
@@ -36,6 +37,7 @@ struct ConfirmSheet: View {
                 .autocorrectionDisabled(true)
                 .textInputAutocapitalization(.never)
                 .disabled(!gate.canType(now: now))
+                .accessibilityIdentifier("confirm.field")
             Button {
                 model.confirmPendingChange(typed: typed)
             } label: {
@@ -43,12 +45,14 @@ struct ConfirmSheet: View {
             }
             .buttonStyle(PrimaryButtonStyle())
             .disabled(!gate.canConfirm(input: typed, now: now))
+            .accessibilityIdentifier("confirm.ok")
             Button {
                 model.cancelPendingChange()
             } label: {
                 Text(Wording.confirmCancel)
             }
             .buttonStyle(SecondaryButtonStyle())
+            .accessibilityIdentifier("confirm.cancel")
         }
     }
 }

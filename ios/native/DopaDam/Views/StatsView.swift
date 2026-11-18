@@ -44,6 +44,7 @@ struct StatsView: View {
             Muted(card.subtitle)
             HeatmapView(card: card)
             BodyText(card.suggestionText)
+                .accessibilityIdentifier("stats.risk.suggestion")
             if let suggestion = card.suggestion, card.canAddWindow {
                 Button {
                     model.request(.addRiskWindow(suggestion.asWindow()))
@@ -51,6 +52,7 @@ struct StatsView: View {
                     Text("Tăng cản trở trong khung này")
                 }
                 .buttonStyle(PrimaryButtonStyle())
+                .accessibilityIdentifier("stats.risk.add")
             }
             if card.windows.isEmpty {
                 Muted(OverviewText.noWindows)
@@ -58,6 +60,7 @@ struct StatsView: View {
                 ForEach(card.windows) { row in
                     HStack {
                         BodyText(row.line)
+                            .accessibilityIdentifier("stats.risk.window")
                         Spacer()
                         Button {
                             model.request(.removeRiskWindow(id: row.id))
@@ -65,6 +68,7 @@ struct StatsView: View {
                             Text("Gỡ")
                                 .foregroundColor(Theme.accent)
                         }
+                        .accessibilityIdentifier("stats.risk.remove")
                     }
                 }
             }

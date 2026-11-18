@@ -21,6 +21,7 @@ struct SettingsView: View {
                             .multilineTextAlignment(.trailing)
                             .textFieldStyle(.roundedBorder)
                             .frame(width: 80)
+                            .accessibilityIdentifier("settings.lock.\(level)")
                     }
                 }
             }
@@ -44,6 +45,7 @@ struct SettingsView: View {
                         .multilineTextAlignment(.trailing)
                         .textFieldStyle(.roundedBorder)
                         .frame(width: 80)
+                        .accessibilityIdentifier("settings.budget")
                 }
                 Muted("0 là tắt hạn mức. Quá hạn mức thì mọi lần hỏi ở mức 3.")
             }
@@ -56,6 +58,7 @@ struct SettingsView: View {
                 Text("Lưu cài đặt")
             }
             .buttonStyle(PrimaryButtonStyle())
+            .accessibilityIdentifier("settings.save")
             Button {
                 form = SettingsForm(settings: model.state.settings)
                 formProblem = nil
@@ -63,6 +66,7 @@ struct SettingsView: View {
                 Text("Hoàn tác thay đổi chưa lưu")
             }
             .buttonStyle(SecondaryButtonStyle())
+            .accessibilityIdentifier("settings.undo")
             Card {
                 SectionTitle("Nhật ký")
                 Muted("Xóa nhật ký sẽ đưa số lần hỏi và số phút đã dùng hôm nay về 0.")

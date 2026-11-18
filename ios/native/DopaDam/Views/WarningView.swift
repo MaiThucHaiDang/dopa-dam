@@ -45,11 +45,13 @@ struct WarningView: View {
                 .foregroundColor(Theme.text)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.top, Theme.Space.xl)
+                .accessibilityIdentifier("warning.headline")
             Text(context.subtitle)
                 .font(.system(size: Theme.FontSize.large))
                 .foregroundColor(Theme.textMuted)
                 .fixedSize(horizontal: false, vertical: true)
             Muted(context.metaLine)
+                .accessibilityIdentifier("warning.meta")
             if let risk = context.riskLine {
                 Muted(risk)
             }
@@ -66,12 +68,14 @@ struct WarningView: View {
             }
             .buttonStyle(PrimaryButtonStyle())
             .padding(.top, Theme.Space.lg)
+            .accessibilityIdentifier("warning.exit")
             Button {
                 model.openAlternative()
             } label: {
                 Text(Wording.alternativeLink)
             }
             .buttonStyle(SecondaryButtonStyle())
+            .accessibilityIdentifier("warning.alternative")
             TimelineView(.periodic(from: Date(), by: 0.5)) { timeline in
                 let now = nowMs(of: timeline.date)
                 Button {
@@ -81,6 +85,7 @@ struct WarningView: View {
                 }
                 .buttonStyle(SecondaryButtonStyle())
                 .disabled(!flow.canEnter(now: now))
+                .accessibilityIdentifier("warning.enter")
             }
         }
     }
@@ -101,6 +106,7 @@ struct WarningView: View {
                     Text(formatMinutes(minutes))
                 }
                 .buttonStyle(PrimaryButtonStyle())
+                .accessibilityIdentifier("warning.minutes.\(minutes)")
             }
             Button {
                 model.backInWarning()
@@ -133,6 +139,7 @@ struct WarningView: View {
                     .padding(.horizontal, Theme.Space.md)
                 }
                 .buttonStyle(SecondaryButtonStyle())
+                .accessibilityIdentifier("warning.activity.\(name)")
             }
             Stepper(
                 flow.activityMinutesText,
@@ -148,6 +155,7 @@ struct WarningView: View {
                 Text(Wording.startActivityButton)
             }
             .buttonStyle(PrimaryButtonStyle())
+            .accessibilityIdentifier("warning.start-activity")
             Button {
                 model.backInWarning()
             } label: {
@@ -166,6 +174,7 @@ struct WarningView: View {
                 .foregroundColor(Theme.text)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.top, Theme.Space.xl)
+                .accessibilityIdentifier("warning.allowed")
             Button {
                 model.finishWarning(goHome: true)
             } label: {
@@ -213,6 +222,7 @@ struct WarningView: View {
                     Text(flow.activityClock(now: now) ?? "")
                         .font(.system(size: 72, weight: .bold, design: .rounded))
                         .foregroundColor(Theme.accent)
+                        .accessibilityIdentifier("warning.clock")
                     Muted(Wording.activityTimerNote)
                 }
                 Button {
@@ -221,6 +231,7 @@ struct WarningView: View {
                     Text(AppWording.doneButton)
                 }
                 .buttonStyle(PrimaryButtonStyle())
+                .accessibilityIdentifier("warning.done")
             }
         }
     }
