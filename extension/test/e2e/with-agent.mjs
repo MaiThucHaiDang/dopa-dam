@@ -9,6 +9,8 @@
 //   Linux needs PLAYWRIGHT_HOST_PLATFORM_OVERRIDE=ubuntu24.04-x64 where Playwright does not know the distribution.
 //   DOPADAM_E2E_CHANNEL picks the browser channel (default msedge on Windows, chromium on Linux);
 //   DOPADAM_AGENT_BIN overrides the agent binary.
+//   DOPADAM_E2E_NO_SESSION=1 (CI, Linux): no private GNOME Shell; run under
+//   xvfb-run -a dbus-run-session -- node test/e2e/with-agent.mjs
 //
 // The agent runs hidden with its own temporary data folder and does not register itself to start with the
 // system. Nothing of the real user's setup is touched:
@@ -19,7 +21,7 @@
 //            private runtime directory, which holds the agent's socket. The user's ~/.config is never read or written.
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
-import { closeSync, existsSync, mkdirSync, mkdtempSync, openSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, closeSync, existsSync, mkdirSync, mkdtempSync, openSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { homedir, tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -86,7 +88,19 @@ const agentEnv = { DOPADAM_DATA_DIR: dataDir, DOPADAM_NO_AUTOSTART: "1", DOPADAM
 const sessionSh = join(repo, "linux/e2e/session.sh");
 let sessionEnv = null;
 let ownSession = false;
+// DOPADAM_E2E_NO_SESSION=1 (CI): the caller already provides a display and a session bus, e.g.
+//   xvfb-run -a dbus-run-session -- node test/e2e/with-agent.mjs
+// The agent then runs directly (X11), with a private runtime directory and a throw-away HOME.
+const NO_SESSION = LINUX && process.env.DOPADAM_E2E_NO_SESSION === "1";
+let agentHome = null;
 function startSession() {
+  if (NO_SESSION) {
+    agentHome = mkdtempSync(join(tmpdir(), "dopadam-e2e-agent-home-"));
+    const runtime = mkdtempSync(join(tmpdir(), "ddrt-"));
+    chmodSync(runtime, 0o700);
+    sessionEnv = { XDG_RUNTIME_DIR: runtime };
+    return;
+  }
   const read = () => {
     try {
       const text = execFileSync(sessionSh, ["status"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
@@ -111,6 +125,25 @@ function startAgent() {
   let child;
   if (WIN) {
     child = spawn(agentExe, ["--hidden"], { ...opts, env: { ...process.env, ...agentEnv } });
+  } else if (NO_SESSION) {
+    child = spawn(agentExe, ["--hidden"], {
+      ...opts,
+      env: {
+        PATH: process.env.PATH,
+        LANG: "C.UTF-8",
+        HOME: agentHome,
+        DISPLAY: process.env.DISPLAY,
+        DBUS_SESSION_BUS_ADDRESS: process.env.DBUS_SESSION_BUS_ADDRESS,
+        GDK_BACKEND: "x11",
+        // No GPU on a CI runner.
+        WEBKIT_DISABLE_COMPOSITING_MODE: "1",
+        WEBKIT_DISABLE_DMABUF_RENDERER: "1",
+        LIBGL_ALWAYS_SOFTWARE: "1",
+        XDG_RUNTIME_DIR: sessionEnv.XDG_RUNTIME_DIR,
+        DOPADAM_NO_HOST_REGISTER: "1",
+        ...agentEnv,
+      },
+    });
   } else {
     // session.sh runs the command with only the private session's environment (exec: the child keeps this PID).
     const vars = Object.entries({ ...agentEnv, DOPADAM_NO_HOST_REGISTER: "1" }).map(([k, v]) => `${k}=${v}`);
@@ -500,6 +533,10 @@ try {
     } catch {
       // No log.
     }
+  }
+  if (NO_SESSION) {
+    rmSync(sessionEnv.XDG_RUNTIME_DIR, { recursive: true, force: true });
+    rmSync(agentHome, { recursive: true, force: true });
   }
   if (ownSession) {
     try {

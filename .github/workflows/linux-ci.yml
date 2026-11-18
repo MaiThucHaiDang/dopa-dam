@@ -1,10 +1,11 @@
-# Linux CI (on ubuntu-24.04, not ubuntu-latest: that is 26.04 now, which Playwright 1.55 does not support): every suite that runs without a phone, a Mac or Windows. Six jobs, each fails on its own:
+# Linux CI (on ubuntu-24.04, not ubuntu-latest: that is 26.04 now, which Playwright 1.55 does not support): every suite that runs without a phone, a Mac or Windows. Seven jobs, each fails on its own:
 #   extension  type-check, unit tests, build, and the browser e2e in Playwright's Chromium
 #   agent      Rust agent: UI check, cargo test, the mock-Supabase sync tests, clippy
 #   android    Kotlin unit tests (Gradle)
 #   supabase   migration tests (PGlite)
 #   gnome      GNOME Shell companion protocol tests
 #   iphone     the web page for iPhone: build, type-check, unit tests, browser e2e
+#   extension-agent  the extension in Chromium with the real agent (debug build, under Xvfb): extension/test/e2e/with-agent.mjs
 # Logs of every job go to a subfolder of the ci-logs-linux branch (.github/scripts/publish-logs.sh), and a
 # "summary" job puts the per-job results there too, so they can be read with a plain `git fetch`.
 name: Linux CI
@@ -19,9 +20,10 @@ on:
 permissions:
   contents: write
 
+# One group per commit: a newer push (by anyone) must not cancel the run of an older commit half way.
 concurrency:
-  group: linux-ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: linux-ci-${{ github.sha }}
+  cancel-in-progress: false
 
 env:
   CARGO_TERM_COLOR: never
@@ -258,8 +260,56 @@ jobs:
             "unit tests: $(grep -hE '^ +Tests ' $L/04-vitest.log 2>/dev/null | tail -1 | sed 's/^ *//')" \
             "e2e: $(grep -hE 'passed, [0-9]+ failed' $L/06-e2e.log 2>/dev/null | tail -1)"
 
+  extension-agent:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            agent/package-lock.json
+            extension/package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: agent/src-tauri
+          cache-on-failure: true
+          key: with-agent
+      - run: mkdir -p "$RUNNER_TEMP/logs"
+      - name: System libraries (Tauri, Xvfb, D-Bus)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf libssl-dev libxdo-dev xvfb dbus-x11 2>&1 | tail -3
+      - name: Build the agent (debug)
+        run: |
+          (cd agent && npm ci && npm run build:ui) 2>&1 | tee "$RUNNER_TEMP/logs/01-agent-ui.log"
+          (cd agent/src-tauri && cargo build --features tauri/custom-protocol) 2>&1 | tee "$RUNNER_TEMP/logs/02-cargo-build.log"
+      - name: Build the extension and install Chromium
+        working-directory: extension
+        run: |
+          npm ci && npm run build && npx playwright-core install --with-deps chromium
+        # (output in the job log)
+      - name: Extension + real agent (with-agent.mjs under Xvfb)
+        working-directory: extension
+        env:
+          DOPADAM_E2E_NO_SESSION: "1"
+          DOPADAM_AGENT_BIN: ${{ github.workspace }}/agent/src-tauri/target/debug/dopadam
+        run: xvfb-run -a -s "-screen 0 1280x800x24" dbus-run-session -- node test/e2e/with-agent.mjs 2>&1 | tee "$RUNNER_TEMP/logs/03-with-agent.log"
+      - name: Publish the logs on the ci-logs-linux branch
+        if: always() && github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          L="$RUNNER_TEMP/logs"
+          bash .github/scripts/finish-job.sh extension-agent "$JOB_STATUS" \
+            "with-agent: $(grep -c '^  ok ' $L/03-with-agent.log 2>/dev/null) ok, $(grep -c '^  FAIL ' $L/03-with-agent.log 2>/dev/null) FAIL"
+
   summary:
-    needs: [extension, agent, android, supabase, gnome, iphone]
+    needs: [extension, agent, android, supabase, gnome, iphone, extension-agent]
     if: always() && github.event_name != 'pull_request'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -274,6 +324,7 @@ jobs:
           R_supabase: ${{ needs.supabase.result }}
           R_gnome: ${{ needs.gnome.result }}
           R_iphone: ${{ needs.iphone.result }}
+          R_extension_agent: ${{ needs.extension-agent.result }}
         run: |
           out="$RUNNER_TEMP/logs"
           mkdir -p "$out"
@@ -282,8 +333,8 @@ jobs:
             echo "run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
             echo
             printf '%-12s %s\n' job result
-            for j in extension agent android supabase gnome iphone; do
-              v="R_$j"
+            for j in extension agent android supabase gnome iphone extension-agent; do
+              v="R_${j//-/_}"
               printf '%-12s %s\n' "$j" "${!v}"
             done
           } > "$out/summary.txt"

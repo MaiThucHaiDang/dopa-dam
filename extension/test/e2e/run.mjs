@@ -48,6 +48,7 @@ const context = await chromium.launchPersistentContext(profile, {
     env: {
       PATH: process.env.PATH,
       LANG: "C.UTF-8",
+      ...(process.env.TZ && { TZ: process.env.TZ }),
       HOME: browserHome,
       XDG_CONFIG_HOME: join(browserHome, ".config"),
       XDG_CACHE_HOME: join(browserHome, ".cache"),
@@ -64,6 +65,7 @@ async function test(name, fn) {
   } catch (err) {
     failures++;
     console.log(`  FAIL  ${name}\n        ${String(err?.message ?? err).split("\n").join("\n        ")}`);
+    if (process.env.DOPADAM_E2E_STACK) console.log(String(err?.stack ?? ""));
   }
 }
 
@@ -385,24 +387,31 @@ try {
 
   /** Writes events straight into the extension's storage, then stops its worker so the next message re-reads them. */
   async function seedEvents(events) {
-    const sw = context.serviceWorkers()[0];
-    await sw.evaluate(async (list) => {
-      const { state } = await chrome.storage.local.get("state");
-      state.events = list;
-      await chrome.storage.local.set({ state });
-    }, events);
-    const page = await context.newPage();
-    await page.goto(`${EXT}/popup.html`);
-    const cdp = await context.newCDPSession(page);
-    await cdp.send("ServiceWorker.enable");
-    await cdp.send("ServiceWorker.stopAllWorkers");
-    await page.close();
-    for (let i = 0; i < 50; i++) {
-      const view = await send({ type: "options:get" }).catch(() => null);
-      if (view?.ok && view.risk.heatmap.flat().reduce((a, c) => a + c.opens, 0) === events.length) return;
-      await new Promise((r) => setTimeout(r, 200));
+    let seen = "no answer";
+    // A slow machine can leave a stale worker handle or a pending write of the old state: try the whole sequence again.
+    for (let attempt = 0; attempt < 3; attempt++) {
+      await send({ type: "popup:get" }); // wakes the worker up
+      const sw = context.serviceWorkers().at(-1) ?? (await context.waitForEvent("serviceworker", { timeout: 10_000 }));
+      await sw.evaluate(async (list) => {
+        const { state } = await chrome.storage.local.get("state");
+        state.events = list;
+        await chrome.storage.local.set({ state });
+      }, events);
+      const page = await context.newPage();
+      await page.goto(`${EXT}/popup.html`);
+      const cdp = await context.newCDPSession(page);
+      await cdp.send("ServiceWorker.enable");
+      await cdp.send("ServiceWorker.stopAllWorkers");
+      await page.close();
+      for (let i = 0; i < 50; i++) {
+        const view = await send({ type: "options:get" }).catch(() => null);
+        const total = view?.ok ? view.risk.heatmap.flat().reduce((a, c) => a + c.opens, 0) : -1;
+        seen = `${total} of ${events.length} events in the heat map`;
+        if (total === events.length) return;
+        await new Promise((r) => setTimeout(r, 200));
+      }
     }
-    throw new Error("the extension did not load the seeded events");
+    throw new Error(`the extension did not load the seeded events (${seen})`);
   }
 
   await test("risk hours: set-up (no study rule, default friction, empty log)", async () => {
