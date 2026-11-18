@@ -144,7 +144,9 @@ Chạy trên ubuntu-24.04 (không dùng `ubuntu-latest`: nay là 26.04, Playwrig
 - [x] `android`: `./gradlew testDebugUnitTest` (84 test).
 - [x] `supabase`: `npm test` (8 test). `gnome`: `node --test` trong `linux/gnome-shell-extension` (16 test).
 - [x] `iphone`: trang web cho iPhone, build, tsc, 55 test và 29 kịch bản trình duyệt.
-- [ ] `extension-agent`: `extension/test/e2e/with-agent.mjs` trong Chromium với agent thật, chạy dưới Xvfb (`DOPADAM_E2E_NO_SESSION=1`, đường X11 của agent, không có GNOME Shell).
+- [x] `extension-agent`: `extension/test/e2e/with-agent.mjs` trong Chromium với agent thật (bản debug build trong job), chạy dưới Xvfb (`DOPADAM_E2E_NO_SESSION=1`, đường X11 của agent, không có GNOME Shell): 19 kịch bản. Extension tìm lại agent khi worker khởi động hoặc ở nhịp 1 phút nên kịch bản "nối lại" chờ tới 100 giây.
+
+Lần chạy xanh cả bảy job: commit `082c117`, run 44369089487 (extension 497 test + 28 kịch bản; agent 24 + 132 + 2 test đồng bộ, clippy sạch; Android 84 test; Supabase 8; GNOME 16; iPhone 55 + 29; extension-agent 19 kịch bản).
 
 Lỗi thật tìm ra nhờ CI: test đồng bộ `pages_through_the_mock_server` giả định mỗi hàng có dấu thời gian riêng, nhưng server giả ghi theo mili giây nên trên máy nhanh nhiều hàng trùng dấu; `seedEvents` trong `run.mjs` có thể hỏng khi service worker dừng giữa chừng trên máy chậm (nay ghi dữ liệu từ trang extension và thử lại); `gradlew` không có quyền chạy sau khi checkout.
 
