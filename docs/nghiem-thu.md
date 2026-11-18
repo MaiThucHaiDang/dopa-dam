@@ -135,6 +135,19 @@ Cần kiểm tra trên phiên Linux thật (phiên riêng không màn hình khô
 - [ ] Extension trong Chrome, Chromium hoặc Brave (không phải snap): Tổng quan báo "Đã nối"; trong trình duyệt snap: extension chạy riêng, không báo lỗi.
 - [ ] Đăng nhập đồng bộ trên Linux: thiết bị hiện là "Máy tính Linux" trong danh sách thiết bị (đã chạy migration `20261116000000_devices_linux.sql` trên project thật).
 
+### CI trên Linux (`.github/workflows/linux-ci.yml`)
+
+Chạy trên ubuntu-24.04 (không dùng `ubuntu-latest`: nay là 26.04, Playwright 1.55 chưa hỗ trợ) khi push lên `linux-port` và `main`, pull request, hoặc bấm tay. Bảy job độc lập; log từng job và bảng kết quả `summary` nằm ở nhánh `ci-logs-linux` (`git fetch origin ci-logs-linux`, mỗi job một thư mục con, `run-summary.txt` nêu commit và số liệu).
+
+- [x] `extension`: `npm run check` (497 test) và `npm run e2e` trong Chromium của Playwright (28 kịch bản).
+- [x] `agent`: `npm run check` (24 test), `cargo test` (132 test), hai test đồng bộ với server giả (`cargo test -- --ignored`, qua `supabase/test/mock-server.mjs`), `cargo clippy --all-targets -- -D warnings`.
+- [x] `android`: `./gradlew testDebugUnitTest` (84 test).
+- [x] `supabase`: `npm test` (8 test). `gnome`: `node --test` trong `linux/gnome-shell-extension` (16 test).
+- [x] `iphone`: trang web cho iPhone, build, tsc, 55 test và 29 kịch bản trình duyệt.
+- [ ] `extension-agent`: `extension/test/e2e/with-agent.mjs` trong Chromium với agent thật, chạy dưới Xvfb (`DOPADAM_E2E_NO_SESSION=1`, đường X11 của agent, không có GNOME Shell).
+
+Lỗi thật tìm ra nhờ CI: test đồng bộ `pages_through_the_mock_server` giả định mỗi hàng có dấu thời gian riêng, nhưng server giả ghi theo mili giây nên trên máy nhanh nhiều hàng trùng dấu; `seedEvents` trong `run.mjs` có thể hỏng khi service worker dừng giữa chừng trên máy chậm (nay ghi dữ liệu từ trang extension và thử lại); `gradlew` không có quyền chạy sau khi checkout.
+
 ## Giai đoạn 7: Tiến bộ theo tuần
 
 Đã kiểm tra tự động:

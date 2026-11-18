@@ -517,7 +517,8 @@ try {
 
   await test("the extension reconnects when the agent comes back, and gets the agent's configuration again", async () => {
     agentProc = startAgent();
-    await until(async () => (await send({ type: "popup:get" })).agent.connected, "reconnection", 40_000);
+    // The extension looks for the agent when its worker starts and on its 1-minute tick, so allow for the tick.
+    await until(async () => (await send({ type: "popup:get" })).agent.connected, "reconnection", 100_000);
     await until(async () => (await send({ type: "options:get" })).domainRules.some((r) => r.pattern === "localhost"), "mirrored rule");
     const warned = await openBlocked(`http://127.0.0.1:${PORT}/back`);
     assert.match(await warned.locator("#meta").textContent(), /Lần thứ \d+ trong 60 phút qua/);
