@@ -133,6 +133,7 @@ function startAgent() {
         LANG: "C.UTF-8",
         HOME: agentHome,
         DISPLAY: process.env.DISPLAY,
+        XAUTHORITY: process.env.XAUTHORITY,
         DBUS_SESSION_BUS_ADDRESS: process.env.DBUS_SESSION_BUS_ADDRESS,
         GDK_BACKEND: "x11",
         // No GPU on a CI runner.
