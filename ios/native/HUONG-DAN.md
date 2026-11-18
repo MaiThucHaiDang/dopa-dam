@@ -5,8 +5,8 @@
 ## Tình trạng hiện tại, nói thẳng
 
 - **Phần lõi** (`DopaDamCore`: cách tính cấp, Chế độ Học, Giờ nguy cơ, thống kê, lưu dữ liệu) đã được biên dịch và chạy 111 test trên Linux, gồm toàn bộ ca kiểm thử chung với các nền tảng khác.
-- **Phần giao diện và hai hành động Phím tắt chưa từng được biên dịch**, vì việc đó cần Xcode trên macOS. Mã mới chỉ qua kiểm tra cú pháp. Lần biên dịch đầu trên GitHub rất có thể báo vài lỗi; khi đó tải tệp `xcodebuild.log` trong kết quả của lần chạy và gửi lại để sửa.
-- Chưa có gì được chạy trên iPhone thật.
+- **Giao diện và hai hành động Phím tắt đã biên dịch được** trên máy Mac của GitHub, và đã được chạy thử trên iPhone ảo (trình mô phỏng iOS): các bước 1 đến 4, 7 và 8 của phần "Kiểm tra sau khi cài" bên dưới đều có kiểm thử tự động kèm ảnh chụp màn hình ở từng bước (xem nhánh `ci-logs-ios`).
+- Chưa có gì được chạy trên iPhone thật. Trình mô phỏng không kiểm tra được: tự động hóa trong Phím tắt gọi hai hành động, việc mở lại app giải trí bằng địa chỉ riêng của nó, và thông báo "Còn 1 phút" thật sự tới nơi.
 
 Nếu cần dùng ngay hôm nay, bản trang web trong `ios/HUONG-DAN.md` đã chạy thử được trong trình duyệt.
 
