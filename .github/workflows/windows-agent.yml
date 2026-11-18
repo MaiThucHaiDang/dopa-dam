@@ -1,0 +1,224 @@
+# Runs the DopaDam desktop agent on a real Windows machine (a GitHub runner has an interactive desktop, Edge and
+# Chrome): UI check, Rust tests and clippy, the NSIS installer, a smoke test of the installed program on the
+# desktop, the Notepad guard test, and the Edge extension test against the real agent.
+# Each step is allowed to fail without hiding the others; the job fails at the end if any did. Logs, screenshots and
+# a summary are published on the ci-logs-windows branch (one commit, replaced on every run).
+name: Agent DopaDam tren Windows
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [linux-port]
+    paths:
+      - "agent/**"
+      - "shared/**"
+      - "supabase/test/**"
+      - ".github/workflows/windows-agent.yml"
+
+# contents: write only for the publishing step.
+permissions:
+  contents: write
+
+concurrency:
+  group: windows-agent-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: never
+  CARGO_INCREMENTAL: "0"
+  RUST_BACKTRACE: "1"
+  NO_COLOR: "1"
+  CI_OUT: ${{ github.workspace }}/ci-out
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 80
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            agent/package-lock.json
+            extension/package-lock.json
+            supabase/package-lock.json
+
+      - name: Rust toolchain (MSVC)
+        run: |
+          rustup default stable-x86_64-pc-windows-msvc
+          rustup component add clippy
+          rustc --version
+          cargo --version
+          node --version
+          python --version
+          mkdir -p "$CI_OUT/logs" "$CI_OUT/shots"
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: agent/src-tauri
+          cache-on-failure: true
+
+      - name: Desktop before anything runs
+        id: desktop
+        continue-on-error: true
+        run: |
+          powershell -NoProfile -ExecutionPolicy Bypass -File agent/e2e/ci/desktop-info.ps1 2>&1 | tee "$CI_OUT/logs/00-desktop.log"
+          powershell -NoProfile -ExecutionPolicy Bypass -File agent/e2e/ci/shot.ps1 "$CI_OUT/shots/00-desktop-before.png" 2>&1 | tee -a "$CI_OUT/logs/00-desktop.log"
+
+      - name: Agent - npm ci
+        id: npm_ci
+        continue-on-error: true
+        working-directory: agent
+        run: npm ci 2>&1 | tee "$CI_OUT/logs/01-agent-npm-ci.log"
+
+      - name: Agent UI - type-check, tests, build (npm run check)
+        id: ui_check
+        continue-on-error: true
+        working-directory: agent
+        run: npm run check 2>&1 | tee "$CI_OUT/logs/02-ui-check.log"
+
+      - name: Rust - cargo test
+        id: cargo_test
+        continue-on-error: true
+        working-directory: agent/src-tauri
+        run: cargo test 2>&1 | tee "$CI_OUT/logs/03-cargo-test.log"
+
+      - name: Rust - sync tests against the mock Supabase server
+        id: mock_tests
+        continue-on-error: true
+        run: |
+          (cd supabase && npm ci) 2>&1 | tee "$CI_OUT/logs/04-mock-npm-ci.log"
+          node supabase/test/mock-server.mjs 54329 > "$CI_OUT/logs/04-mock-server.log" 2>&1 &
+          server=$!
+          for i in $(seq 1 60); do
+            grep -q "listening" "$CI_OUT/logs/04-mock-server.log" && break
+            sleep 1
+          done
+          cat "$CI_OUT/logs/04-mock-server.log"
+          rc=0
+          (cd agent/src-tauri && DOPADAM_MOCK_SUPABASE=http://127.0.0.1:54329 cargo test -- --include-ignored) 2>&1 | tee "$CI_OUT/logs/04-cargo-test-mock.log" || rc=$?
+          kill $server 2>/dev/null || true
+          exit $rc
+
+      - name: Rust - cargo clippy
+        id: clippy
+        continue-on-error: true
+        working-directory: agent/src-tauri
+        run: cargo clippy --all-targets -- -D warnings 2>&1 | tee "$CI_OUT/logs/05-clippy.log"
+
+      - name: Rust - debug build (for the desktop and Edge tests)
+        id: debug_build
+        continue-on-error: true
+        working-directory: agent/src-tauri
+        run: cargo build 2>&1 | tee "$CI_OUT/logs/06-cargo-build-debug.log"
+
+      - name: Build the NSIS installer
+        id: nsis
+        continue-on-error: true
+        working-directory: agent
+        run: npx tauri build --bundles nsis 2>&1 | tee "$CI_OUT/logs/07-tauri-build-nsis.log"
+
+      - name: Smoke test - install silently, run on the real desktop, uninstall
+        id: smoke
+        continue-on-error: true
+        run: |
+          setup=$(ls agent/src-tauri/target/release/bundle/nsis/*-setup.exe | head -1)
+          echo "setup: $setup"
+          powershell -NoProfile -ExecutionPolicy Bypass -File agent/e2e/ci/smoke-installer.ps1 -Setup "$(cygpath -w "$PWD/$setup")" -OutDir "$(cygpath -w "$CI_OUT/shots")" 2>&1 | tee "$CI_OUT/logs/08-smoke-installer.log"
+
+      - name: Desktop guard test - Notepad tagged as entertainment gets the warning
+        id: guard
+        continue-on-error: true
+        run: |
+          pip install pillow 2>&1 | tail -1
+          python agent/e2e/desktop_test.py --shot "$CI_OUT/shots/10-guard-warning-over-notepad.png" 2>&1 | tee "$CI_OUT/logs/09-desktop-guard.log"
+
+      - name: Edge extension and the real agent (extension/test/e2e/with-agent.mjs)
+        id: ext_e2e
+        continue-on-error: true
+        run: |
+          (cd extension && npm ci && npm run build) 2>&1 | tee "$CI_OUT/logs/10-extension-build.log"
+          (cd extension && node test/e2e/with-agent.mjs) 2>&1 | tee "$CI_OUT/logs/11-extension-with-agent.log"
+
+      - name: Final desktop screenshot
+        if: always()
+        continue-on-error: true
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File agent/e2e/ci/shot.ps1 "$CI_OUT/shots/99-desktop-after.png"
+
+      - name: Upload the installer
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: DopaDam-windows-installer
+          path: agent/src-tauri/target/release/bundle/nsis/*.exe
+          if-no-files-found: warn
+
+      # Puts logs, screenshots and the summary on the ci-logs-windows branch (one commit, replaced on every run), so
+      # they can be read with a plain `git fetch`, without signing in to GitHub.
+      - name: Publish the logs on the ci-logs-windows branch
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          O_desktop: ${{ steps.desktop.outcome }}
+          O_npm_ci: ${{ steps.npm_ci.outcome }}
+          O_ui_check: ${{ steps.ui_check.outcome }}
+          O_cargo_test: ${{ steps.cargo_test.outcome }}
+          O_mock_tests: ${{ steps.mock_tests.outcome }}
+          O_clippy: ${{ steps.clippy.outcome }}
+          O_debug_build: ${{ steps.debug_build.outcome }}
+          O_nsis: ${{ steps.nsis.outcome }}
+          O_smoke: ${{ steps.smoke.outcome }}
+          O_guard: ${{ steps.guard.outcome }}
+          O_ext_e2e: ${{ steps.ext_e2e.outcome }}
+        run: |
+          set +e
+          out="$(cygpath -u "$RUNNER_TEMP")/ci-logs"
+          rm -rf "$out" && mkdir -p "$out/logs" "$out/shots"
+          # Agent logs written by the smoke test sit next to the screenshots.
+          find "$CI_OUT" -name '*.log' -exec cp {} "$out/logs/" \;
+          find "$CI_OUT" -name '*.png' -exec cp {} "$out/shots/" \;
+          [ -d "$out/shots" ] && ls -l "$out/shots"
+          cat "$out"/logs/*.log | grep -E "error(\[E[0-9]+\])?:|warning:|FAILED|panicked|^ *FAIL |  FAIL  " | sort -u > "$out/errors.txt"
+          sum() { grep -hoE "[0-9]+ passed" "$@" 2>/dev/null | awk '{n+=$1} END {print n+0}'; }
+          nfail() { grep -hoE "[0-9]+ failed" "$@" 2>/dev/null | awk '{n+=$1} END {print n+0}'; }
+          okc() { grep -c "^  ok " "$1" 2>/dev/null; }
+          failc() { grep -c "^  FAIL " "$1" 2>/dev/null; }
+          L="$out/logs"
+          {
+            echo "commit: $GITHUB_SHA"
+            echo "run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+            echo "runner: $(powershell -NoProfile -Command '(Get-CimInstance Win32_OperatingSystem).Caption + " " + (Get-CimInstance Win32_OperatingSystem).Version' | tr -d '\r')"
+            echo
+            printf '%-14s %-10s %s\n' step result detail
+            printf '%-14s %-10s %s\n' desktop-info "$O_desktop" ""
+            printf '%-14s %-10s %s\n' npm-ci "$O_npm_ci" ""
+            printf '%-14s %-10s %s\n' ui-check "$O_ui_check" "$(grep -hE '^ +Tests ' $L/02-ui-check.log 2>/dev/null | tail -1 | sed 's/^ *//')"
+            printf '%-14s %-10s %s\n' cargo-test "$O_cargo_test" "$(sum $L/03-cargo-test.log) passed, $(nfail $L/03-cargo-test.log) failed"
+            printf '%-14s %-10s %s\n' mock-sync "$O_mock_tests" "$(sum $L/04-cargo-test-mock.log) passed (all tests incl. the 2 mock-server ones), $(nfail $L/04-cargo-test-mock.log) failed"
+            printf '%-14s %-10s %s\n' clippy "$O_clippy" "$(grep -cE '^(warning|error)' $L/05-clippy.log 2>/dev/null) diagnostics"
+            printf '%-14s %-10s %s\n' debug-build "$O_debug_build" ""
+            printf '%-14s %-10s %s\n' nsis-build "$O_nsis" "$(ls agent/src-tauri/target/release/bundle/nsis/*.exe 2>/dev/null | xargs -n1 basename 2>/dev/null)"
+            printf '%-14s %-10s %s\n' smoke "$O_smoke" "$(grep -hE '^smoke: ' $L/08-smoke-installer.log 2>/dev/null | tail -1)"
+            printf '%-14s %-10s %s\n' desktop-guard "$O_guard" "$(okc $L/09-desktop-guard.log) ok, $(failc $L/09-desktop-guard.log) FAIL"
+            printf '%-14s %-10s %s\n' ext-with-agent "$O_ext_e2e" "$(okc $L/11-extension-with-agent.log) ok, $(failc $L/11-extension-with-agent.log) FAIL"
+          } > "$out/summary.txt"
+          cat "$out/summary.txt"
+          cd "$out"
+          git init -q
+          git add -A
+          git -c user.name="ci" -c user.email="ci@users.noreply.github.com" commit -qm "Windows agent logs for $GITHUB_SHA"
+          git push -qf "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:refs/heads/ci-logs-windows
+
+      - name: Fail the job if any step failed
+        if: always()
+        env:
+          RESULTS: ${{ join(steps.*.outcome, ' ') }}
+        run: |
+          echo "outcomes: $RESULTS"
+          case " $RESULTS " in *" failure "*) echo "at least one step failed"; exit 1 ;; esac

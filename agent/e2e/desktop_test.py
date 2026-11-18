@@ -5,7 +5,7 @@ minimized.
 The agent runs hidden with a temporary data folder and without starting with Windows. Its
 native messaging registry entry is removed at the end.
 
-Usage: python agent/e2e/desktop_test.py [--shot out.png]
+Usage: python agent/e2e/desktop_test.py [--shot out.png]   (--shot also saves out-after.png once Notepad is minimized)
 Needs the debug build (cd agent && npm run build:ui && cd src-tauri && cargo build) and Pillow.
 """
 import argparse
@@ -133,6 +133,11 @@ def main():
             assert rows == [("exit",)], rows
             hwnd = wait(lambda: find_window("Notepad") or find_window("Untitled"), "notepad window", 5)
             wait(lambda: user32.IsIconic(hwnd), "Notepad minimized", 5)
+            if args.shot:
+                from PIL import ImageGrab
+
+                time.sleep(0.5)
+                ImageGrab.grab().save(str(Path(args.shot).with_name(Path(args.shot).stem + "-after.png")))
 
         check("Enter means Thoát: decision recorded and Notepad minimized", enter_is_exit)
     finally:
