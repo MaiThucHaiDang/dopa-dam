@@ -2,9 +2,10 @@
 // A local static server plays GitHub Pages: the page is served from a sub-path, not from the root.
 // Usage: node build.mjs && PLAYWRIGHT_HOST_PLATFORM_OVERRIDE=ubuntu24.04-x64 node test/e2e.mjs
 import assert from "node:assert/strict";
-import { mkdirSync, readFileSync, existsSync, statSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, existsSync, rmSync, statSync } from "node:fs";
 import { createServer } from "node:http";
 import { createRequire } from "node:module";
+import { tmpdir } from "node:os";
 import { dirname, extname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -49,7 +50,22 @@ await new Promise((r) => server.listen(0, "127.0.0.1", r));
 const ORIGIN = `http://localhost:${server.address().port}`;
 const BASE = `${ORIGIN}${SUBPATH}`;
 
-const browser = await chromium.launch({ channel: process.env.DOPADAM_E2E_CHANNEL ?? "chromium", headless: true });
+// Linux: a throw-away HOME and XDG folders, so the browser writes nothing into the real ~/.config or ~/.cache.
+const browserHome = process.platform === "linux" ? mkdtempSync(join(tmpdir(), "dopadam-ios-e2e-home-")) : null;
+const browser = await chromium.launch({
+  channel: process.env.DOPADAM_E2E_CHANNEL ?? "chromium",
+  headless: true,
+  ...(browserHome && {
+    env: {
+      PATH: process.env.PATH,
+      LANG: "C.UTF-8",
+      HOME: browserHome,
+      XDG_CONFIG_HOME: join(browserHome, ".config"),
+      XDG_CACHE_HOME: join(browserHome, ".cache"),
+      XDG_DATA_HOME: join(browserHome, ".local/share"),
+    },
+  }),
+});
 
 const problems = []; // console errors and page errors of every page
 let failures = 0;
@@ -645,6 +661,7 @@ try {
   await ctxA.close();
 } finally {
   await browser.close();
+  if (browserHome) rmSync(browserHome, { recursive: true, force: true });
   server.close();
 }
 
