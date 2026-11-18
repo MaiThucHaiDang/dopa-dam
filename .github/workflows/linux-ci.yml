@@ -156,7 +156,9 @@ jobs:
       - run: mkdir -p "$RUNNER_TEMP/logs"
       - name: Unit tests (./gradlew testDebugUnitTest)
         working-directory: android
-        run: ./gradlew --console=plain testDebugUnitTest 2>&1 | tee "$RUNNER_TEMP/logs/01-gradle-test.log"
+        run: |
+          chmod +x gradlew
+          ./gradlew --console=plain testDebugUnitTest 2>&1 | tee "$RUNNER_TEMP/logs/01-gradle-test.log"
       - name: Collect the test reports
         if: always()
         run: |
