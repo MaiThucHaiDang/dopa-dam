@@ -112,7 +112,8 @@ class UITestCase: XCTestCase {
 
     /// Replaces the text of `field` with `digits` (ASCII only), with the on-screen number pad or keyboard.
     func replaceText(of field: XCUIElement, with newText: String, file: StaticString = #filePath, line: UInt = #line) {
-        field.tap()
+        // Tap near the right edge: the text is right-aligned, so the caret lands after it and the deletes work.
+        field.coordinate(withNormalizedOffset: CGVector(dx: 0.97, dy: 0.5)).tap()
         let current = (field.value as? String) ?? ""
         let deletes = String(repeating: XCUIKeyboardKey.delete.rawValue, count: current.count + 3)
         field.typeText(deletes)

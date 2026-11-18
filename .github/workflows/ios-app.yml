@@ -19,9 +19,10 @@ on:
 permissions:
   contents: write
 
+# One run per commit, never cancelled by a later push (the runs are long and the logs are what we read).
 concurrency:
-  group: ios-app-${{ github.ref }}
-  cancel-in-progress: true
+  group: ios-app-${{ github.sha }}
+  cancel-in-progress: false
 
 jobs:
   build:
