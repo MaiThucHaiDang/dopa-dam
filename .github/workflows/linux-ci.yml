@@ -1,4 +1,4 @@
-# Linux CI: every suite that runs without a phone, a Mac or Windows. Six jobs, each fails on its own:
+# Linux CI (on ubuntu-24.04, not ubuntu-latest: that is 26.04 now, which Playwright 1.55 does not support): every suite that runs without a phone, a Mac or Windows. Six jobs, each fails on its own:
 #   extension  type-check, unit tests, build, and the browser e2e in Playwright's Chromium
 #   agent      Rust agent: UI check, cargo test, the mock-Supabase sync tests, clippy
 #   android    Kotlin unit tests (Gradle)
@@ -36,7 +36,7 @@ defaults:
 
 jobs:
   extension:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -70,7 +70,7 @@ jobs:
             "e2e: $(grep -c '^  ok ' $L/04-e2e.log 2>/dev/null) ok, $(grep -c '^  FAIL ' $L/04-e2e.log 2>/dev/null) FAIL"
 
   agent:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
@@ -139,7 +139,7 @@ jobs:
             "clippy diagnostics: $(grep -cE '^(warning|error)' $L/05-clippy.log 2>/dev/null)"
 
   android:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
@@ -169,7 +169,7 @@ jobs:
           bash .github/scripts/finish-job.sh android "$JOB_STATUS" "unit tests: $tests run, $fails failures"
 
   supabase:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
@@ -196,7 +196,7 @@ jobs:
             "tests: $(grep -hE '^# (pass|fail) ' $L/02-test.log 2>/dev/null | tr '\n' ' ')"
 
   gnome:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
@@ -218,7 +218,7 @@ jobs:
             "tests: $(grep -hE '^# (pass|fail) ' $L/01-test.log 2>/dev/null | tr '\n' ' ')"
 
   iphone:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -261,7 +261,7 @@ jobs:
   summary:
     needs: [extension, agent, android, supabase, gnome, iphone]
     if: always() && github.event_name != 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
