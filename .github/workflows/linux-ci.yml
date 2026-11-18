@@ -1,0 +1,291 @@
+# Linux CI: every suite that runs without a phone, a Mac or Windows. Six jobs, each fails on its own:
+#   extension  type-check, unit tests, build, and the browser e2e in Playwright's Chromium
+#   agent      Rust agent: UI check, cargo test, the mock-Supabase sync tests, clippy
+#   android    Kotlin unit tests (Gradle)
+#   supabase   migration tests (PGlite)
+#   gnome      GNOME Shell companion protocol tests
+#   iphone     the web page for iPhone: build, type-check, unit tests, browser e2e
+# Logs of every job go to a subfolder of the ci-logs-linux branch (.github/scripts/publish-logs.sh), and a
+# "summary" job puts the per-job results there too, so they can be read with a plain `git fetch`.
+name: Linux CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [linux-port, main]
+  pull_request:
+
+# contents: write only for the last step of each job, which publishes the logs (skipped on pull requests).
+permissions:
+  contents: write
+
+concurrency:
+  group: linux-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: never
+  CARGO_INCREMENTAL: "0"
+  RUST_BACKTRACE: "1"
+  NO_COLOR: "1"
+  DOPADAM_E2E_CHANNEL: chromium
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  extension:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: extension/package-lock.json
+      - run: mkdir -p "$RUNNER_TEMP/logs"
+      - name: npm ci
+        working-directory: extension
+        run: npm ci 2>&1 | tee "$RUNNER_TEMP/logs/01-npm-ci.log"
+      - name: Type-check, unit tests, build (npm run check)
+        working-directory: extension
+        run: npm run check 2>&1 | tee "$RUNNER_TEMP/logs/02-check.log"
+      - name: Install Playwright's Chromium (the version playwright-core in package.json wants)
+        working-directory: extension
+        run: npx playwright-core install --with-deps chromium 2>&1 | tee "$RUNNER_TEMP/logs/03-playwright-install.log"
+      - name: Browser e2e (npm run e2e)
+        working-directory: extension
+        run: npm run e2e 2>&1 | tee "$RUNNER_TEMP/logs/04-e2e.log"
+      - name: Publish the logs on the ci-logs-linux branch
+        if: always() && github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          L="$RUNNER_TEMP/logs"
+          bash .github/scripts/finish-job.sh extension "$JOB_STATUS" \
+            "unit tests: $(grep -hE '^ +Tests ' $L/02-check.log 2>/dev/null | tail -1 | sed 's/^ *//')" \
+            "e2e: $(grep -c '^  ok ' $L/04-e2e.log 2>/dev/null) ok, $(grep -c '^  FAIL ' $L/04-e2e.log 2>/dev/null) FAIL"
+
+  agent:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            agent/package-lock.json
+            supabase/package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: agent/src-tauri
+          cache-on-failure: true
+      - run: mkdir -p "$RUNNER_TEMP/logs"
+      - name: System libraries for Tauri
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf libssl-dev libxdo-dev 2>&1 | tail -3
+          rustc --version
+          cargo --version
+          node --version
+      - name: npm ci
+        working-directory: agent
+        run: npm ci 2>&1 | tee "$RUNNER_TEMP/logs/01-npm-ci.log"
+      - name: UI check (type-check, tests, build)
+        working-directory: agent
+        run: npm run check 2>&1 | tee "$RUNNER_TEMP/logs/02-ui-check.log"
+      - name: cargo test
+        working-directory: agent/src-tauri
+        run: cargo test 2>&1 | tee "$RUNNER_TEMP/logs/03-cargo-test.log"
+      - name: Sync tests against the mock Supabase server (the 2 ignored tests)
+        run: |
+          L="$RUNNER_TEMP/logs"
+          (cd supabase && npm ci) 2>&1 | tee "$L/04-mock-npm-ci.log"
+          node supabase/test/mock-server.mjs 54329 > "$L/04-mock-server.log" 2>&1 &
+          server=$!
+          for i in $(seq 1 60); do
+            grep -q "listening" "$L/04-mock-server.log" && break
+            sleep 1
+          done
+          cat "$L/04-mock-server.log"
+          rc=0
+          (cd agent/src-tauri && DOPADAM_MOCK_SUPABASE=http://127.0.0.1:54329 cargo test -- --ignored) 2>&1 | tee "$L/04-cargo-test-mock.log" || rc=$?
+          kill $server 2>/dev/null || true
+          exit $rc
+      - name: cargo clippy
+        working-directory: agent/src-tauri
+        run: cargo clippy --all-targets -- -D warnings 2>&1 | tee "$RUNNER_TEMP/logs/05-clippy.log"
+      - name: Publish the logs on the ci-logs-linux branch
+        if: always() && github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          L="$RUNNER_TEMP/logs"
+          sum() { grep -hoE "[0-9]+ passed" "$@" 2>/dev/null | awk '{n+=$1} END {print n+0}'; }
+          nfail() { grep -hoE "[0-9]+ failed" "$@" 2>/dev/null | awk '{n+=$1} END {print n+0}'; }
+          bash .github/scripts/finish-job.sh agent "$JOB_STATUS" \
+            "ui tests: $(grep -hE '^ +Tests ' $L/02-ui-check.log 2>/dev/null | tail -1 | sed 's/^ *//')" \
+            "cargo test: $(sum $L/03-cargo-test.log) passed, $(nfail $L/03-cargo-test.log) failed" \
+            "mock sync (ignored tests): $(sum $L/04-cargo-test-mock.log) passed, $(nfail $L/04-cargo-test-mock.log) failed" \
+            "clippy diagnostics: $(grep -cE '^(warning|error)' $L/05-clippy.log 2>/dev/null)"
+
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+      - run: mkdir -p "$RUNNER_TEMP/logs"
+      - name: Unit tests (./gradlew testDebugUnitTest)
+        working-directory: android
+        run: ./gradlew --console=plain testDebugUnitTest 2>&1 | tee "$RUNNER_TEMP/logs/01-gradle-test.log"
+      - name: Collect the test reports
+        if: always()
+        run: |
+          mkdir -p "$RUNNER_TEMP/logs/test-results"
+          cp android/app/build/test-results/testDebugUnitTest/*.xml "$RUNNER_TEMP/logs/test-results/" 2>/dev/null || true
+      - name: Publish the logs on the ci-logs-linux branch
+        if: always() && github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          R="$RUNNER_TEMP/logs/test-results"
+          tests=$(cat $R/*.xml 2>/dev/null | grep -o '<testsuite [^>]*' | grep -o ' tests="[0-9]*"' | grep -o '[0-9]*' | awk '{n+=$1} END {print n+0}')
+          fails=$(cat $R/*.xml 2>/dev/null | grep -o '<testsuite [^>]*' | grep -o ' failures="[0-9]*"' | grep -o '[0-9]*' | awk '{n+=$1} END {print n+0}')
+          bash .github/scripts/finish-job.sh android "$JOB_STATUS" "unit tests: $tests run, $fails failures"
+
+  supabase:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: supabase/package-lock.json
+      - run: mkdir -p "$RUNNER_TEMP/logs"
+      - name: npm ci
+        working-directory: supabase
+        run: npm ci 2>&1 | tee "$RUNNER_TEMP/logs/01-npm-ci.log"
+      - name: npm test
+        working-directory: supabase
+        run: npm test 2>&1 | tee "$RUNNER_TEMP/logs/02-test.log"
+      - name: Publish the logs on the ci-logs-linux branch
+        if: always() && github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          L="$RUNNER_TEMP/logs"
+          bash .github/scripts/finish-job.sh supabase "$JOB_STATUS" \
+            "tests: $(grep -hE '^# (pass|fail) ' $L/02-test.log 2>/dev/null | tr '\n' ' ')"
+
+  gnome:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: mkdir -p "$RUNNER_TEMP/logs"
+      - name: node --test
+        working-directory: linux/gnome-shell-extension
+        run: node --test 2>&1 | tee "$RUNNER_TEMP/logs/01-test.log"
+      - name: Publish the logs on the ci-logs-linux branch
+        if: always() && github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          L="$RUNNER_TEMP/logs"
+          bash .github/scripts/finish-job.sh gnome "$JOB_STATUS" \
+            "tests: $(grep -hE '^# (pass|fail) ' $L/01-test.log 2>/dev/null | tr '\n' ' ')"
+
+  iphone:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: extension/package-lock.json
+      - run: mkdir -p "$RUNNER_TEMP/logs"
+      # The page reuses the extension's core and its build tools (tsc, vitest, playwright-core).
+      - name: npm ci (extension)
+        working-directory: extension
+        run: npm ci 2>&1 | tee "$RUNNER_TEMP/logs/01-npm-ci.log"
+      - name: Build the page
+        working-directory: ios
+        run: node build.mjs 2>&1 | tee "$RUNNER_TEMP/logs/02-build.log"
+      - name: Type-check
+        working-directory: ios
+        run: ../extension/node_modules/.bin/tsc -p tsconfig.json --noEmit 2>&1 | tee "$RUNNER_TEMP/logs/03-tsc.log"
+      - name: Unit tests
+        working-directory: ios
+        run: ../extension/node_modules/.bin/vitest run --config vitest.config.mjs 2>&1 | tee "$RUNNER_TEMP/logs/04-vitest.log"
+      - name: Install Playwright's Chromium
+        working-directory: extension
+        run: npx playwright-core install --with-deps chromium 2>&1 | tee "$RUNNER_TEMP/logs/05-playwright-install.log"
+      - name: Browser e2e (390x844 touch viewport)
+        working-directory: ios
+        run: node test/e2e.mjs 2>&1 | tee "$RUNNER_TEMP/logs/06-e2e.log"
+      - name: Publish the logs on the ci-logs-linux branch
+        if: always() && github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          L="$RUNNER_TEMP/logs"
+          bash .github/scripts/finish-job.sh iphone "$JOB_STATUS" \
+            "unit tests: $(grep -hE '^ +Tests ' $L/04-vitest.log 2>/dev/null | tail -1 | sed 's/^ *//')" \
+            "e2e: $(grep -hE 'passed, [0-9]+ failed' $L/06-e2e.log 2>/dev/null | tail -1)"
+
+  summary:
+    needs: [extension, agent, android, supabase, gnome, iphone]
+    if: always() && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Publish the per-job results
+        env:
+          GH_TOKEN: ${{ github.token }}
+          R_extension: ${{ needs.extension.result }}
+          R_agent: ${{ needs.agent.result }}
+          R_android: ${{ needs.android.result }}
+          R_supabase: ${{ needs.supabase.result }}
+          R_gnome: ${{ needs.gnome.result }}
+          R_iphone: ${{ needs.iphone.result }}
+        run: |
+          out="$RUNNER_TEMP/logs"
+          mkdir -p "$out"
+          {
+            echo "commit: $GITHUB_SHA"
+            echo "run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+            echo
+            printf '%-12s %s\n' job result
+            for j in extension agent android supabase gnome iphone; do
+              v="R_$j"
+              printf '%-12s %s\n' "$j" "${!v}"
+            done
+          } > "$out/summary.txt"
+          cat "$out/summary.txt"
+          bash .github/scripts/publish-logs.sh summary "$out"
