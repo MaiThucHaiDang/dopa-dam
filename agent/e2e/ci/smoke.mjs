@@ -238,10 +238,19 @@ try {
 
   let ui = null;
   await check("the WebView2 UI renders and answers Tauri commands", async () => {
-    const pages = await until(async () => {
-      const p = await cdpPages();
-      return p.length >= 3 ? p : null;
-    }, "three WebView2 pages on the debugging port");
+    const pages = await until(
+      async () => {
+        const p = await cdpPages();
+        return p.length >= 3 ? p : null;
+      },
+      "three WebView2 pages on the debugging port",
+      30_000,
+    ).catch(async (err) => {
+      const version = await fetch(`http://127.0.0.1:${CDP_PORT}/json/version`).then((r) => r.text(), (e) => `no answer: ${e.message}`);
+      const list = await fetch(`http://127.0.0.1:${CDP_PORT}/json/list`).then((r) => r.text(), (e) => `no answer: ${e.message}`);
+      console.log(`        /json/version: ${version.replace(/\s+/g, " ")}\n        /json/list: ${list.replace(/\s+/g, " ")}`);
+      throw err;
+    });
     console.log(`        pages: ${pages.map((p) => p.url).join(", ")}`);
     ui = pages.find((p) => !p.url.includes("#/warning") && !p.url.includes("#/toast"));
     assert.ok(ui, "no main page");

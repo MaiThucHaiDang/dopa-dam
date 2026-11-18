@@ -118,7 +118,8 @@ jobs:
         id: debug_build
         continue-on-error: true
         working-directory: agent/src-tauri
-        run: cargo build 2>&1 | tee "$CI_OUT/logs/06-cargo-build-debug.log"
+        # custom-protocol: without it a debug build loads the UI from the dev server (localhost:1420) instead of the embedded files.
+        run: cargo build --features tauri/custom-protocol 2>&1 | tee "$CI_OUT/logs/06-cargo-build-debug.log"
 
       - name: Build the NSIS installer
         id: nsis
@@ -145,6 +146,12 @@ jobs:
         id: ext_e2e
         continue-on-error: true
         run: |
+          # Edge treats youtube.com as HSTS-preloaded, so the test page at http://www.youtube.com:PORT (a host rule maps
+          # it to the local fake site) is upgraded to https and fails. The Edge policy HSTSPolicyBypassList lifts that.
+          for h in youtube.com www.youtube.com m.youtube.com; do
+            n=$((n+1))
+            reg add "HKLM\\SOFTWARE\\Policies\\Microsoft\\Edge\\HSTSPolicyBypassList" //v "$n" //t REG_SZ //d "$h" //f
+          done 2>&1 | tee "$CI_OUT/logs/10-edge-policy.log"
           (cd extension && npm ci && npm run build) 2>&1 | tee "$CI_OUT/logs/10-extension-build.log"
           (cd extension && node test/e2e/with-agent.mjs) 2>&1 | tee "$CI_OUT/logs/11-extension-with-agent.log"
 

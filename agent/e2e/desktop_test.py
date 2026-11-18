@@ -6,7 +6,8 @@ The agent runs hidden with a temporary data folder and without starting with Win
 native messaging registry entry is removed at the end.
 
 Usage: python agent/e2e/desktop_test.py [--shot out.png]   (--shot also saves out-after.png once Notepad is minimized)
-Needs the debug build (cd agent && npm run build:ui && cd src-tauri && cargo build) and Pillow.
+Needs the debug build (cd agent && npm run build:ui && cd src-tauri && cargo build --features tauri/custom-protocol;
+without that feature a debug build loads its windows from the dev server on localhost:1420) and Pillow.
 """
 import argparse
 import ctypes
