@@ -31,6 +31,9 @@ const PORT = server.address().port;
 const SITE = `http://localhost:${PORT}`;
 
 const profile = mkdtempSync(join(tmpdir(), "dopadam-e2e-"));
+// Linux: the browser gets a throw-away HOME and XDG folders, so it writes nothing (crash-report settings,
+// fontconfig cache, ...) into the real ~/.config or ~/.cache of whoever runs the test.
+const browserHome = process.platform === "linux" ? mkdtempSync(join(tmpdir(), "dopadam-e2e-home-")) : null;
 const context = await chromium.launchPersistentContext(profile, {
   channel: process.env.DOPADAM_E2E_CHANNEL ?? "msedge",
   headless: true,
@@ -41,6 +44,16 @@ const context = await chromium.launchPersistentContext(profile, {
     // youtube.com hosts resolve to the local fake site, so YouTube rules can be exercised without a network.
     "--host-resolver-rules=MAP youtube.com 127.0.0.1, MAP *.youtube.com 127.0.0.1, MAP blocked.test 127.0.0.1",
   ],
+  ...(browserHome && {
+    env: {
+      PATH: process.env.PATH,
+      LANG: "C.UTF-8",
+      HOME: browserHome,
+      XDG_CONFIG_HOME: join(browserHome, ".config"),
+      XDG_CACHE_HOME: join(browserHome, ".cache"),
+      XDG_DATA_HOME: join(browserHome, ".local/share"),
+    },
+  }),
 });
 
 let failures = 0;
@@ -517,6 +530,7 @@ try {
   await context.close();
   server.close();
   rmSync(profile, { recursive: true, force: true });
+  if (browserHome) rmSync(browserHome, { recursive: true, force: true });
 }
 
 async function openBlocked2(path) {
