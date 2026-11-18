@@ -105,9 +105,11 @@ jobs:
         working-directory: agent
         run: npm run check 2>&1 | tee "$RUNNER_TEMP/logs/02-ui-check.log"
       - name: cargo test
+        if: ${{ !cancelled() }}
         working-directory: agent/src-tauri
         run: cargo test 2>&1 | tee "$RUNNER_TEMP/logs/03-cargo-test.log"
       - name: Sync tests against the mock Supabase server (the 2 ignored tests)
+        if: ${{ !cancelled() }}
         run: |
           L="$RUNNER_TEMP/logs"
           (cd supabase && npm ci) 2>&1 | tee "$L/04-mock-npm-ci.log"
@@ -123,6 +125,7 @@ jobs:
           kill $server 2>/dev/null || true
           exit $rc
       - name: cargo clippy
+        if: ${{ !cancelled() }}
         working-directory: agent/src-tauri
         run: cargo clippy --all-targets -- -D warnings 2>&1 | tee "$RUNNER_TEMP/logs/05-clippy.log"
       - name: Publish the logs on the ci-logs-linux branch

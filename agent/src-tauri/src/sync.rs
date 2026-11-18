@@ -635,7 +635,10 @@ mod tests {
         assert_eq!(from_third, all[2..].to_vec());
         let at = all[3]["server_updated_at"].as_str().unwrap();
         let ge = api.pull("tag_rules", Some(at), 0, 10, &session.access_token).await.unwrap();
-        assert_eq!(ge.first(), Some(&all[3]));
-        assert_eq!(ge.len(), 2);
+        // The mock stamps rows to the millisecond, so on a fast machine several rows can share a stamp: `gte`
+        // returns every row from the first one with a stamp >= `at`, in the same order as the full read.
+        let expected: Vec<Value> = all.iter().filter(|r| r["server_updated_at"].as_str().unwrap() >= at).cloned().collect();
+        assert_eq!(ge, expected);
+        assert!(ge.len() >= 2 && ge.contains(&all[3]) && ge.contains(&all[4]));
     }
 }

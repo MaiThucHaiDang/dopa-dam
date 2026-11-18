@@ -198,6 +198,7 @@ if (LINUX) {
 }
 let context;
 let failures = 0;
+let finished = false;
 async function test(name, fn) {
   try {
     await fn();
@@ -521,14 +522,15 @@ try {
     await warned.close();
     assert.ok(query("SELECT object FROM intercept_events WHERE object = '127.0.0.1'").length > 0);
   });
+  finished = true;
 } finally {
   await context?.close().catch(() => undefined);
   agentProc.kill();
   server.close();
   await sleep(500);
-  if (failures) {
+  if (failures || !finished) {
     try {
-      const tail = readFileSync(agentLog, "utf8").trim().split("\n").slice(-15).join("\n");
+      const tail = readFileSync(agentLog, "utf8").trim().split("\n").slice(-40).join("\n");
       if (tail) console.log(`\nAgent log (last lines):\n${tail}`);
     } catch {
       // No log.
