@@ -7,6 +7,7 @@ name: Agent DopaDam tren Windows
 
 on:
   workflow_dispatch:
+  workflow_call:
   push:
     branches: [linux-port]
     paths:
@@ -212,9 +213,27 @@ jobs:
           cat "$out/summary.txt"
           cd "$out"
           git init -q
+          git config user.name ci
+          git config user.email ci@users.noreply.github.com
+          url="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
           git add -A
-          git -c user.name="ci" -c user.email="ci@users.noreply.github.com" commit -qm "Windows agent logs for $GITHUB_SHA"
-          git push -qf "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:refs/heads/ci-logs-windows
+          git commit -qm "Windows agent logs for $GITHUB_SHA"
+          echo "publishing $(du -sk . | cut -f1) kB of logs"
+          if git push -f "$url" HEAD:refs/heads/ci-logs-windows 2>&1 | sed "s/${GH_TOKEN}/***/g"; [ "${PIPESTATUS[0]}" = 0 ]; then
+            echo "published on ci-logs-windows"
+          else
+            echo "::error::pushing the full logs failed; pushing the summary only"
+            git push -f "$url" HEAD:refs/heads/ci-logs-windows 2>&1 | sed "s/${GH_TOKEN}/***/g" > "$RUNNER_TEMP/push-error.txt"
+            rm -rf .git logs shots
+            { echo; echo "PUSH OF THE FULL LOGS FAILED:"; cat "$RUNNER_TEMP/push-error.txt"; } >> summary.txt
+            git init -q
+            git config user.name ci
+            git config user.email ci@users.noreply.github.com
+            git add -A
+            git commit -qm "Windows agent summary for $GITHUB_SHA (logs could not be pushed)"
+            git push -f "$url" HEAD:refs/heads/ci-logs-windows 2>&1 | sed "s/${GH_TOKEN}/***/g"
+            [ "${PIPESTATUS[0]}" = 0 ] || { echo "::error::even the summary could not be pushed"; exit 1; }
+          fi
 
       - name: Fail the job if any step failed
         if: always()
