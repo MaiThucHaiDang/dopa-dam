@@ -147,6 +147,7 @@ const env = {
   WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${CDP_PORT}`,
 };
 console.log(`exe: ${exe}\ndata: ${dataDir}`);
+const startedAt = Date.now();
 const agent = spawn(exe, ["--hidden"], { env, stdio: ["ignore", stdoutFd, stderrFd] });
 let exitInfo = null;
 agent.on("exit", (code, signal) => (exitInfo = { code, signal }));
@@ -170,7 +171,9 @@ try {
 
   let a;
   await check("the pipe answers hello with welcome and config", async () => {
-    a = await pipeClient();
+    const t0 = Date.now();
+    a = await pipeClient(90_000);
+    console.log(`        the pipe accepted a connection ${Math.round((Date.now() - t0) / 1000)} s after the database check, ${Math.round((Date.now() - startedAt) / 1000)} s after the start`);
     a.send({ type: "hello", protocol: 1, profileId: "ci-a", extVersion: "0.0.0" });
     const welcome = await a.next((m) => m.type === "welcome", "welcome");
     assert.equal(welcome.compatible, true);
