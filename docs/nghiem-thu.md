@@ -115,6 +115,7 @@ Cần kiểm tra trên thiết bị thật:
 - [x] Đóng gói `npx tauri build --bundles deb` ra `DopaDam_0.1.0_amd64.deb` (gói `dopa-dam`, phụ thuộc `libwebkit2gtk-4.1-0`, `libgtk-3-0`, `libayatana-appindicator3-1`).
 - [x] Chạy thật trong một GNOME Shell 50.1 riêng, không màn hình (`linux/e2e/core_flow.py`, 34 bước đều qua): tiện ích nạp không lỗi và nối với agent; cảnh báo hiện toàn màn hình, ở trên cùng và có tiêu điểm; nút Vào bị khóa trong lúc đếm ngược; Enter và Esc là Thoát và thu nhỏ chương trình; Vào rồi chọn 5 phút cho dùng tiếp; "Còn 1 phút" hiện ở góc trên bên phải và không lấy tiêu điểm; hết thời gian thì cảnh báo trở lại; "Làm việc khác" hoạt động; tắt rồi bật agent thì tiện ích nối lại; mở lại chương trình 0,5 giây sau khi Thoát vẫn bị cảnh báo; đóng chương trình khi cảnh báo đang hiện thì cảnh báo biến mất và không sinh thêm lần chặn nào.
 - [x] Đường X11 (Shell chạy kèm Xwayland, không bật tiện ích; `linux/e2e/x11_flow.py`, 10 bước đều qua): agent theo dõi cửa sổ qua X11, ba cảnh báo liên tiếp đều có tiêu điểm, Enter và Esc đóng được.
+- [x] Chromium của Playwright + agent Linux thật qua native messaging (`cd extension && npm run build && PLAYWRIGHT_HOST_PLATFORM_OVERRIDE=ubuntu24.04-x64 DOPADAM_E2E_CHANNEL=chromium npm run e2e:agent`, 19 kịch bản, chạy hai lần đều qua; cần bản debug của agent đã build: `cd agent && npm run build:ui && cd src-tauri && . ~/.cache/dopadam-sysroot/env.sh && cargo build --features tauri/custom-protocol`). Cùng một tệp `with-agent.mjs` chạy được trên Windows (Edge) và Linux. Trên Linux agent chạy ẩn trong GNOME Shell riêng không màn hình (`linux/e2e/session.sh`, tự bật và tắt nếu chưa có), thư mục dữ liệu tạm, và `DOPADAM_NO_HOST_REGISTER=1` để agent không ghi manifest vào `~/.config`; manifest được ghi vào `NativeMessagingHosts/` trong thư mục hồ sơ tạm của Chromium, trình duyệt chạy với HOME tạm, không có màn hình và không có D-Bus. Sau khi chạy, `~/.config/chromium` và các thư mục trình duyệt khác không đổi. Phủ: extension nối được với agent; đổi tag, gỡ chặn đòi xác nhận; cấu hình agent về tới extension; cảnh báo và Thoát được ghi vào cơ sở dữ liệu của agent; Vào tạo khoảng được phép; popup hiện số liệu của agent và không hiện thẻ tiến bộ tuần; trang tùy chọn hiện dòng "giờ nguy cơ được xem ở ứng dụng" và ẩn phần giờ nguy cơ; **Giờ nguy cơ**: khung thêm ở agent (ghi thẳng vào cài đặt của agent, vì extension không sửa được) làm lần chặn đầu khóa 10 giây thay vì 5 (nút Vào mở sau khoảng 10 giây), trang cảnh báo có dòng "Đây là khung giờ bạn hay mở giải trí nên thời gian chờ dài hơn một cấp.", sự kiện trong cơ sở dữ liệu ghi cấp 1, mức tăng cộng dồn với số lần mở (lần 2 và 3 khóa 20 giây, lần 4 khóa 30 giây), còn nguyên sau khi tải lại, gỡ khung thì về 5 giây và mất dòng đó; **Chế độ bài giảng**: link được phép thêm qua agent (`allow_url` trong cơ sở dữ liệu của agent) ẩn gợi ý, Shorts, logo, menu và màn hình cuối trên trang YouTube giả, không phát sinh lần chặn nào; playlist được phép giữ bảng playlist; chuyển giữa hai video được phép trong trang vẫn giữ chế độ; gỡ link ở agent khi trang đang mở thì trang trở lại như YouTube làm; tắt bảo vệ ở agent thì tắt chế độ, bật lại thì có lại; video không được phép bị agent chặn và Vào không bật chế độ bài giảng; học (bật, khóa tag, kết thúc sớm đòi xác nhận, khung giờ học); tắt agent thì extension tự chặn, mở lại agent thì extension nối lại và nhận lại cấu hình. Chưa chạy trên Windows (Edge, `dopadam.exe`, khóa registry): đường đó giữ nguyên, các kịch bản mới dùng chung cho cả hai nền tảng.
 - [x] Trang Tổng quan báo "Đã nối với GNOME Shell qua tiện ích DopaDam"; mọi trang của cửa sổ chính mở được, không lỗi bố cục.
 
 Chưa chạy, cần làm:
@@ -144,7 +145,7 @@ Cần kiểm tra trên phiên Linux thật (phiên riêng không màn hình khô
 Cần kiểm tra trên thiết bị thật:
 
 - [ ] Sau ít nhất hai tuần dùng thật: thẻ trên agent khớp với biểu đồ bên dưới.
-- [ ] Giao diện sáng (nếu bật) và popup khi extension đã nối với agent (thẻ không hiện).
+- [ ] Giao diện sáng (nếu bật) trên popup. (Popup khi extension đã nối với agent không hiện thẻ tiến bộ: đã kiểm tra bằng `npm run e2e:agent`.)
 
 ## Giai đoạn 8: Chế độ bài giảng và Giờ nguy cơ
 
@@ -159,8 +160,8 @@ Cần kiểm tra trên thiết bị thật:
 
 Cần kiểm tra trên thiết bị thật:
 
-- [ ] Chế độ bài giảng trong Edge khi đã đăng nhập YouTube, và khi extension nối với agent.
-- [ ] Giờ nguy cơ khi extension nối với agent: trang cảnh báo trên web có dòng giải thích (trường `risk` trong `warning_context`).
+- [ ] Chế độ bài giảng trong Edge khi đã đăng nhập YouTube. (Khi extension nối với agent: đã kiểm tra trên trang YouTube giả bằng `npm run e2e:agent`, xem phần Linux.)
+- [x] Giờ nguy cơ khi extension nối với agent: trang cảnh báo trên web có dòng giải thích (trường `risk` trong `warning_context`), khóa đúng cấp đã tăng (`npm run e2e:agent`, Chromium + agent Linux; chưa thử với Edge và agent Windows).
 - [ ] Khung giờ nguy cơ thêm trên máy tính xuất hiện trên điện thoại sau khi đồng bộ, và ngược lại.
 - [ ] Sau vài tuần dùng thật: bản đồ nhiệt khớp với thói quen, gợi ý hợp lý.
 

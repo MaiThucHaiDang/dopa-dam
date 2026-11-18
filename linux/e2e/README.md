@@ -61,3 +61,11 @@ leave the DopaDam extension disabled, so the agent falls back to its X11 source.
 
 Notes: the Shell caches extension code, so restart the session after editing the extension. The virtual pointer starts
 at (0, 0); the session turns the hot corner off so the first move does not open the Overview.
+
+## The extension in a browser with the real agent
+
+`extension/test/e2e/with-agent.mjs` (`cd extension && npm run build && npm run e2e:agent`) runs the extension in
+Playwright's Chromium against the agent binary. It starts this private Shell by itself when none is running and stops it
+at the end, runs the agent inside it with `DOPADAM_NO_HOST_REGISTER=1` (the agent writes no native messaging manifest of its
+own) and writes the manifest into the test profile's `NativeMessagingHosts/` folder. The browser gets a throw-away `HOME`,
+no display and no session bus. See the header of that file.

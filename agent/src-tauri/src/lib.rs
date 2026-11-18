@@ -155,8 +155,11 @@ pub fn run() {
                 use tauri_plugin_autostart::ManagerExt;
                 let _ = handle.autolaunch().enable();
             }
-            if let Err(e) = nmhost::register(&dir) {
-                eprintln!("DopaDam: native messaging host not registered: {e}");
+            // Integration tests write the browser's manifest themselves, inside their own profile.
+            if std::env::var_os("DOPADAM_NO_HOST_REGISTER").is_none() {
+                if let Err(e) = nmhost::register(&dir) {
+                    eprintln!("DopaDam: native messaging host not registered: {e}");
+                }
             }
             // Test runs (own data folder) leave the dopadam:// handler of a real install alone.
             if std::env::var_os("DOPADAM_DATA_DIR").is_none() {

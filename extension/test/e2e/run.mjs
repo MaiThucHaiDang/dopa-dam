@@ -8,38 +8,12 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright-core";
+import { FAKE_WATCH_PAGE, LECTURE_HIDDEN, LECTURE_KEPT, LECTURE_NOTE } from "./fixtures.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const dist = join(root, "dist");
 const EXTENSION_ID = "oaidmfkacjppoliemldjfbpnilmeejid";
 const EXT = `chrome-extension://${EXTENSION_ID}`;
-
-// A stand-in for a YouTube watch page: the same tags, ids and classes lecture mode targets, with some content each.
-const FAKE_WATCH_PAGE = (url) => `<!doctype html><title>Watch</title>
-  <style>ytd-masthead,ytd-app,ytd-mini-guide-renderer,tp-yt-app-drawer,ytd-reel-shelf-renderer,ytd-playlist-panel-renderer,
-    ytd-watch-next-secondary-results-renderer,ytd-comments,ytd-page-manager,.html5-endscreen,.ytp-ce-element,
-    .ytp-autonav-toggle-button-container,.ytp-next-button,#logo,#guide,#related,#secondary,#secondary-inner,#primary,#player,#title,
-    #guide-button{display:block;min-height:20px}</style>
-  <ytd-app>
-    <ytd-masthead><a id="logo" href="/">YouTube</a><button id="guide-button">Menu</button></ytd-masthead>
-    <tp-yt-app-drawer id="guide">Guide</tp-yt-app-drawer>
-    <ytd-mini-guide-renderer>Mini guide</ytd-mini-guide-renderer>
-    <ytd-page-manager>
-      <div id="primary">
-        <div id="player">Player
-          <div class="html5-endscreen">End wall</div><div class="ytp-ce-element">Card</div>
-          <div class="ytp-autonav-toggle-button-container">Autoplay</div><div class="ytp-next-button">Next</div></div>
-        <h1 id="title">Tiêu đề</h1><h2 id="content">Nội dung giải trí ${url}</h2>
-        <ytd-comments id="comments">Bình luận</ytd-comments>
-      </div>
-      <div id="secondary"><div id="secondary-inner">
-        <ytd-playlist-panel-renderer id="playlist">Danh sách phát</ytd-playlist-panel-renderer>
-        <div id="related"><ytd-watch-next-secondary-results-renderer>Gợi ý</ytd-watch-next-secondary-results-renderer></div>
-        <ytd-reel-shelf-renderer>Shorts</ytd-reel-shelf-renderer>
-      </div></div>
-    </ytd-page-manager>
-  </ytd-app>
-  <button id="go-a2" onclick="history.pushState({}, '', '/watch?v=A2'); document.dispatchEvent(new Event('yt-navigate-finish'))">Sang A2</button>`;
 
 const server = createServer((req, res) => {
   res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
@@ -228,13 +202,7 @@ try {
     await page.close();
   });
 
-  const LECTURE_HIDDEN = [
-    "#related", "ytd-watch-next-secondary-results-renderer", ".html5-endscreen", ".ytp-ce-element", "ytd-reel-shelf-renderer",
-    "#logo", "#guide-button", "#guide", "ytd-mini-guide-renderer", ".ytp-autonav-toggle-button-container",
-  ];
-  const LECTURE_KEPT = ["#player", "#title", "#comments"];
   const watchUrl = (query) => `http://www.youtube.com:${PORT}/watch?${query}`;
-  const noteText = "Chế độ bài giảng của DopaDam: đã ẩn gợi ý.";
   async function assertVisible(page, selectors, visible) {
     for (const selector of selectors) {
       assert.equal(await page.locator(selector).first().isVisible(), visible, `${selector} should be ${visible ? "visible" : "hidden"}`);
@@ -245,7 +213,7 @@ try {
     const page = await context.newPage();
     await page.goto(watchUrl("v=A"));
     await page.locator("#dopadam-lecture-note").waitFor({ state: "visible", timeout: 5000 });
-    assert.equal(await page.locator("#dopadam-lecture-note").textContent(), noteText);
+    assert.equal(await page.locator("#dopadam-lecture-note").textContent(), LECTURE_NOTE);
     await assertVisible(page, LECTURE_HIDDEN, false);
     await assertVisible(page, LECTURE_KEPT, true);
     // No allowed playlist covers this page, so the playlist panel and next button go too.

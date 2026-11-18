@@ -231,7 +231,7 @@ Không có nguồn nào (`none`) thì agent vẫn chạy khay hệ thống, cài
 | agent → shell | `shell_activate` | `windowId`: bỏ thu nhỏ nếu cần và cho nhận focus |
 | agent → shell | `shell_raise` | `pid`, `title`, `above`, `activate`: tìm cửa sổ của tiến trình `pid` có tiêu đề đúng bằng `title` (chỉ dành cho cửa sổ cảnh báo và thông báo của chính agent; tiêu đề không bao giờ được gửi ngược lại). `above` bật thì giữ cửa sổ trên các cửa sổ khác, tắt thì bỏ; `activate` bật thì cho nhận focus. Chưa thấy cửa sổ thì tiện ích tìm tiếp tối đa 2 giây rồi bỏ qua |
 
-**Đăng ký cầu nối trình duyệt.** Agent ghi manifest native messaging vào thư mục cấu hình của Edge, Chrome, Chromium và Brave khi thư mục đó tồn tại dưới `~/.config`. Trình duyệt cài bằng snap không khởi động được chương trình bên ngoài snap, nên ở đó extension chạy riêng. Đóng gói bằng `.deb` và AppImage; tự chạy khi đăng nhập theo cơ chế của máy tính (không phải mục "Cùng Windows").
+**Đăng ký cầu nối trình duyệt.** Agent ghi manifest native messaging vào thư mục cấu hình của Edge, Chrome, Chromium và Brave khi thư mục đó tồn tại dưới `~/.config`. Biến môi trường `DOPADAM_NO_HOST_REGISTER` (chỉ dùng cho kiểm thử tích hợp) làm agent bỏ bước này; trên Linux `with-agent.mjs` tự ghi manifest vào thư mục hồ sơ tạm của trình duyệt. Trình duyệt cài bằng snap không khởi động được chương trình bên ngoài snap, nên ở đó extension chạy riêng. Đóng gói bằng `.deb` và AppImage; tự chạy khi đăng nhập theo cơ chế của máy tính (không phải mục "Cùng Windows").
 
 **Giới hạn đã biết.**
 
