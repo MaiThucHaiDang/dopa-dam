@@ -7,13 +7,16 @@ struct StudyView: View {
     @State private var form = StudyRuleForm()
 
     var body: some View {
-        TimelineView(.periodic(from: Date(), by: 30)) { timeline in
-            content(now: nowMs(of: timeline.date))
+        // The state is read here, in the body, so that a change (a study session started) redraws the page at once;
+        // the timeline only brings the clock forward.
+        let state = model.state
+        return TimelineView(.periodic(from: Date(), by: 30)) { timeline in
+            content(state: state, now: nowMs(of: timeline.date))
         }
     }
 
-    private func content(now: Int64) -> some View {
-        let panel = model.state.studyPanel(now: now, tz: deviceTzOffset(at: now))
+    private func content(state: AppState, now: Int64) -> some View {
+        let panel = state.studyPanel(now: now, tz: deviceTzOffset(at: now))
         return TabPage(title: "Học") {
             Card {
                 SectionTitle("Phiên học")

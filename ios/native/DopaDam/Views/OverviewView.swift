@@ -5,16 +5,18 @@ struct OverviewView: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
-        TimelineView(.periodic(from: Date(), by: 30)) { timeline in
-            content(now: nowMs(of: timeline.date))
+        // The state is read here, in the body, so that a change redraws the page at once.
+        let state = model.state
+        return TimelineView(.periodic(from: Date(), by: 30)) { timeline in
+            content(state: state, now: nowMs(of: timeline.date))
         }
     }
 
-    private func content(now: Int64) -> some View {
+    private func content(state: AppState, now: Int64) -> some View {
         let tz = deviceTzOffset(at: now)
-        let today = model.state.todaySummary(now: now, tz: tz)
-        let study = model.state.studyPanel(now: now, tz: tz)
-        let apps = model.state.appsSeen()
+        let today = state.todaySummary(now: now, tz: tz)
+        let study = state.studyPanel(now: now, tz: tz)
+        let apps = state.appsSeen()
         return TabPage(title: "Tổng quan") {
             Card {
                 SectionTitle("Hôm nay")

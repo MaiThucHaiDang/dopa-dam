@@ -14,7 +14,7 @@ final class StatsTests: UITestCase {
         shot("statistics, top: progress")
 
         // Bring the risk card into view.
-        for _ in 0..<3 where !button("stats.risk.add").isHittable { app.swipeUp() }
+        app.swipeUp()
         shot("risk hours card with the suggestion")
         XCTAssertTrue(app.staticTexts["Chưa có khung giờ nguy cơ nào."].exists, "no window yet")
 
@@ -30,6 +30,8 @@ final class StatsTests: UITestCase {
         tapScrolling(button("stats.risk.remove"))
         XCTAssertTrue(text("Thay đổi này làm yếu bảo vệ").waitForExistence(timeout: 5))
         XCTAssertFalse(button("confirm.ok").isEnabled)
+        XCTAssertEqual(text("confirm.detail").label,
+                       "Gỡ khung giờ nguy cơ 22:00–24:00, thứ 2 đến thứ 6: thời gian chờ trong khung này sẽ không còn dài hơn một cấp.")
         shot("Gỡ asks for confirmation")
         button("confirm.cancel").tap()
         expectGone(text("Thay đổi này làm yếu bảo vệ"))

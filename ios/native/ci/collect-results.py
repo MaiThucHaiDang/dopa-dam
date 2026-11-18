@@ -104,6 +104,8 @@ def main() -> int:
             source = os.path.join(raw, exported)
             if not os.path.isfile(source):
                 return
+            if ext.lower() in (".mp4", ".mov") or stem.startswith("synthesized-event"):
+                return  # screen recordings and raw touch events: large and not needed
             test_dir = slug(test.replace("/", "-").replace("()", ""))
             if ext.lower() in (".png", ".jpg", ".jpeg", ".heic"):
                 folder = os.path.join(out, "screenshots", test_dir)

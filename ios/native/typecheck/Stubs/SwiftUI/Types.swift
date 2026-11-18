@@ -56,6 +56,7 @@ public struct Color: ShapeStyle, View, Hashable {
     }
     public init(_ colorSpace: Color.RGBColorSpace = .sRGB, red: Double, green: Double, blue: Double, opacity: Double = 1) {}
     public func opacity(_ opacity: Double) -> Color { self }
+    public static let clear = Color(red: 0, green: 0, blue: 0, opacity: 0)
     public typealias Body = Never
     public var body: Never { fatalError() }
 }
@@ -214,4 +215,18 @@ public struct MenuPickerStyle: PickerStyle {
 }
 extension PickerStyle where Self == MenuPickerStyle {
     public static var menu: MenuPickerStyle { MenuPickerStyle() }
+}
+
+public struct Animation: Equatable, Sendable {
+    public static func easeInOut(duration: Double) -> Animation { Animation() }
+}
+
+public struct AnyTransition: Sendable {
+    public static let opacity = AnyTransition()
+    public static func move(edge: Edge) -> AnyTransition { AnyTransition() }
+    public func combined(with other: AnyTransition) -> AnyTransition { self }
+}
+
+public enum VerticalEdge: Int8, CaseIterable, Sendable {
+    case top, bottom
 }

@@ -31,7 +31,15 @@ extension View {
     public func background<V: View>(_ background: V, alignment: Alignment = .center) -> some View { _ModifiedView(self) }
     public func background<V: View>(alignment: Alignment = .center, @ViewBuilder content: () -> V) -> some View { _ModifiedView(self) }
     public func overlay<V: View>(_ overlay: V, alignment: Alignment = .center) -> some View { _ModifiedView(self) }
+    public func overlay<V: View>(alignment: Alignment = .center, @ViewBuilder content: () -> V) -> some View { _ModifiedView(self) }
     public func clipShape<S: Shape>(_ shape: S, style: FillStyle = FillStyle()) -> some View { _ModifiedView(self) }
+
+    public func safeAreaInset<V: View>(edge: VerticalEdge, alignment: HorizontalAlignment = .center, spacing: CGFloat? = nil, @ViewBuilder content: () -> V) -> some View { _ModifiedView(self) }
+
+    // MARK: Animation and accessibility
+    public func animation<V: Equatable>(_ animation: Animation?, value: V) -> some View { _ModifiedView(self) }
+    public func transition(_ t: AnyTransition) -> some View { _ModifiedView(self) }
+    public func accessibilityIdentifier(_ identifier: String) -> some View { _ModifiedView(self) }
 
     // MARK: Interaction
     public func disabled(_ disabled: Bool) -> some View { _ModifiedView(self) }

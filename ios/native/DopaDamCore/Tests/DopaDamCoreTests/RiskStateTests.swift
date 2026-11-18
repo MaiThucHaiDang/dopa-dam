@@ -68,6 +68,16 @@ final class RiskStateTests: XCTestCase {
         XCTAssertEqual(s.riskWindows, [])
     }
 
+    func testConfirmationNamesTheWindowThatIsRemoved() {
+        s.riskWindows = [evening()]
+        let id = s.riskWindows[0].id
+        let detail = s.confirmDetail(for: .removeRiskWindow(id: id))
+        XCTAssertEqual(detail, Wording.riskRemovalConfirm(s.riskWindows[0]))
+        XCTAssertTrue(detail?.hasPrefix("Gỡ khung giờ nguy cơ ") ?? false)
+        XCTAssertNil(s.confirmDetail(for: .removeRiskWindow(id: "no-such-window")))
+        XCTAssertNil(s.confirmDetail(for: .clearLog))
+    }
+
     func testIsLockedDuringStudyEvenWhenConfirmed() {
         s.riskWindows = [evening()]
         _ = s.startStudy(minutes: 25, label: nil, now: NOW)

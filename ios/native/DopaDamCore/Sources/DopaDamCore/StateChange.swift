@@ -14,6 +14,15 @@ public enum StateChange: Equatable, Sendable {
 }
 
 extension AppState {
+    /// The sentence the confirmation sheet shows under its title for `change`; nil when the title says enough.
+    /// Removing a risk window says which window and what is lost.
+    public func confirmDetail(for change: StateChange) -> String? {
+        if case .removeRiskWindow(let id) = change, let window = riskWindows.first(where: { $0.id == id }) {
+            return Wording.riskRemovalConfirm(window)
+        }
+        return nil
+    }
+
     public mutating func apply(_ change: StateChange, confirmed: Bool, now: Int64, tz: Int) -> Result<Void, CoreError> {
         switch change {
         case .settings(let s):

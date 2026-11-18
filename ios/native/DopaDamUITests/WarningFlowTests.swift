@@ -143,7 +143,10 @@ final class WarningFlowTests: UITestCase {
         shot("study tab before")
         start.tap()
         let status = text("study.status")
-        XCTAssertTrue(NSPredicate(format: "label BEGINSWITH 'Đang học'").evaluate(with: status), "status is \"\(status.label)\"")
+        // The page must change at once, not at the next 30-second tick.
+        let studying = NSPredicate(format: "label BEGINSWITH 'Đang học'")
+        XCTAssertEqual(XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: studying, object: status)], timeout: 5), .completed,
+                       "status is \"\(status.label)\"")
         XCTAssertTrue(status.label.contains("25 phút") || status.label.contains("24 phút"), "status is \"\(status.label)\"")
         shot("study session running")
 

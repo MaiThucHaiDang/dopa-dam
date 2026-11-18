@@ -28,6 +28,10 @@ struct ConfirmSheet: View {
     private func gateContent(now: Int64) -> some View {
         let gate = model.confirmGate ?? ConfirmGate(startedAt: now)
         return VStack(alignment: .leading, spacing: Theme.Space.md) {
+            if let change = model.pendingChange, let detail = model.state.confirmDetail(for: change) {
+                BodyText(detail)
+                    .accessibilityIdentifier("confirm.detail")
+            }
             BodyText(gate.countdownText(now: now))
                 .accessibilityIdentifier("confirm.countdown")
             Muted(Wording.confirmTypeLabel)

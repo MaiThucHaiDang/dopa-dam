@@ -127,6 +127,12 @@ struct TabPage<Content: View>: View {
         }
         .scrollDismissesKeyboard(.interactively)
         .background(Theme.bg.ignoresSafeArea())
+        // Content scrolls under the status bar otherwise, and the clock is drawn over the text.
+        .safeAreaInset(edge: .top, spacing: 0) {
+            Color.clear
+                .frame(height: 0)
+                .background(Theme.bg.ignoresSafeArea(edges: .top))
+        }
     }
 }
 

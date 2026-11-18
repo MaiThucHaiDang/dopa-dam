@@ -103,6 +103,11 @@ public enum Wording {
     public static func riskWindowLine(_ w: RiskWindow) -> String {
         "\(riskRange(start: w.start, end: w.end)) · \(riskDays(w.days)) · \(riskRaiseSuffix)"
     }
+    /// The question when a window is removed: "Gỡ khung giờ nguy cơ 22:00–24:00, thứ 2 đến thứ 6: thời gian chờ
+    /// trong khung này sẽ không còn dài hơn một cấp."
+    public static func riskRemovalConfirm(_ w: RiskWindow) -> String {
+        "Gỡ khung giờ nguy cơ \(riskRange(start: w.start, end: w.end)), \(riskDays(w.days)): thời gian chờ trong khung này sẽ không còn dài hơn một cấp."
+    }
     /// "Hay mở nhất: 22:00–24:00, thứ 2 đến thứ 6 (17 lần mở, 9 lần Vào)."
     public static func riskSuggestionLine(_ s: RiskSuggestion) -> String {
         "Hay mở nhất: \(riskRange(start: s.start, end: s.end)), \(riskDays(s.days)) (\(s.opens) lần mở, \(s.enters) lần Vào)."

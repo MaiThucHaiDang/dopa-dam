@@ -144,7 +144,10 @@ final class VectorTests: XCTestCase {
         var inRiskWindow: [InRiskCase]; var heatmap: [HeatCase]; var suggest: [SuggestCase]
         var classify: [ClassifyCase]; var normalize: [NormalizeCase]
         var describeDays: [DescribeDaysCase]; var describeWindow: [DescribeWindowCase]; var describeSuggestion: [DescribeSuggestionCase]
+        var describeHeatCell: [DescribeHeatCellCase]; var describeRemoval: [DescribeWindowCase]
     }
+    struct HeatCellInput: Decodable { var row: Int; var hour: Int; var opens: Int; var enters: Int }
+    struct DescribeHeatCellCase: Decodable { var name: String; var input: HeatCellInput; var expected: String }
     struct DescribeDaysCase: Decodable { var name: String; var input: [Int]; var expected: String }
     struct DescribeWindowCase: Decodable { var name: String; var input: RiskWindow; var expected: String }
     struct DescribeSuggestionCase: Decodable { var name: String; var input: RiskSuggestion; var expected: String }
@@ -199,5 +202,12 @@ final class VectorTests: XCTestCase {
         for c in v.describeDays { XCTAssertEqual(Wording.riskDays(c.input), c.expected, "describeDays: \(c.name)") }
         for c in v.describeWindow { XCTAssertEqual(Wording.riskWindowLine(c.input), c.expected, "describeWindow: \(c.name)") }
         for c in v.describeSuggestion { XCTAssertEqual(Wording.riskSuggestionLine(c.input), c.expected, "describeSuggestion: \(c.name)") }
+        XCTAssertGreaterThan(v.describeHeatCell.count, 3)
+        XCTAssertGreaterThan(v.describeRemoval.count, 3)
+        for c in v.describeHeatCell {
+            let cell = RiskCell(opens: c.input.opens, enters: c.input.enters)
+            XCTAssertEqual(Wording.riskCellLabel(row: c.input.row, hour: c.input.hour, cell: cell), c.expected, "describeHeatCell: \(c.name)")
+        }
+        for c in v.describeRemoval { XCTAssertEqual(Wording.riskRemovalConfirm(c.input), c.expected, "describeRemoval: \(c.name)") }
     }
 }

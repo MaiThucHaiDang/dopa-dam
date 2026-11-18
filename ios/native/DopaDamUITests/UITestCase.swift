@@ -33,7 +33,7 @@ class UITestCase: XCTestCase {
         if app.state == .runningForeground {
             shot("end of test")
         }
-        if let run = testRun, !run.hasSucceeded, app.state != .notRunning {
+        if let run = testRun, run.totalFailureCount > 0, app.state != .notRunning {
             note("element tree", app.debugDescription)
         }
         super.tearDown()
