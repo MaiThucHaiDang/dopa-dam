@@ -39,6 +39,10 @@ fun riskSuggestionText(s: RiskSuggestion): String =
 /** "22:00–24:00 · thứ 2 đến thứ 6 · thời gian chờ dài hơn một cấp" */
 fun riskWindowLine(w: RiskWindow): String = "${riskTimeText(w.start, w.end)} · ${riskDaysText(w.days)} · $RISK_RAISE_SUFFIX"
 
+/** The confirmation text when a window is removed. Same sentence as the agent and the extension. */
+fun riskRemovalText(w: RiskWindow): String =
+    "Gỡ khung giờ nguy cơ ${riskTimeText(w.start, w.end)}, ${riskDaysText(w.days)}: thời gian chờ trong khung này sẽ không còn dài hơn một cấp."
+
 /** The cell with the most opens as (row, hour), the earliest in row-then-hour order on a tie; null when all are empty. */
 fun busiestCell(cells: List<List<RiskCell>>): Pair<Int, Int>? {
     var best: Pair<Int, Int>? = null

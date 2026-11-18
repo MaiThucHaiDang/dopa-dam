@@ -6,6 +6,7 @@ import { recordWarning, setRiskWindows, startStudy } from "../src/background/log
 import { initialState, migrateState, type State } from "../src/background/state";
 import {
   describeHeatCell,
+  describeRemoval,
   describeRiskWindow,
   describeSuggestion,
   formatRiskDays,
@@ -178,6 +179,13 @@ describe("risk wording", () => {
     for (const c of v.describeDays) expect(formatRiskDays(c.input), c.name).toBe(c.expected);
     for (const c of v.describeWindow) expect(describeRiskWindow(c.input), c.name).toBe(c.expected);
     for (const c of v.describeSuggestion) expect(describeSuggestion(c.input), c.name).toBe(c.expected);
+    expect(v.describeHeatCell.length).toBeGreaterThan(4);
+    expect(v.describeRemoval.length).toBeGreaterThan(3);
+    for (const c of v.describeHeatCell) {
+      const { row, hour, opens, enters } = c.input;
+      expect(describeHeatCell(row, hour, { opens, enters }), c.name).toBe(c.expected);
+    }
+    for (const c of v.describeRemoval) expect(describeRemoval(c.input), c.name).toBe(c.expected);
   });
 
   it("shows an end of 00:00 as 24:00", () => {
@@ -193,7 +201,7 @@ describe("risk wording", () => {
       "Hay mở nhất: 22:00–24:00, thứ 2 đến thứ 6 (17 lần mở, 9 lần Vào).",
     );
     expect(describeHeatCell(1, 22, { opens: 5, enters: 3 })).toBe("Thứ 3, 22 giờ: 5 lần mở, 3 lần Vào");
-    expect(describeHeatCell(6, 0, { opens: 0, enters: 0 })).toBe("Chủ nhật, 0 giờ: 0 lần mở, 0 lần Vào");
+    expect(describeHeatCell(6, 0, { opens: 0, enters: 0 })).toBe("Chủ nhật, 0 giờ: chưa có lần mở nào");
   });
 
   it("shades by opens relative to the busiest cell", () => {

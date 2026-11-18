@@ -7,6 +7,7 @@ import {
   dayName,
   formatDays,
   formatRange,
+  formatRemoval,
   formatSuggestion,
   formatWindow,
   heatIntensity,
@@ -42,6 +43,13 @@ describe("risk hours wording", () => {
     for (const c of v.describeDays) expect(formatDays(c.input), c.name).toBe(c.expected);
     for (const c of v.describeWindow) expect(formatWindow(c.input), c.name).toBe(c.expected);
     for (const c of v.describeSuggestion) expect(formatSuggestion(c.input), c.name).toBe(c.expected);
+    expect(v.describeHeatCell.length).toBeGreaterThan(4);
+    expect(v.describeRemoval.length).toBeGreaterThan(3);
+    for (const c of v.describeHeatCell) {
+      const { row, hour, opens, enters } = c.input;
+      expect(cellLabel(row, hour, { opens, enters }), c.name).toBe(c.expected);
+    }
+    for (const c of v.describeRemoval) expect(formatRemoval(c.input), c.name).toBe(c.expected);
   });
 
   it("ignores order, repeats and days outside 1..7", () => {

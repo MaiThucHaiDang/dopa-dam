@@ -43,10 +43,15 @@ export function describeSuggestion(s: RiskSuggestion): string {
   return `Hay mở nhất: ${formatRiskRange(s.start, s.end)}, ${formatRiskDays(s.days)} (${s.opens} lần mở, ${s.enters} lần Vào).`;
 }
 
-/** Title and aria-label of a heat map cell: "Thứ 3, 22 giờ: 5 lần mở, 3 lần Vào". row 0 = Monday. */
+/** Title and aria-label of a heat map cell: "Thứ 3, 22 giờ: 5 lần mở, 3 lần Vào"; an empty one says so plainly. row 0 = Monday. */
 export function describeHeatCell(row: number, hour: number, cell: RiskCell): string {
   const day = row === 6 ? "Chủ nhật" : `Thứ ${row + 2}`;
-  return `${day}, ${hour} giờ: ${cell.opens} lần mở, ${cell.enters} lần Vào`;
+  return cell.opens > 0 ? `${day}, ${hour} giờ: ${cell.opens} lần mở, ${cell.enters} lần Vào` : `${day}, ${hour} giờ: chưa có lần mở nào`;
+}
+
+/** The confirmation text when a window is removed. */
+export function describeRemoval(w: Pick<RiskWindow, "days" | "start" | "end">): string {
+  return `Gỡ khung giờ nguy cơ ${formatRiskRange(w.start, w.end)}, ${formatRiskDays(w.days)}: thời gian chờ trong khung này sẽ không còn dài hơn một cấp.`;
 }
 
 /** Shade 0 (no opens) to 4 (the busiest cell), by opens relative to the busiest cell; any open is at least 1. */

@@ -2,6 +2,7 @@
 package com.dang.dopadam.core
 
 import com.dang.dopadam.logic.riskDaysText
+import com.dang.dopadam.logic.riskRemovalText
 import com.dang.dopadam.logic.riskSuggestionText
 import com.dang.dopadam.logic.riskWindowLine
 
@@ -132,8 +133,16 @@ class RiskVectorsTest {
     }
 
     @Test
+    fun describeRemoval() {
+        assertTrue(group("describeRemoval").size > 3)
+        for (c in group("describeRemoval")) {
+            assertEquals(c.getString("name"), c.getString("expected"), riskRemovalText(window(c.getJSONObject("input"))))
+        }
+    }
+
+    @Test
     fun everyCaseHasAName() {
-        for (g in listOf("inRiskWindow", "heatmap", "suggest", "classify", "normalize", "describeDays", "describeWindow", "describeSuggestion")) {
+        for (g in listOf("inRiskWindow", "heatmap", "suggest", "classify", "normalize", "describeDays", "describeWindow", "describeSuggestion", "describeHeatCell", "describeRemoval")) {
             for (c in group(g)) assertTrue("$g case without a name", c.optString("name").isNotEmpty())
         }
     }

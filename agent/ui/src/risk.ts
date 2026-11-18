@@ -60,6 +60,11 @@ export function cellLabel(row: number, hour: number, cell: RiskCell): string {
   return cell.opens > 0 ? `${where}: ${cell.opens} lần mở, ${cell.enters} lần Vào` : `${where}: chưa có lần mở nào`;
 }
 
+/** The confirmation text when a window is removed. */
+export function formatRemoval(w: Pick<RiskWindow, "days" | "start" | "end">): string {
+  return `Gỡ khung giờ nguy cơ ${formatRange(w.start, w.end)}, ${formatDays(w.days)}: thời gian chờ trong khung này sẽ không còn dài hơn một cấp.`;
+}
+
 /** Weakest visible shade for a non-empty cell, so that one opening is still seen. */
 export const HEAT_FLOOR = 0.2;
 

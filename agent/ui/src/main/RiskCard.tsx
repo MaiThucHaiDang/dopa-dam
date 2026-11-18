@@ -8,8 +8,7 @@ import {
   busiestCell,
   cellLabel,
   dayNameCapital,
-  formatDays,
-  formatRange,
+  formatRemoval,
   formatSuggestion,
   formatWindow,
   heatIntensity,
@@ -88,7 +87,7 @@ export function RiskCard() {
     const gone = windows[index];
     const next = windows.filter((_, i) => i !== index);
     void submit(
-      `Gỡ khung giờ nguy cơ ${formatRange(gone.start, gone.end)}, ${formatDays(gone.days)}: ở khung này thời gian chờ sẽ không còn dài hơn một cấp.`,
+      formatRemoval(gone),
       (confirmed) => api.setRiskWindows(next, confirmed),
     );
   }

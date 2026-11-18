@@ -20,10 +20,9 @@ import {
   RISK_ROW_LABELS,
   RISK_SUBTITLE,
   describeHeatCell,
+  describeRemoval,
   describeRiskWindow,
   describeSuggestion,
-  formatRiskDays,
-  formatRiskRange,
   heatShade,
 } from "../shared/riskText";
 import { confirmWeakening } from "./confirm";
@@ -204,7 +203,7 @@ function renderRisk(v: OptionsView): void {
               onclick: (() =>
                 void setRiskWindows(
                   windows.filter((x) => x !== w),
-                  `Gỡ khung giờ nguy cơ ${formatRiskRange(w.start, w.end)}, ${formatRiskDays(w.days)}: thời gian chờ trong khung này sẽ không còn dài hơn một cấp.`,
+                  describeRemoval(w),
                 )) as EventListener,
             }),
           ]),

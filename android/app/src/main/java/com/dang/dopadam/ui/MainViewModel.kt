@@ -8,8 +8,7 @@ import com.dang.dopadam.core.DAY_MS
 import com.dang.dopadam.core.RiskSuggestion
 import com.dang.dopadam.core.RiskWindow
 import com.dang.dopadam.core.Settings
-import com.dang.dopadam.logic.riskDaysText
-import com.dang.dopadam.logic.riskTimeText
+import com.dang.dopadam.logic.riskRemovalText
 import java.util.UUID
 import com.dang.dopadam.core.StudyRule
 import com.dang.dopadam.core.StudyStatus
@@ -178,9 +177,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         repo.editRiskWindows(confirmed, System.currentTimeMillis()) { it + window }
     }
 
-    fun removeRiskWindow(w: RiskWindow) = submit(
-        "Gỡ khung giờ nguy cơ ${riskTimeText(w.start, w.end)}, ${riskDaysText(w.days)}: thời gian chờ trong khung này sẽ không còn dài hơn.",
-    ) { confirmed ->
+    fun removeRiskWindow(w: RiskWindow) = submit(riskRemovalText(w)) { confirmed ->
         repo.editRiskWindows(confirmed, System.currentTimeMillis()) { list -> list.filter { it.id != w.id } }
     }
 

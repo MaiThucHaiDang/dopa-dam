@@ -33,10 +33,9 @@ import {
   RISK_ROW_LABELS,
   RISK_SUBTITLE,
   describeHeatCell,
+  describeRemoval,
   describeRiskWindow,
   describeSuggestion,
-  formatRiskDays,
-  formatRiskRange,
   heatShade,
 } from "../../extension/src/shared/riskText";
 import { applySettings, currentSettings, parseOptions } from "./settings";
@@ -388,7 +387,7 @@ export function mountHome(root: HTMLElement, store: Store): () => void {
                           n,
                           z,
                         ),
-                      `Gỡ khung giờ nguy cơ ${formatRiskRange(w.start, w.end)}, ${formatRiskDays(w.days)}: thời gian chờ trong khung này sẽ không còn dài hơn một cấp.`,
+                      describeRemoval(w),
                     )) as EventListener,
                 }),
               ]),
