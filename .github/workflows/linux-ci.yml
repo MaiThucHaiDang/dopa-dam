@@ -168,6 +168,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           JOB_STATUS: ${{ job.status }}
         run: |
+          set +e
           R="$RUNNER_TEMP/logs/test-results"
           tests=$(cat $R/*.xml 2>/dev/null | grep -o '<testsuite [^>]*' | grep -o ' tests="[0-9]*"' | grep -o '[0-9]*' | awk '{n+=$1} END {print n+0}')
           fails=$(cat $R/*.xml 2>/dev/null | grep -o '<testsuite [^>]*' | grep -o ' failures="[0-9]*"' | grep -o '[0-9]*' | awk '{n+=$1} END {print n+0}')

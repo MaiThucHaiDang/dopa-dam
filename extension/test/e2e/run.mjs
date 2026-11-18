@@ -389,20 +389,26 @@ try {
   async function seedEvents(events) {
     let seen = "no answer";
     // A slow machine can leave a stale worker handle or a pending write of the old state: try the whole sequence again.
-    for (let attempt = 0; attempt < 3; attempt++) {
-      await send({ type: "popup:get" }); // wakes the worker up
-      const sw = context.serviceWorkers().at(-1) ?? (await context.waitForEvent("serviceworker", { timeout: 10_000 }));
-      await sw.evaluate(async (list) => {
-        const { state } = await chrome.storage.local.get("state");
-        state.events = list;
-        await chrome.storage.local.set({ state });
-      }, events);
+    for (let attempt = 0; attempt < 5; attempt++) {
+      // Written from an extension page (a service worker handle can die under us on a slow machine), then the
+      // workers are stopped so that the next message makes a fresh one read the stored state.
       const page = await context.newPage();
-      await page.goto(`${EXT}/popup.html`);
-      const cdp = await context.newCDPSession(page);
-      await cdp.send("ServiceWorker.enable");
-      await cdp.send("ServiceWorker.stopAllWorkers");
-      await page.close();
+      try {
+        await page.goto(`${EXT}/popup.html`);
+        await page.evaluate(async (list) => {
+          const { state } = await chrome.storage.local.get("state");
+          state.events = list;
+          await chrome.storage.local.set({ state });
+        }, events);
+        const cdp = await context.newCDPSession(page);
+        await cdp.send("ServiceWorker.enable");
+        await cdp.send("ServiceWorker.stopAllWorkers");
+      } catch (err) {
+        seen = String(err?.message ?? err);
+        continue;
+      } finally {
+        await page.close().catch(() => undefined);
+      }
       for (let i = 0; i < 50; i++) {
         const view = await send({ type: "options:get" }).catch(() => null);
         const total = view?.ok ? view.risk.heatmap.flat().reduce((a, c) => a + c.opens, 0) : -1;

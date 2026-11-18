@@ -150,6 +150,7 @@ function startAgent() {
     child = spawn(sessionSh, ["exec", "env", ...vars, agentExe, "--hidden"], opts);
   }
   closeSync(out);
+  child.on("exit", (code, signal) => console.log(`  (agent process ${child.pid} exited: code ${code}, signal ${signal})`));
   return child;
 }
 if (LINUX) startSession();
@@ -226,7 +227,7 @@ async function openBlocked(url) {
 }
 
 try {
-  await until(() => existsSync(dbPath), "the agent database");
+  await until(() => existsSync(dbPath), "the agent database", 90_000);
   await sleep(1500);
   context = await chromium.launchPersistentContext(profile, {
     channel: process.env.DOPADAM_E2E_CHANNEL ?? (WIN ? "msedge" : "chromium"),
