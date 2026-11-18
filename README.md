@@ -126,10 +126,10 @@ Hai biến môi trường cho test đầu-cuối trên Linux: `PLAYWRIGHT_HOST_P
 
 ## iPhone
 
-Có hai bản, cả hai đều chưa được thử trên iPhone thật:
+Có hai bản. Chưa bản nào được thử trên iPhone thật:
 
 - **Trang web + Phím tắt** (`ios/`, hướng dẫn ở `ios/HUONG-DAN.md`): một trang tĩnh mở trong Safari, do tự động hóa của ứng dụng Phím tắt gọi mỗi khi mở app được canh. Không cần Mac hay tài khoản nhà phát triển. Đã chạy thử trong trình duyệt ở kích thước màn hình iPhone (`cd ios && npm run check`, `npm run e2e`).
-- **Ứng dụng gốc** (`ios/native/`, hướng dẫn ở `ios/native/HUONG-DAN.md`): app SwiftUI, biên dịch bằng workflow GitHub Actions trên máy Mac của GitHub rồi cài bằng Sideloadly. Phần lõi `DopaDamCore` chạy test được trên Linux và macOS (`swift test`); phần giao diện chưa từng được biên dịch.
+- **Ứng dụng gốc** (`ios/native/`, hướng dẫn ở `ios/native/HUONG-DAN.md`): app SwiftUI, biên dịch bằng workflow GitHub Actions trên máy Mac của GitHub rồi cài bằng Sideloadly. Mỗi lần push, GitHub biên dịch ra file `.ipa` chưa ký và chạy app trên iPhone giả lập. Lần chạy gồm test cho hai hành động Phím tắt và các kiểm thử giao diện theo danh sách kiểm tra, có chụp màn hình từng bước. Phần lõi `DopaDamCore` chạy test được cả trên Linux (`swift test`). File `.ipa` có sẵn trong mục Releases của kho.
 
 ## Đồng bộ và đăng nhập (Supabase)
 

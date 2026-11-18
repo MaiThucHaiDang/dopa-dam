@@ -8,6 +8,8 @@ name: Ung dung DopaDam cho iPhone
 
 on:
   workflow_dispatch:
+  # Called by release.yml, which publishes the .ipa.
+  workflow_call:
   push:
     branches: [linux-port]
     paths:

@@ -190,7 +190,7 @@ Cần kiểm tra trên thiết bị thật:
 
 Chưa làm được trên máy phát triển Linux:
 
-- [ ] Biên dịch ứng dụng gốc (workflow "Ung dung DopaDam cho iPhone" trên GitHub Actions). Giao diện, App Intents và thông báo chưa từng qua trình biên dịch.
+- [x] Biên dịch ứng dụng gốc (workflow "Ung dung DopaDam cho iPhone" trên GitHub Actions, Xcode 16.4): bản Release cho iPhone không có cảnh báo nào, ra file `.ipa` chưa ký.
 
 Cần kiểm tra trên iPhone thật:
 

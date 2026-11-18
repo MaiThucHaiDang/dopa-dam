@@ -1,0 +1,154 @@
+# Builds every DopaDam package and publishes them as a GitHub pre-release.
+# Runs when a tag like v0.1.0-beta.1 is pushed, or by hand (Actions -> "Phat hanh DopaDam" -> Run workflow, with a tag).
+# The release text comes from .github/RELEASE_NOTES.md.
+name: Phat hanh DopaDam
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to publish, e.g. v0.1.0-beta.1 (created on the selected branch if missing)"
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  linux:
+    name: Linux (.deb, AppImage)
+    # The oldest supported runner, so the packages run on older distributions too.
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install system libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf libssl-dev libxdo-dev file
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: agent/package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: agent/src-tauri
+      - run: npm ci
+        working-directory: agent
+      - name: Build the packages
+        working-directory: agent
+        run: npx tauri build --bundles deb,appimage
+      - name: Collect
+        run: |
+          mkdir -p out
+          cp agent/src-tauri/target/release/bundle/deb/*.deb out/
+          cp agent/src-tauri/target/release/bundle/appimage/*.AppImage out/
+          ls -l out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-linux
+          path: out/*
+          if-no-files-found: error
+
+  android:
+    name: Android (APK)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Test and build
+        working-directory: android
+        run: bash ./gradlew --console=plain testDebugUnitTest assembleDebug
+      - name: Collect
+        run: |
+          mkdir -p out
+          cp android/app/build/outputs/apk/debug/*.apk out/DopaDam-android-debug.apk
+          ls -l out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-android
+          path: out/*
+          if-no-files-found: error
+
+  extension:
+    name: Browser extension (zip)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: extension/package-lock.json
+      - run: npm ci
+        working-directory: extension
+      - name: Check and build
+        working-directory: extension
+        run: npm run check && npm run build
+      - name: Zip
+        run: |
+          mkdir -p out
+          (cd extension/dist && zip -qr ../../out/DopaDam-extension.zip .)
+          ls -l out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-extension
+          path: out/*
+          if-no-files-found: error
+
+  ios:
+    name: iPhone (.ipa)
+    uses: ./.github/workflows/ios-app.yml
+
+  # Also runs the installer smoke test and the desktop tests on a real Windows desktop.
+  windows:
+    name: Windows (installer)
+    uses: ./.github/workflows/windows-agent.yml
+
+  publish:
+    name: Publish the pre-release
+    needs: [linux, android, extension, ios, windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Only the packages: the build jobs also upload logs and screenshots.
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          path: artifacts
+      - uses: actions/download-artifact@v4
+        with:
+          name: DopaDam-unsigned-ipa
+          path: artifacts/ios
+      - uses: actions/download-artifact@v4
+        with:
+          name: DopaDam-windows-installer
+          path: artifacts/windows
+      - name: Gather the files
+        run: |
+          mkdir -p files
+          find artifacts -type f -exec cp {} files/ \;
+          ls -l files
+      - name: Create or update the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.inputs.tag || github.ref_name }}
+        run: |
+          set -e
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" files/* --clobber
+            gh release edit "$TAG" --notes-file .github/RELEASE_NOTES.md --prerelease
+          else
+            gh release create "$TAG" files/* --target "$GITHUB_SHA" --prerelease \
+              --title "DopaDam $TAG" --notes-file .github/RELEASE_NOTES.md
+          fi
