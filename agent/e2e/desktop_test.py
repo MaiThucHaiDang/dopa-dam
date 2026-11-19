@@ -74,6 +74,33 @@ def press_enter():
     user32.keybd_event(VK_RETURN, 0, KEYUP, 0)
 
 
+class RECT(ctypes.Structure):
+    _fields_ = [("left", ctypes.c_long), ("top", ctypes.c_long), ("right", ctypes.c_long), ("bottom", ctypes.c_long)]
+
+
+def describe_foreground():
+    """Title, class, visibility and owning exe of the foreground window: tells which DopaDam window holds it."""
+    hwnd = user32.GetForegroundWindow()
+    title = ctypes.create_unicode_buffer(256)
+    user32.GetWindowTextW(hwnd, title, 256)
+    cls = ctypes.create_unicode_buffer(256)
+    user32.GetClassNameW(hwnd, cls, 256)
+    pid = wintypes.DWORD()
+    user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+    return f"hwnd={hwnd} title={title.value!r} class={cls.value!r} visible={bool(user32.IsWindowVisible(hwnd))} pid={pid.value}"
+
+
+def click_window(hwnd):
+    """A real left click in the middle of the window's title bar, like a user bringing it to the front."""
+    r = RECT()
+    user32.GetWindowRect(hwnd, ctypes.byref(r))
+    x, y = (r.left + r.right) // 2, r.top + 12
+    user32.SetCursorPos(x, y)
+    MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP = 0x0002, 0x0004
+    user32.mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
+    user32.mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
+
+
 failures = 0
 
 
@@ -103,6 +130,7 @@ def main():
     notepad = None
     try:
         wait(lambda: db.exists() and query(db, "SELECT COUNT(*) FROM kv")[0][0] > 0, "agent database")
+        print(f"        foreground after agent start: {describe_foreground()}")
 
         def tag_notepad():
             con = sqlite3.connect(db)
@@ -119,6 +147,11 @@ def main():
         def warning_covers_notepad():
             nonlocal notepad
             notepad = subprocess.Popen(["notepad.exe"])
+            hwnd = wait(lambda: find_window("Notepad") or find_window("Untitled"), "notepad window", 15)
+            print(f"        foreground after Notepad started: {describe_foreground()}")
+            click_window(hwnd)
+            time.sleep(0.5)
+            print(f"        foreground after the click: {describe_foreground()}")
             wait(lambda: query(db, "SELECT COUNT(*) FROM intercept_events WHERE object = 'notepad.exe'")[0][0] == 1, "warning event", 25)
             # The warning window is titled "DopaDam" and should be the foreground window.
             wait(lambda: foreground_title()[1] == "DopaDam", "warning window in front", 10)
@@ -139,7 +172,7 @@ def main():
                     from PIL import ImageGrab
 
                     ImageGrab.grab().save(str(Path(args.shot).with_name(Path(args.shot).stem + "-failed.png")))
-                print(f"        foreground window now: {foreground_title()}")
+                print(f"        foreground window now: {describe_foreground()}")
                 raise
             assert rows == [("exit",)], rows
             hwnd = wait(lambda: find_window("Notepad") or find_window("Untitled"), "notepad window", 5)
