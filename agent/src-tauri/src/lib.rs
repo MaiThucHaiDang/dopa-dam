@@ -61,6 +61,7 @@ fn build_windows(app: &tauri::AppHandle, start_hidden: bool) -> tauri::Result<()
         .inner_size(1040.0, 740.0)
         .min_inner_size(760.0, 560.0)
         .visible(!start_hidden)
+        .focused(!start_hidden)
         .build()?;
     // Closing the main window only hides it: the agent keeps guarding from the tray.
     let main_handle = main.clone();
@@ -78,6 +79,8 @@ fn build_windows(app: &tauri::AppHandle, start_hidden: bool) -> tauri::Result<()
         .always_on_top(true)
         .skip_taskbar(true)
         .resizable(false)
+        // Created hidden: with focus it would take the keyboard from the user's app (WebView2 MoveFocus on creation).
+        .focused(false)
         .visible(false)
         .build()?;
     // Alt+F4 on the warning counts as Thoát.

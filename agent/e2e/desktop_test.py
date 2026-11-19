@@ -130,7 +130,16 @@ def main():
     notepad = None
     try:
         wait(lambda: db.exists() and query(db, "SELECT COUNT(*) FROM kv")[0][0] > 0, "agent database")
-        print(f"        foreground after agent start: {describe_foreground()}")
+
+        def hidden_start_keeps_focus():
+            time.sleep(8)  # WebView2 creates its controllers a few seconds after the database exists
+            hwnd = user32.GetForegroundWindow()
+            pid = wintypes.DWORD()
+            user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+            print(f"        foreground 8 s after a hidden start: {describe_foreground()}")
+            assert pid.value != agent.pid, "the agent started hidden took the foreground"
+
+        check("starting hidden does not take the keyboard focus", hidden_start_keeps_focus)
 
         def tag_notepad():
             con = sqlite3.connect(db)

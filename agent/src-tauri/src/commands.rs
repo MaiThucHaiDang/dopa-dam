@@ -381,6 +381,7 @@ pub fn show_main(state: &Shared, route: Option<&str>) {
         let _ = w.show();
         let _ = w.unminimize();
         let _ = w.set_focus();
+        let _ = AsRef::<tauri::Webview>::as_ref(&w).set_focus(); // the page itself gets the keys (the webview was created unfocused)
         if let Some(route) = route {
             let _ = w.emit_to("main", "navigate", route);
         }
