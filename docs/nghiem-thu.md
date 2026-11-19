@@ -59,7 +59,7 @@ Cần kiểm tra trên điện thoại thật (Xiaomi):
 
 Cần kiểm tra trên máy (lúc không dùng máy cho việc khác, vì sẽ có cửa sổ cảnh báo bật lên):
 
-- [ ] `python agent\e2e\desktop_test.py`: gắn tag Giải trí cho Notepad, mở Notepad thì cửa sổ cảnh báo phủ lên, Enter là Thoát và Notepad được thu nhỏ.
+- [x] `python agent\e2e\desktop_test.py`: agent chạy ẩn không lấy bàn phím của người dùng; gắn tag Giải trí cho Notepad, mở Notepad thì cửa sổ cảnh báo phủ lên, Enter là Thoát và Notepad được thu nhỏ (chạy trên máy Windows của GitHub, xem mục CI trên Windows).
 - [ ] Cài bộ cài NSIS, khởi động lại máy: DopaDam tự chạy ở khay hệ thống.
 - [ ] Gắn tag Game cho một game: cảnh báo hiện sau độ trễ (mặc định 30 giây), không bị game che.
 - [ ] Mở Edge (đã cài extension): trang Tổng quan của agent báo "Đã nối"; Edge và Chrome… gắn tag Giải trí thì bị chặn như chương trình thường.
@@ -120,7 +120,7 @@ Cần kiểm tra trên thiết bị thật:
 
 Chưa chạy, cần làm:
 
-- [ ] Chạy bản Windows thật sau khi thêm lớp nền tảng và các sửa đổi ở phần logic dùng chung (mới chỉ kiểm tra biên dịch).
+- [x] Chạy bản Windows thật sau khi thêm lớp nền tảng và các sửa đổi ở phần logic dùng chung (CI trên Windows, bên dưới).
 - [ ] Gói AppImage (chưa thử đóng gói).
 - [ ] Nút "Cài tiện ích GNOME" trong ứng dụng: phần chép file và sửa danh sách tiện ích có unit test, nhưng chưa bấm thật trong một phiên GNOME.
 
@@ -149,6 +149,19 @@ Chạy trên ubuntu-24.04 (không dùng `ubuntu-latest`: nay là 26.04, Playwrig
 Lần chạy xanh cả bảy job: commit `082c117`, run 44369089487 (extension 497 test + 28 kịch bản; agent 24 + 132 + 2 test đồng bộ, clippy sạch; Android 84 test; Supabase 8; GNOME 16; iPhone 55 + 29; extension-agent 19 kịch bản).
 
 Lỗi thật tìm ra nhờ CI: test đồng bộ `pages_through_the_mock_server` giả định mỗi hàng có dấu thời gian riêng, nhưng server giả ghi theo mili giây nên trên máy nhanh nhiều hàng trùng dấu; `seedEvents` trong `run.mjs` có thể hỏng khi service worker dừng giữa chừng trên máy chậm (nay ghi dữ liệu từ trang extension và thử lại); `gradlew` không có quyền chạy sau khi checkout.
+
+### CI trên Windows (`.github/workflows/windows-agent.yml`)
+
+Chạy trên máy Windows Server 2025 của GitHub (có desktop thật, Edge và WebView2) khi push lên `linux-port` có đổi `agent/`, `shared/` hoặc `supabase/test/`, khi bấm tay, hoặc khi `release.yml` gọi. Log, ảnh chụp màn hình và `summary.txt` nằm ở nhánh `ci-logs-windows` (nhánh bị ghi đè mỗi lần chạy, nên lấy về bằng `git fetch origin +ci-logs-windows:refs/remotes/ci/ci-logs-windows`).
+
+- [x] `npm run check` (24 test), `cargo test` (83 test), cả bộ test cùng hai test đồng bộ với server giả (85), `cargo clippy --all-targets -- -D warnings` không cảnh báo, bản debug và bộ cài NSIS `DopaDam_0.1.0_x64-setup.exe`.
+- [x] Bộ cài (`agent/e2e/ci/smoke-installer.ps1` và `smoke.mjs`, 8 bước): cài im lặng vào hồ sơ người dùng, có lối tắt Start và mục gỡ cài đặt; chương trình đã cài tạo cơ sở dữ liệu, mở named pipe, trả lời hello, từ chối lệnh trước hello, nhận nhiều client cùng lúc, đổi tag qua pipe được ghi và phát cho client khác; giao diện WebView2 thật hiện đủ ba trang (chính, cảnh báo, thông báo) và trả lời lệnh Tauri (qua cổng gỡ lỗi mở bằng `DOPADAM_WEBVIEW2_DEBUG_PORT`); mở lần hai thì chuyển sang bản đang chạy và hiện cửa sổ chính; thoát qua `quit_agent` đóng pipe; gỡ cài đặt im lặng xóa chương trình.
+- [x] Desktop (`agent/e2e/desktop_test.py`, 4 bước): agent chạy ẩn không lấy bàn phím; Notepad gắn tag Giải trí bị cảnh báo phủ lên; Enter là Thoát, quyết định được ghi và Notepad thu nhỏ.
+- [x] Edge thật cùng agent thật (`extension/test/e2e/with-agent.mjs`, 19 kịch bản, giống Linux). Trang YouTube giả chạy bằng HTTPS với chứng chỉ tự ký tạo lúc chạy, vì Edge và Chrome luôn chuyển youtube.com sang https.
+
+Lần chạy xanh: commit `bb1e6ce`, run 44434294594 (cùng commit đó CI Linux xanh cả bảy job, run 44434294588).
+
+Lỗi thật tìm ra nhờ CI trên Windows: cửa sổ chính (khi chạy ẩn) và cửa sổ cảnh báo được tạo ẩn nhưng vẫn lấy bàn phím khi WebView2 khởi tạo xong, nên vài giây sau khi máy khởi động DopaDam lấy bàn phím của chương trình người dùng đang gõ, và agent thấy chính nó ở phía trước thay vì chương trình vừa mở (nay tạo với `focused(false)`, trang nhận bàn phím khi cửa sổ thật sự hiện ra); bản debug không có `custom-protocol` thì tải giao diện từ dev server.
 
 ## Giai đoạn 7: Tiến bộ theo tuần
 
