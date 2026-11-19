@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.dang.dopadam.sync.SyncEngineTest" tests="12" skipped="1" failures="0" errors="0" timestamp="2026-11-19T01:36:40" hostname="ip-10-0-141-195" time="0.263">
+  <properties/>
+  <testcase name="pullsPageByPageAndOverlapsTheCursor" classname="com.dang.dopadam.sync.SyncEngineTest" time="0.246"/>
+  <testcase name="aWholePageOfEqualStampsIsPagedWithOffset" classname="com.dang.dopadam.sync.SyncEngineTest" time="0.003"/>
+  <testcase name="rereadingTheRowsAtTheCursorChangesNothingAndPushesNothing" classname="com.dang.dopadam.sync.SyncEngineTest" time="0.001"/>
+  <testcase name="eventsAreAppendOnlyAndDevicesAreRecorded" classname="com.dang.dopadam.sync.SyncEngineTest" time="0.001"/>
+  <testcase name="jsonThatDiffersOnlyInKeyOrderIsTheSame" classname="com.dang.dopadam.sync.SyncEngineTest" time="0.002"/>
+  <testcase name="timestampsRoundTrip" classname="com.dang.dopadam.sync.SyncEngineTest" time="0.0"/>
+  <testcase name="theRemoteRowWinsATieOnlyWhenTheLocalRowIsClean" classname="com.dang.dopadam.sync.SyncEngineTest" time="0.0"/>
+  <testcase name="usageRowsFromThisDeviceAreNotPulledBack" classname="com.dang.dopadam.sync.SyncEngineTest" time="0.002"/>
+  <testcase name="aPageBoundaryInsideEqualStampsLosesNoRows" classname="com.dang.dopadam.sync.SyncEngineTest" time="0.001"/>
+  <testcase name="rulesTravelBetweenDevicesAndNewestWins" classname="com.dang.dopadam.sync.SyncEngineTest" time="0.002"/>
+  <testcase name="unauthorizedStopsTheRound" classname="com.dang.dopadam.sync.SyncEngineTest" time="0.001"/>
+  <testcase name="roundTripAgainstMockSupabase" classname="com.dang.dopadam.sync.SyncEngineTest" time="0.003">
+    <skipped/>
+  </testcase>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

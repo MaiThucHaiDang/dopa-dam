@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.dang.dopadam.logic.GuardLogicTest" tests="12" skipped="0" failures="0" errors="0" timestamp="2026-11-19T01:36:40" hostname="ip-10-0-141-195" time="0.004">
+  <properties/>
+  <testcase name="oneBadSyncedValueDoesNotResetTheOtherSettings" classname="com.dang.dopadam.logic.GuardLogicTest" time="0.0"/>
+  <testcase name="protection" classname="com.dang.dopadam.logic.GuardLogicTest" time="0.001"/>
+  <testcase name="studyRulesAndEndingEarly" classname="com.dang.dopadam.logic.GuardLogicTest" time="0.001"/>
+  <testcase name="alternativeAndRepeatedDecisions" classname="com.dang.dopadam.logic.GuardLogicTest" time="0.0"/>
+  <testcase name="planUsesLevelThreeWhenStudyingOrOverBudget" classname="com.dang.dopadam.logic.GuardLogicTest" time="0.0"/>
+  <testcase name="enterNeedsTheLockToBeOverAndAValidOption" classname="com.dang.dopadam.logic.GuardLogicTest" time="0.0"/>
+  <testcase name="settingsCodecRoundTripsAndRepairs" classname="com.dang.dopadam.logic.GuardLogicTest" time="0.001"/>
+  <testcase name="tagChanges" classname="com.dang.dopadam.logic.GuardLogicTest" time="0.0"/>
+  <testcase name="planEscalatesWithRecentWarnings" classname="com.dang.dopadam.logic.GuardLogicTest" time="0.0"/>
+  <testcase name="frictionChanges" classname="com.dang.dopadam.logic.GuardLogicTest" time="0.0"/>
+  <testcase name="appDelayWeakensWhenEffectiveDelayGrows" classname="com.dang.dopadam.logic.GuardLogicTest" time="0.0"/>
+  <testcase name="allowOptionsAreValidatedAndRaisingTheLongestNeedsConfirmation" classname="com.dang.dopadam.logic.GuardLogicTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -1,0 +1,33 @@
+npm warn ERESOLVE overriding peer dependency
+npm warn While resolving: vite@7.3.7
+npm warn Found: @types/node@22.10.2
+npm warn node_modules/@types/node
+npm warn   dev @types/node@"22.10.2" from the root project
+npm warn   1 more (vitest)
+npm warn
+npm warn Could not resolve dependency:
+npm warn peerOptional @types/node@"^20.19.0 || >=22.12.0" from vite@7.3.7
+npm warn node_modules/vite
+npm warn   peerOptional vite@"^5.0.0 || ^6.0.0 || ^7.0.0-0" from @vitest/mocker@3.2.4
+npm warn   node_modules/@vitest/mocker
+npm warn   2 more (vite-node, vitest)
+npm warn
+npm warn Conflicting peer dependency: @types/node@26.6.6
+npm warn node_modules/@types/node
+npm warn   peerOptional @types/node@"^20.19.0 || >=22.12.0" from vite@7.3.7
+npm warn   node_modules/vite
+npm warn     peerOptional vite@"^5.0.0 || ^6.0.0 || ^7.0.0-0" from @vitest/mocker@3.2.4
+npm warn     node_modules/@vitest/mocker
+npm warn     2 more (vite-node, vitest)
+
+added 63 packages, and audited 64 packages in 3s
+
+16 packages are looking for funding
+  run `npm fund` for details
+
+3 vulnerabilities (1 moderate, 2 critical)
+
+To address all issues, run:
+  npm audit fix --force
+
+Run `npm audit` for details.

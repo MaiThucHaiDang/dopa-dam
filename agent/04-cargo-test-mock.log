@@ -1,0 +1,22 @@
+   Compiling dopadam v0.1.0 (/home/runner/work/dopa-dam/dopa-dam/agent/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 7.84s
+     Running unittests src/lib.rs (target/debug/build/dopadam/58c867a6d8d25ffd/out/dopadam_lib-58c867a6d8d25ffd)
+
+running 2 tests
+test sync::tests::pages_through_the_mock_server ... ok
+test sync::tests::round_trip_against_mock_supabase ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 132 filtered out; finished in 0.23s
+
+     Running unittests src/main.rs (target/debug/build/dopadam/4fd33dde62714a2a/out/dopadam-4fd33dde62714a2a)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests dopadam_lib
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

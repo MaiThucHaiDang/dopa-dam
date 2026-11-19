@@ -1,0 +1,35 @@
+
+> e2e
+> node test/e2e/run.mjs
+
+Edge 140.0.7339.16 · extension oaidmfkacjppoliemldjfbpnilmeejid
+  ok    adds localhost as an entertainment site
+  ok    redirects to the warning page before the site loads
+  ok    Enter means Thoát and closes the tab
+  ok    level rises with repeated opens (3rd open in the hour = 10 s)
+  ok    a rule for a subdomain cannot lift blocking without confirmation
+  ok    Enter still exits after the countdown, even with focus moved
+  ok    a mouse click on Vào then an allow option opens the site
+  ok    keyboard cannot activate Vào
+  ok    an allowed link opens directly, in-page navigation away from it is caught
+  ok    an allowed YouTube link with a #fragment opens without looping
+  ok    an allowed playlist does not stop later rule updates
+  ok    lecture mode: an allowed video hides the distractions and keeps the lecture
+  ok    lecture mode: an allowed playlist keeps its panel
+  ok    lecture mode: follows in-page navigation between allowed videos, and a removed link
+  ok    lecture mode: a video entered through Vào is left as YouTube made it
+  ok    reloading a warning does not count it twice
+  ok    Làm việc khác starts a timer
+  ok    removing a blocked site asks for the 60-second confirmation
+  ok    the popup starts a study session and the warning shows it
+  ok    tags are locked during study and ending early needs the confirmation
+  ok    the options page adds and lists a weekly study rule
+  ok    protection off lets sites through; back on blocks again
+  ok    risk hours: set-up (no study rule, default friction, empty log)
+  ok    risk hours: without a window the first warning is level 0 and has no risk line
+  ok    risk hours: the heat map and the suggestion render from seeded events, and the button adds the window
+  ok    risk hours: a window covering now locks the first warning for the level-1 time and shows the line
+  ok    risk hours: removing a window asks for the 60-second confirmation
+  ok    risk hours: the last window can be removed once confirmed, and the level drops back
+
+All end-to-end tests passed

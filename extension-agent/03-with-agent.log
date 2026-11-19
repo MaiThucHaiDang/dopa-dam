@@ -1,0 +1,70 @@
+(node:12050) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+dbus-daemon[12049]: [session uid=1001 pid=12049] Activating service name='org.freedesktop.portal.Desktop' requested by ':1.1' (uid=1001 pid=12059 comm="/home/runner/work/dopa-dam/dopa-dam/agent/src-taur" label="unconfined")
+dbus-daemon[12049]: [session uid=1001 pid=12049] Activating service name='org.freedesktop.portal.Documents' requested by ':1.2' (uid=1001 pid=12065 comm="/usr/libexec/xdg-desktop-portal" label="unconfined")
+dbus-daemon[12049]: [session uid=1001 pid=12049] Activating service name='org.freedesktop.impl.portal.PermissionStore' requested by ':1.3' (uid=1001 pid=12071 comm="/usr/libexec/xdg-document-portal" label="unconfined")
+dbus-daemon[12049]: [session uid=1001 pid=12049] Successfully activated service 'org.freedesktop.impl.portal.PermissionStore'
+dbus-daemon[12049]: [session uid=1001 pid=12049] Successfully activated service 'org.freedesktop.portal.Documents'
+Ignoring invalid max threads value 4294967295 > max (100000).
+
+(/usr/libexec/xdg-desktop-portal:12065): xdg-desktop-portal-WARNING **: 02:02:52.120: Choosing gtk.portal for org.freedesktop.impl.portal.Lockdown as a last-resort fallback
+
+(/usr/libexec/xdg-desktop-portal:12065): xdg-desktop-portal-WARNING **: 02:02:52.120: The preferred method to match portal implementations to desktop environments is to use the portals.conf(5) configuration file
+dbus-daemon[12049]: [session uid=1001 pid=12049] Activating service name='org.freedesktop.impl.portal.desktop.gtk' requested by ':1.2' (uid=1001 pid=12065 comm="/usr/libexec/xdg-desktop-portal" label="unconfined")
+
+(xdg-desktop-portal-gtk:12087): dbind-WARNING **: 02:02:52.130: AT-SPI: Error retrieving accessibility bus address: org.freedesktop.DBus.Error.ServiceUnknown: The name org.a11y.Bus was not provided by any .service files
+dbus-daemon[12049]: [session uid=1001 pid=12049] Successfully activated service 'org.freedesktop.impl.portal.desktop.gtk'
+
+(/usr/libexec/xdg-desktop-portal:12065): xdg-desktop-portal-WARNING **: 02:02:52.212: Failed to load RealtimeKit property: GDBus.Error:org.freedesktop.DBus.Error.ServiceUnknown: The name org.freedesktop.RealtimeKit1 was not provided by any .service files
+
+(/usr/libexec/xdg-desktop-portal:12065): xdg-desktop-portal-WARNING **: 02:02:52.212: Failed to load RealtimeKit property: GDBus.Error:org.freedesktop.DBus.Error.ServiceUnknown: The name org.freedesktop.RealtimeKit1 was not provided by any .service files
+
+(/usr/libexec/xdg-desktop-portal:12065): xdg-desktop-portal-WARNING **: 02:02:52.212: Failed to load RealtimeKit property: GDBus.Error:org.freedesktop.DBus.Error.ServiceUnknown: The name org.freedesktop.RealtimeKit1 was not provided by any .service files
+
+(/usr/libexec/xdg-desktop-portal:12065): xdg-desktop-portal-WARNING **: 02:02:52.212: No skeleton to export
+
+(/usr/libexec/xdg-desktop-portal:12065): xdg-desktop-portal-WARNING **: 02:02:52.212: Choosing gtk.portal for org.freedesktop.impl.portal.FileChooser as a last-resort fallback
+
+(/usr/libexec/xdg-desktop-portal:12065): xdg-desktop-portal-WARNING **: 02:02:52.213: Choosing gtk.portal for org.freedesktop.impl.portal.AppChooser as a last-resort fallback
+
+(/usr/libexec/xdg-desktop-portal:12065): xdg-desktop-portal-WARNING **: 02:02:52.213: Choosing gtk.portal for org.freedesktop.impl.portal.Print as a last-resort fallback
+
+(/usr/libexec/xdg-desktop-portal:12065): xdg-desktop-portal-WARNING **: 02:02:52.214: Choosing gtk.portal for org.freedesktop.impl.portal.Notification as a last-resort fallback
+
+(/usr/libexec/xdg-desktop-portal:12065): xdg-desktop-portal-WARNING **: 02:02:52.215: Choosing gtk.portal for org.freedesktop.impl.portal.Inhibit as a last-resort fallback
+
+(/usr/libexec/xdg-desktop-portal:12065): xdg-desktop-portal-WARNING **: 02:02:52.215: Choosing gtk.portal for org.freedesktop.impl.portal.Access as a last-resort fallback
+[W][01740.740259] pw.conf      | [          conf.c: 1031 try_load_conf()] can't load config client.conf: No such file or directory
+[E][01740.740309] pw.conf      | [          conf.c: 1060 pw_conf_load_conf_for_context()] can't load config client.conf: No such file or directory
+
+(/usr/libexec/xdg-desktop-portal:12065): xdg-desktop-portal-WARNING **: 02:02:52.217: Failed connect to PipeWire: Couldn't create PipeWire context
+
+(/usr/libexec/xdg-desktop-portal:12065): xdg-desktop-portal-WARNING **: 02:02:52.217: Choosing gtk.portal for org.freedesktop.impl.portal.Account as a last-resort fallback
+
+(/usr/libexec/xdg-desktop-portal:12065): xdg-desktop-portal-WARNING **: 02:02:52.218: Choosing gtk.portal for org.freedesktop.impl.portal.Email as a last-resort fallback
+
+(/usr/libexec/xdg-desktop-portal:12065): xdg-desktop-portal-WARNING **: 02:02:52.218: Choosing gtk.portal for org.freedesktop.impl.portal.DynamicLauncher as a last-resort fallback
+dbus-daemon[12049]: [session uid=1001 pid=12049] Successfully activated service 'org.freedesktop.portal.Desktop'
+  ok    the extension connects to the agent
+  ok    settings changes go through the agent
+  ok    the agent's config reaches the extension
+  ok    a warning in Edge is recorded by the agent, Enter = Thoát
+  ok    Vào through the agent opens an allow window
+  ok    the popup shows the agent's counts
+  ok    popup and options say the agent is connected; risk hours are viewed in the agent's app
+  ok    risk hours: without a window the first warning is level 0 and has no risk line
+  ok    risk hours: a window added in the agent covering now raises the level by one and shows the line
+  ok    risk hours: the raise stacks with the repeat count and survives a reload
+  ok    risk hours: with the window removed in the agent the level drops back
+  ok    lecture mode: a link allowed through the agent hides the distractions and records no warning
+  ok    lecture mode: an allowed playlist keeps its panel
+  ok    lecture mode: follows in-page navigation, and a link removed in the agent while the page is open
+  ok    lecture mode: switching protection off in the agent switches lecture mode off, and on brings it back
+  ok    lecture mode: a video that is not allowed gets the agent's warning, and Vào leaves YouTube as it is
+  ok    study mode from the extension goes through the agent
+  (agent process 12059 exited: code null, signal SIGTERM)
+  ok    without the agent the extension keeps blocking on its own
+  ok    the extension reconnects when the agent comes back, and gets the agent's configuration again
+  (agent process 12811 exited: code null, signal SIGTERM)
+
+All agent integration tests passed

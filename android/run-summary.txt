@@ -1,0 +1,5 @@
+commit: 1fddee08980bcba4953238f04f04cd4cf967c025
+run: https://github.com/MaiThucHaiDang/dopa-dam/actions/runs/44437293670
+job: android
+job status: success
+unit tests: 84 run, 0 failures

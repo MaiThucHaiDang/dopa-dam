@@ -1,0 +1,32 @@
+
+> check
+> npm run typecheck && npm test && npm run build
+
+
+> typecheck
+> tsc --noEmit
+
+
+> test
+> vitest run
+
+
+ RUN  v3.2.4 /home/runner/work/dopa-dam/dopa-dam/extension
+
+ ✓ test/risk.test.ts (18 tests) 17ms
+ ✓ test/rules.test.ts (64 tests) 17ms
+ ✓ test/logic.test.ts (34 tests) 38ms
+ ✓ test/progress.test.ts (5 tests) 9ms
+ ✓ test/lecture.test.ts (9 tests) 10ms
+ ✓ test/vectors.test.ts (367 tests) 51ms
+
+ Test Files  6 passed (6)
+      Tests  497 passed (497)
+   Start at  01:35:04
+   Duration  802ms (transform 331ms, setup 0ms, collect 689ms, tests 142ms, environment 1ms, prepare 486ms)
+
+
+> build
+> node build.mjs
+
+Built DopaDam extension 0.1.0 → dist/ (id oaidmfkacjppoliemldjfbpnilmeejid)

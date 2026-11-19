@@ -1,0 +1,14 @@
+
+ RUN  v3.2.4 /home/runner/work/dopa-dam/dopa-dam/ios
+
+ ✓ test/storage.test.ts (12 tests) 9ms
+ ✓ test/settings.test.ts (10 tests) 8ms
+ ✓ test/session.test.ts (20 tests) 18ms
+ ✓ test/route.test.ts (8 tests) 4ms
+ ✓ test/shortcuts.test.ts (5 tests) 4ms
+
+ Test Files  5 passed (5)
+      Tests  55 passed (55)
+   Start at  01:34:59
+   Duration  673ms (transform 272ms, setup 0ms, collect 553ms, tests 43ms, environment 1ms, prepare 387ms)
+

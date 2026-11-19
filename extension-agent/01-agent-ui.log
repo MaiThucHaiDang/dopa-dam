@@ -1,0 +1,25 @@
+
+added 109 packages, and audited 110 packages in 3s
+
+22 packages are looking for funding
+  run `npm fund` for details
+
+5 vulnerabilities (2 moderate, 1 high, 2 critical)
+
+To address all issues, run:
+  npm audit fix --force
+
+Run `npm audit` for details.
+
+> dopadam-agent@0.1.0 build:ui
+> tsc --noEmit && vite build
+
+vite v6.0.7 building for production...
+transforming...
+✓ 63 modules transformed.
+rendering chunks...
+computing gzip size...
+../dist/index.html                   0.39 kB │ gzip:  0.26 kB
+../dist/assets/index-h0rPlp4h.css    9.06 kB │ gzip:  2.42 kB
+../dist/assets/index-CE60UQkF.js   201.12 kB │ gzip: 65.00 kB
+✓ built in 740ms

@@ -1,0 +1,25 @@
+
+> dopadam-agent@0.1.0 check
+> tsc --noEmit && vitest run && vite build
+
+
+ RUN  v3.2.4 /home/runner/work/dopa-dam/dopa-dam/agent
+
+ ✓ ui/test/progress.test.ts (7 tests) 12ms
+ ✓ ui/test/risk.test.ts (10 tests) 10ms
+ ✓ ui/test/api.test.ts (7 tests) 5ms
+
+ Test Files  3 passed (3)
+      Tests  24 passed (24)
+   Start at  01:48:58
+   Duration  505ms (transform 309ms, setup 0ms, collect 464ms, tests 27ms, environment 0ms, prepare 232ms)
+
+vite v6.0.7 building for production...
+transforming...
+✓ 63 modules transformed.
+rendering chunks...
+computing gzip size...
+../dist/index.html                   0.39 kB │ gzip:  0.26 kB
+../dist/assets/index-h0rPlp4h.css    9.06 kB │ gzip:  2.42 kB
+../dist/assets/index-CE60UQkF.js   201.12 kB │ gzip: 65.00 kB
+✓ built in 645ms

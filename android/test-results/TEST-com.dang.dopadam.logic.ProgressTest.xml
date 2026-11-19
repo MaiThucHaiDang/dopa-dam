@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.dang.dopadam.logic.ProgressTest" tests="9" skipped="0" failures="0" errors="0" timestamp="2026-11-19T01:36:40" hostname="ip-10-0-141-195" time="0.017">
+  <properties/>
+  <testcase name="cardSentencesMatchTheAgent" classname="com.dang.dopadam.logic.ProgressTest" time="0.008"/>
+  <testcase name="secondsChangeByOneAtTheBoundaryAndNeedAnAverageInBothWeeks" classname="com.dang.dopadam.logic.ProgressTest" time="0.002"/>
+  <testcase name="studyOpensLowerIsBetterHigherIsWorseEqualIsSame" classname="com.dang.dopadam.logic.ProgressTest" time="0.002"/>
+  <testcase name="countsMissingDaysAsZeroAndIgnoresDaysOutsideTheTwoWeeks" classname="com.dang.dopadam.logic.ProgressTest" time="0.0"/>
+  <testcase name="leaveRateChangesByFivePointsAtTheBoundary" classname="com.dang.dopadam.logic.ProgressTest" time="0.002"/>
+  <testcase name="comparesTwoFullWeeks" classname="com.dang.dopadam.logic.ProgressTest" time="0.0"/>
+  <testcase name="notEnoughDataWhenAWeekHasNoInterceptions" classname="com.dang.dopadam.logic.ProgressTest" time="0.001"/>
+  <testcase name="needsFiveInterceptionsInEachWeek" classname="com.dang.dopadam.logic.ProgressTest" time="0.001"/>
+  <testcase name="numbersUseTheDecimalComma" classname="com.dang.dopadam.logic.ProgressTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

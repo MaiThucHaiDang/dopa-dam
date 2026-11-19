@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.dang.dopadam.logic.RiskLogicTest" tests="11" skipped="0" failures="0" errors="0" timestamp="2026-11-19T01:36:40" hostname="ip-10-0-141-195" time="0.008">
+  <properties/>
+  <testcase name="heatmapDescriptionNamesTheBusiestCell" classname="com.dang.dopadam.logic.RiskLogicTest" time="0.004"/>
+  <testcase name="strengtheningIsSavedAtOnce" classname="com.dang.dopadam.logic.RiskLogicTest" time="0.001"/>
+  <testcase name="timeRangeShowsMidnightAs2400" classname="com.dang.dopadam.logic.RiskLogicTest" time="0.0"/>
+  <testcase name="intensityIsRelativeToTheBusiestCell" classname="com.dang.dopadam.logic.RiskLogicTest" time="0.0"/>
+  <testcase name="weakeningIsLockedDuringStudyEvenWhenConfirmed" classname="com.dang.dopadam.logic.RiskLogicTest" time="0.0"/>
+  <testcase name="invalidListsAreRefused" classname="com.dang.dopadam.logic.RiskLogicTest" time="0.0"/>
+  <testcase name="planSaysWhenTheRaiseApplied" classname="com.dang.dopadam.logic.RiskLogicTest" time="0.0"/>
+  <testcase name="sentences" classname="com.dang.dopadam.logic.RiskLogicTest" time="0.0"/>
+  <testcase name="weakeningNeedsTheConfirmation" classname="com.dang.dopadam.logic.RiskLogicTest" time="0.001"/>
+  <testcase name="anUnchangedListNeedsNothing" classname="com.dang.dopadam.logic.RiskLogicTest" time="0.0"/>
+  <testcase name="dayLists" classname="com.dang.dopadam.logic.RiskLogicTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -1,0 +1,23 @@
+Installing dependencies...
+Switching to root user to install dependencies...
+Get:1 https://packages.microsoft.com/ubuntu/24.04/prod noble InRelease [3600 B]
+Get:2 https://packages.microsoft.com/ubuntu/24.04/prod noble/main arm64 Packages [723 kB]
+Get:3 https://packages.microsoft.com/ubuntu/24.04/prod noble/main amd64 Packages [794 kB]
+Fetched 1521 kB in 0s (4238 kB/s)
+Reading package lists...
+Reading package lists...
+Building dependency tree...
+Reading state information...
+Package fonts-freefont-ttf is not available, but is referred to by another package.
+This may mean that the package is missing, has been obsoleted, or
+is only available from another source
+
+E: Unable to locate package fonts-unifont
+E: Unable to locate package xfonts-cyrillic
+E: Unable to locate package xfonts-scalable
+E: Unable to locate package fonts-ipafont-gothic
+E: Unable to locate package fonts-wqy-zenhei
+E: Unable to locate package fonts-tlwg-loma-otf
+E: Package 'fonts-freefont-ttf' has no installation candidate
+Failed to install browsers
+Error: Installation process exited with code: 100

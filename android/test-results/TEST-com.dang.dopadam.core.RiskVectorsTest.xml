@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.dang.dopadam.core.RiskVectorsTest" tests="11" skipped="0" failures="0" errors="0" timestamp="2026-11-19T01:36:40" hostname="ip-10-0-141-195" time="0.115">
+  <properties/>
+  <testcase name="describeSuggestion" classname="com.dang.dopadam.core.RiskVectorsTest" time="0.033"/>
+  <testcase name="suggest" classname="com.dang.dopadam.core.RiskVectorsTest" time="0.026"/>
+  <testcase name="inRiskWindow" classname="com.dang.dopadam.core.RiskVectorsTest" time="0.008"/>
+  <testcase name="constants" classname="com.dang.dopadam.core.RiskVectorsTest" time="0.004"/>
+  <testcase name="normalize" classname="com.dang.dopadam.core.RiskVectorsTest" time="0.004"/>
+  <testcase name="classify" classname="com.dang.dopadam.core.RiskVectorsTest" time="0.015"/>
+  <testcase name="heatmap" classname="com.dang.dopadam.core.RiskVectorsTest" time="0.006"/>
+  <testcase name="describeWindow" classname="com.dang.dopadam.core.RiskVectorsTest" time="0.005"/>
+  <testcase name="describeRemoval" classname="com.dang.dopadam.core.RiskVectorsTest" time="0.004"/>
+  <testcase name="everyCaseHasAName" classname="com.dang.dopadam.core.RiskVectorsTest" time="0.004"/>
+  <testcase name="describeDays" classname="com.dang.dopadam.core.RiskVectorsTest" time="0.005"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
