@@ -6,6 +6,10 @@ DopaDam chen một khoảng dừng ngắn giữa cú bấm vô thức và nội 
 - Thiết kế kỹ thuật: [docs/thiet-ke-ky-thuat.md](docs/thiet-ke-ky-thuat.md)
 - Checklist nghiệm thu: [docs/nghiem-thu.md](docs/nghiem-thu.md)
 
+## Tải về
+
+Bộ cài sẵn cho mọi nền tảng nằm ở [Releases](https://github.com/MaiThucHaiDang/dopa-dam/releases): bộ cài Windows, gói `.deb` và AppImage cho Linux, extension trình duyệt (`.zip`), APK Android (bản debug) và file `.ipa` chưa ký cho iPhone. Trang release ghi file nào dành cho thiết bị nào và cách cài. Mỗi tag `v*` được workflow `release.yml` build và test lại từ đầu trước khi phát hành.
+
 ## Tính năng thêm ngoài phần chặn
 
 - **Tiến bộ tuần này:** thẻ so 7 ngày gần nhất với 7 ngày trước đó (tỉ lệ rời đi, số giây đến lúc Thoát, số lần mở giải trí trong giờ học), có trên agent, app Android và popup của extension khi chạy riêng.
