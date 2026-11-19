@@ -1,0 +1,16 @@
+commit: 1fddee08980bcba4953238f04f04cd4cf967c025
+run: https://github.com/MaiThucHaiDang/dopa-dam/actions/runs/44437308122
+runner: Microsoft Windows Server 2025 Datacenter 10.0.26100
+
+step           result     detail
+desktop-info   success    
+npm-ci         success    
+ui-check       success    Tests  24 passed (24)
+cargo-test     success    83 passed, 0 failed
+mock-sync      success    85 passed (all tests incl. the 2 mock-server ones), 0 failed
+clippy         success    0 diagnostics
+debug-build    success    
+nsis-build     success    DopaDam_0.1.0_x64-setup.exe
+smoke          success    smoke: 8 passed, 0 failed
+desktop-guard  success    4 ok, 0 FAIL
+ext-with-agent success    19 ok, 0 FAIL

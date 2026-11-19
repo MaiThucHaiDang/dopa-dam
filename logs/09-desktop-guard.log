@@ -1,0 +1,9 @@
+        foreground 8 s after a hidden start: hwnd=131456 title='C:\\ProgramData\\GitHub\\HostedComputeAgent\\hosted-compute-agent' class='CASCADIA_HOSTING_WINDOW_CLASS' visible=True pid=6424
+  ok    starting hidden does not take the keyboard focus
+  ok    tag notepad.exe as entertainment
+        foreground after Notepad started: hwnd=131638 title='DopaDam' class='Tauri Window' visible=True pid=5180
+        foreground after the click: hwnd=131638 title='DopaDam' class='Tauri Window' visible=True pid=5180
+  ok    opening Notepad shows the warning in front
+  ok    Enter means Thoát: decision recorded and Notepad minimized
+
+All desktop checks passed

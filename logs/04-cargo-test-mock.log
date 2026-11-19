@@ -1,0 +1,105 @@
+   Compiling dopadam v0.1.0 (D:\a\dopa-dam\dopa-dam\agent\src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 14.60s
+     Running unittests src\lib.rs (target\debug\deps\dopadam_lib-ebb862f96d26162c.exe)
+
+running 85 tests
+test core::tests::civil_dates ... ok
+test core::tests::day_key_vectors ... ok
+test core::tests::budget_vectors ... ok
+test core::tests::delay_vectors ... ok
+test core::tests::domain_vectors ... ok
+test core::tests::friction_vectors ... ok
+test core::tests::open_tracker_counts_only_in_front ... ok
+test core::tests::level_vectors ... ok
+test core::tests::recent_count_vectors ... ok
+test core::tests::risk_windows_round_trip_through_the_settings_json ... ok
+test core::tests::settings_json_round_trip_and_repair ... ok
+test core::tests::settings_without_risk_windows_still_deserialize_from_the_settings_page ... ok
+test core::tests::risk_windows_missing_or_bad_entries_do_not_touch_other_settings ... ok
+test core::tests::study_rules_are_normalized ... ok
+test core::tests::study_vectors ... ok
+test db::tests::allow_entry_matching_mirrors_the_extension ... ok
+test core::tests::study_change_vectors ... ok
+test db::tests::clear_log_is_refused_during_study_but_works_outside ... ok
+test db::tests::abandoned_warnings_count_as_exits_but_not_in_the_seconds_average ... ok
+test db::tests::a_more_specific_domain_rule_cannot_lift_blocking_without_confirmation ... ok
+test db::tests::budget_and_study_raise_the_level ... ok
+test db::tests::manual_study_starts_and_ends_early_only_with_confirmation ... ok
+test db::tests::defaults_and_rules ... ok
+test db::tests::risk_overview_counts_the_last_28_days_and_suggests ... ok
+test db::tests::risk_windows_are_locked_during_study_when_they_weaken ... ok
+test db::tests::risk_windows_are_saved_checked_and_kept_by_settings_saves ... ok
+test db::tests::settings_and_protection ... ok
+test db::tests::stats_per_day ... ok
+test db::tests::warnings_escalate_and_decisions_apply ... ok
+test guard::tests::clearing_foreground_pauses_the_tracker ... ok
+test guard::tests::closing_the_warned_program_ends_its_warning_for_good ... ok
+test guard::tests::closing_the_warned_program_keeps_another_program_in_front ... ok
+test guard::tests::no_claim_during_exit_grace_or_before_delay ... ok
+test guard::tests::only_one_warning_can_be_claimed ... ok
+test guard::tests::own_process_and_window_zero_mean_no_program ... ok
+test guard::tests::program_back_in_front_during_the_grace_is_judged_when_it_ends ... ok
+test guard::tests::program_that_stayed_minimised_is_not_warned_again_when_the_grace_ends ... ok
+test host::tests::frames_round_trip ... ok
+test logic::tests::allow_options_are_validated_and_raising_the_longest_needs_confirmation ... ok
+test logic::tests::alternative_and_repeats ... ok
+test db::tests::warnings_in_a_risk_window_are_raised_and_flagged ... ok
+test logic::tests::options_rules ... ok
+test logic::tests::enter_rules ... ok
+test logic::tests::plan_escalates ... ok
+test logic::tests::replay_risk_rebuilds_the_flag_of_a_recorded_warning ... ok
+test logic::tests::plan_raises_the_level_in_a_risk_window_and_says_so ... ok
+test nmhost::tests::manifest_allows_only_the_extension ... ok
+test db::tests::weekly_rules_lock_and_end_early_with_an_exception ... ok
+test pipe::gate_tests::nothing_but_hello_is_accepted_before_hello ... ok
+test platform::tests::data_dir_follows_xdg_then_home ... ok
+test platform::tests::platform_info_uses_the_camel_case_shape ... ok
+test platform::tests::host_name_prefers_the_file ... ok
+test platform::tests::windows_programs_end_in_exe ... ok
+test platform::tests::programs_are_told_from_domains ... ok
+test logic::tests::risk_windows_changes_are_checked_like_the_other_weakenings ... ok
+test risk::tests::constants_match_the_vectors ... ok
+test risk::tests::heatmap_vectors ... ok
+test risk::tests::normalize_list_drops_bad_entries_and_caps_the_count ... ok
+test risk::tests::in_risk_window_vectors ... ok
+test risk::tests::classify_vectors ... ok
+test risk::tests::normalize_vectors ... ok
+test sync::tests::a_page_boundary_inside_equal_stamps_loses_no_rows ... ok
+test sync::tests::auth_errors_are_translated ... ok
+test sync::tests::pkce_challenge_matches_rfc7636_example ... ok
+test sync::tests::a_whole_page_of_equal_stamps_is_paged_with_offset ... ok
+test sync::tests::rereading_the_rows_at_the_cursor_changes_nothing_and_pushes_nothing ... ok
+test sync::tests::url_encoding_and_timestamps ... ok
+test risk::tests::suggest_vectors ... ok
+test syncrun::tests::no_round_starts_during_an_account_change ... ok
+test syncrun::tests::reads_the_callback_url ... ok
+test syncstore::tests::a_change_during_the_push_stays_dirty ... ok
+test syncstore::tests::a_warning_left_open_for_an_hour_can_still_be_entered ... ok
+test syncstore::tests::abandoned_events_are_closed_before_they_are_pushed_except_the_one_on_screen ... ok
+test syncstore::tests::applying_a_pulled_row_twice_is_harmless_for_every_table ... ok
+test syncstore::tests::deleting_server_data_makes_the_next_sign_in_upload_everything ... ok
+test syncstore::tests::newest_wins_on_pull ... ok
+test syncstore::tests::on_an_equal_stamp_a_clean_local_row_takes_the_remote_one_and_a_dirty_one_stays ... ok
+test syncstore::tests::only_decided_events_are_pushed ... ok
+test syncstore::tests::pushes_dirty_rows_and_marks_them_clean ... ok
+test syncstore::tests::risk_windows_travel_inside_the_settings_row_both_ways ... ok
+test syncstore::tests::switching_account_drops_other_devices_usage_and_events_but_keeps_ours ... ok
+test syncstore::tests::usage_and_events_from_other_devices_count_here ... ok
+test syncrun::tests::an_account_change_waits_for_the_running_round ... ok
+test sync::tests::pages_through_the_mock_server ... ok
+test sync::tests::round_trip_against_mock_supabase ... ok
+
+test result: ok. 85 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.18s
+
+     Running unittests src\main.rs (target\debug\deps\dopadam-3f670cf00dafa1ca.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests dopadam_lib
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

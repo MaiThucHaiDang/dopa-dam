@@ -1,0 +1,26 @@
+screen 1024x768, monitors: 1
+user runneradmin, session name '', UserInteractive: True
+
+  Id SessionId
+  -- ---------
+7936         2
+
+
+
+
+
+Caption        : Microsoft Windows Server 2025 Datacenter
+Version        : 10.0.26100
+OSArchitecture : 64-bit
+
+
+
+
+
+
+Source : C:\Windows\system32\notepad.exe
+
+
+
+
+screenshot D:\a\dopa-dam\dopa-dam/ci-out/shots/00-desktop-before.png 1024x768

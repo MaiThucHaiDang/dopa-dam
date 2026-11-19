@@ -1,0 +1,36 @@
+installer: D:\a\dopa-dam\dopa-dam\agent\src-tauri\target\release\bundle\nsis\DopaDam_0.1.0_x64-setup.exe (2221806 bytes)
+  \dopadam.exe (5648896)
+  \uninstall.exe (80219)
+  installed program: C:\Users\runneradmin\AppData\Local\DopaDam\dopadam.exe
+  ok    silent install (/S) into the user profile
+  shortcut: C:\Users\runneradmin\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\DopaDam.lnk
+  uninstall entry: DopaDam
+  ok    Start menu shortcut and uninstall entry exist
+exe: C:\Users\runneradmin\AppData\Local\DopaDam\dopadam.exe
+data: C:\Users\RUNNER~1\AppData\Local\Temp\dopadam-smoke-4CHHdI
+(node:3780) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok    the agent creates its database and stays alive
+        [01-agent-started-hidden.png] screenshot D:\a\dopa-dam\dopa-dam\ci-out\shots\01-agent-started-hidden.png 1024x768
+        the pipe accepted a connection 0 s after the database check, 5 s after the start
+  ok    the pipe answers hello with welcome and config
+  ok    a message before hello is refused, ping is accepted
+  ok    several clients at once, and a new one after they leave (accept loop)
+  ok    a change through the pipe reaches the database and the other clients
+        pages: http://tauri.localhost/index.html#/toast, http://tauri.localhost/index.html#/warning, http://tauri.localhost/
+        get_platform: {"os":"windows","sessionType":null,"focusBackend":"win32","shellExtensionConnected":false,"gnome":false,"shellExtensionInstalled":false,"shellExtensionUpdateAvailable":false}
+        list_apps: 75 entries
+  ok    the WebView2 UI renders and answers Tauri commands
+        main window title before: "com.dang.dopadam-siw", after: "DopaDam"
+        [02-main-window-shown.png] screenshot D:\a\dopa-dam\dopa-dam\ci-out\shots\02-main-window-shown.png 1024x768
+  ok    a second launch hands over to the running agent and shows its main window
+  ok    the agent quits cleanly through quit_agent and the pipe goes away
+        [03-after-quit.png] screenshot D:\a\dopa-dam\dopa-dam\ci-out\shots\03-after-quit.png 1024x768
+--- agent-stderr.log
+[1119/013946.455:ERROR:ui\gfx\win\window_impl.cc:172] Failed to unregister class Chrome_WidgetWin_0. Error = 1412
+
+smoke: 8 passed, 0 failed
+  ok    smoke test on the installed program
+  ok    silent uninstall removes the program
+
+installer: 4 passed, 0 failed

@@ -1,0 +1,25 @@
+(node:9892) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok    the extension connects to the agent
+  ok    settings changes go through the agent
+  ok    the agent's config reaches the extension
+  ok    a warning in Edge is recorded by the agent, Enter = Thoát
+  ok    Vào through the agent opens an allow window
+  ok    the popup shows the agent's counts
+  ok    popup and options say the agent is connected; risk hours are viewed in the agent's app
+  ok    risk hours: without a window the first warning is level 0 and has no risk line
+  ok    risk hours: a window added in the agent covering now raises the level by one and shows the line
+  ok    risk hours: the raise stacks with the repeat count and survives a reload
+  ok    risk hours: with the window removed in the agent the level drops back
+  ok    lecture mode: a link allowed through the agent hides the distractions and records no warning
+  ok    lecture mode: an allowed playlist keeps its panel
+  ok    lecture mode: follows in-page navigation, and a link removed in the agent while the page is open
+  ok    lecture mode: switching protection off in the agent switches lecture mode off, and on brings it back
+  ok    lecture mode: a video that is not allowed gets the agent's warning, and Vào leaves YouTube as it is
+  ok    study mode from the extension goes through the agent
+  (agent process 9268 exited: code null, signal SIGTERM)
+  ok    without the agent the extension keeps blocking on its own
+  ok    the extension reconnects when the agent comes back, and gets the agent's configuration again
+  (agent process 5252 exited: code null, signal SIGTERM)
+
+All agent integration tests passed
