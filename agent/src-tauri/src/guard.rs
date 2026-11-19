@@ -316,6 +316,8 @@ fn present_warning(state: &Shared, fg: &Foreground, context: &WarningContext) {
             platform::bring_to_front(h.0 as isize, false);
         }
         let _ = window.set_focus();
+        // The window has the keyboard focus; hand it on to the page inside, or Enter and Esc never reach it.
+        let _ = AsRef::<tauri::Webview>::as_ref(&window).set_focus();
     }
     #[cfg(target_os = "linux")]
     {

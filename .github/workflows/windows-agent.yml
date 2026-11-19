@@ -146,13 +146,9 @@ jobs:
         id: ext_e2e
         continue-on-error: true
         run: |
-          # Edge treats youtube.com as HSTS-preloaded, so the test page at http://www.youtube.com:PORT (a host rule maps
-          # it to the local fake site) is upgraded to https and fails. The Edge policy HSTSPolicyBypassList lifts that.
-          for h in youtube.com www.youtube.com m.youtube.com; do
-            n=$((n+1))
-            reg add "HKLM\\SOFTWARE\\Policies\\Microsoft\\Edge\\HSTSPolicyBypassList" //v "$n" //t REG_SZ //d "$h" //f
-          done 2>&1 | tee "$CI_OUT/logs/10-edge-policy.log"
           (cd extension && npm ci && npm run build) 2>&1 | tee "$CI_OUT/logs/10-extension-build.log"
+          # Diagnostic: which Edge launch options let the YouTube stand-in load (it is HSTS-upgraded to https otherwise).
+          node agent/e2e/ci/probe-edge.mjs 2>&1 | tee "$CI_OUT/logs/10-edge-probe.log" || true
           (cd extension && node test/e2e/with-agent.mjs) 2>&1 | tee "$CI_OUT/logs/11-extension-with-agent.log"
 
       - name: Final desktop screenshot

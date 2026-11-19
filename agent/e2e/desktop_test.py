@@ -130,7 +130,15 @@ def main():
 
         def enter_is_exit():
             press_enter()
-            rows = wait(lambda: [r for r in query(db, "SELECT decision FROM intercept_events") if r[0]], "decision", 10)
+            try:
+                rows = wait(lambda: [r for r in query(db, "SELECT decision FROM intercept_events") if r[0]], "decision", 10)
+            except AssertionError:
+                if args.shot:
+                    from PIL import ImageGrab
+
+                    ImageGrab.grab().save(str(Path(args.shot).with_name(Path(args.shot).stem + "-failed.png")))
+                print(f"        foreground window now: {foreground_title()}")
+                raise
             assert rows == [("exit",)], rows
             hwnd = wait(lambda: find_window("Notepad") or find_window("Untitled"), "notepad window", 5)
             wait(lambda: user32.IsIconic(hwnd), "Notepad minimized", 5)

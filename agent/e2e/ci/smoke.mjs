@@ -249,6 +249,14 @@ try {
       const version = await fetch(`http://127.0.0.1:${CDP_PORT}/json/version`).then((r) => r.text(), (e) => `no answer: ${e.message}`);
       const list = await fetch(`http://127.0.0.1:${CDP_PORT}/json/list`).then((r) => r.text(), (e) => `no answer: ${e.message}`);
       console.log(`        /json/version: ${version.replace(/\s+/g, " ")}\n        /json/list: ${list.replace(/\s+/g, " ")}`);
+      console.log(
+        ps(
+          `Get-CimInstance Win32_Process | Where-Object { $_.Name -match 'webview2|dopadam' } | ForEach-Object { "$($_.ProcessId) $($_.Name) $($_.CommandLine)" }; netstat -ano | Select-String ':${CDP_PORT} '`,
+        )
+          .split("\n")
+          .map((l) => `        ${l.slice(0, 600)}`)
+          .join("\n"),
+      );
       throw err;
     });
     console.log(`        pages: ${pages.map((p) => p.url).join(", ")}`);
