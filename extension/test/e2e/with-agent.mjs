@@ -23,6 +23,7 @@ import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
 import { chmodSync, closeSync, existsSync, mkdirSync, mkdtempSync, openSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
+import { createServer as createHttpsServer } from "node:https";
 import { homedir, tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -78,6 +79,24 @@ const server = createServer((req, res) => {
 });
 await new Promise((r) => server.listen(0, "127.0.0.1", r));
 const PORT = server.address().port;
+
+// youtube.com is HSTS-preloaded: Edge and Chrome upgrade http to https whatever the flags, so the stand-in speaks TLS.
+const certDir = mkdtempSync(join(tmpdir(), "dopadam-cert-"));
+execFileSync(
+  "openssl",
+  [
+    "req", "-x509", "-newkey", "rsa:2048", "-nodes", "-days", "2", "-subj", "/CN=www.youtube.com",
+    "-addext", "subjectAltName=DNS:youtube.com,DNS:*.youtube.com",
+    "-keyout", join(certDir, "key.pem"), "-out", join(certDir, "cert.pem"),
+  ],
+  { stdio: "ignore", env: { ...process.env, MSYS_NO_PATHCONV: "1" } },
+);
+const ytServer = createHttpsServer({ key: readFileSync(join(certDir, "key.pem")), cert: readFileSync(join(certDir, "cert.pem")) }, (req, res) => {
+  res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+  res.end(FAKE_WATCH_PAGE(req.url));
+});
+await new Promise((r) => ytServer.listen(0, "127.0.0.1", r));
+const YT_PORT = ytServer.address().port;
 
 const dataDir = mkdtempSync(join(tmpdir(), "dopadam-agent-"));
 const dbPath = join(dataDir, "dopadam.db");
@@ -233,6 +252,7 @@ try {
   context = await chromium.launchPersistentContext(profile, {
     channel: process.env.DOPADAM_E2E_CHANNEL ?? (WIN ? "msedge" : "chromium"),
     headless: true,
+    ignoreHTTPSErrors: true,
     args: [
       `--disable-extensions-except=${dist}`,
       `--load-extension=${dist}`,
@@ -398,7 +418,7 @@ try {
 
   // ---- Lecture mode with the agent -------------------------------------------------------------------------
   // The allowed links live in the agent; the extension decides from its local mirror of them.
-  const watchUrl = (query) => `http://www.youtube.com:${PORT}/watch?${query}`;
+  const watchUrl = (query) => `https://www.youtube.com:${YT_PORT}/watch?${query}`;
   async function assertVisible(page, selectors, visible) {
     for (const selector of selectors) {
       assert.equal(await page.locator(selector).first().isVisible(), visible, `${selector} should be ${visible ? "visible" : "hidden"}`);
@@ -460,15 +480,20 @@ try {
 
   await test("lecture mode: switching protection off in the agent switches lecture mode off, and on brings it back", async () => {
     assert.deepEqual(await send({ type: "options:setProtection", enabled: false, confirmed: true }), { ok: true });
-    await until(async () => !(await send({ type: "options:get" })).protectionEnabled, "protection off in the mirror");
-    const page = await context.newPage();
-    await page.goto(watchUrl("v=A"));
-    await page.waitForTimeout(1500);
-    assert.equal(await page.evaluate(() => document.documentElement.className), "");
-    assert.equal(await page.locator("#dopadam-lecture-note").count(), 0);
-    assert.deepEqual(await send({ type: "options:setProtection", enabled: true, confirmed: false }), { ok: true });
-    await page.waitForFunction(() => document.documentElement.classList.contains("dopadam-lecture"), null, { timeout: 8000 });
-    await page.close();
+    try {
+      await until(async () => !(await send({ type: "options:get" })).protectionEnabled, "protection off in the mirror");
+      const page = await context.newPage();
+      await page.goto(watchUrl("v=A"));
+      await page.waitForTimeout(1500);
+      assert.equal(await page.evaluate(() => document.documentElement.className), "");
+      assert.equal(await page.locator("#dopadam-lecture-note").count(), 0);
+      assert.deepEqual(await send({ type: "options:setProtection", enabled: true, confirmed: false }), { ok: true });
+      await page.waitForFunction(() => document.documentElement.classList.contains("dopadam-lecture"), null, { timeout: 8000 });
+      await page.close();
+    } finally {
+      // A failure above must not leave protection off for the tests that follow.
+      await send({ type: "options:setProtection", enabled: true, confirmed: false });
+    }
   });
 
   await test("lecture mode: a video that is not allowed gets the agent's warning, and Vào leaves YouTube as it is", async () => {
@@ -530,6 +555,8 @@ try {
   await context?.close().catch(() => undefined);
   agentProc.kill();
   server.close();
+  ytServer.close();
+  rmSync(certDir, { recursive: true, force: true });
   await sleep(500);
   if (failures || !finished) {
     try {

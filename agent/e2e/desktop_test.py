@@ -97,6 +97,8 @@ def main():
     data = Path(tempfile.mkdtemp(prefix="dopadam-desktop-"))
     db = data / "dopadam.db"
     env = dict(os.environ, DOPADAM_DATA_DIR=str(data), DOPADAM_NO_AUTOSTART="1", DOPADAM_QUIET="1")
+    subprocess.run(["taskkill", "/IM", "dopadam.exe", "/F"], capture_output=True)  # no leftover agent may take over (single instance)
+    time.sleep(1)
     agent = subprocess.Popen([str(AGENT), "--hidden"], env=env)
     notepad = None
     try:

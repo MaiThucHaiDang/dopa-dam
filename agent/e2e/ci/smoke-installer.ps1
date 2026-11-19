@@ -42,19 +42,15 @@ Step 'Start menu shortcut and uninstall entry exist' {
   Write-Host "  uninstall entry: $($key[0].PSChildName)"
 }
 
-# The program sets its own WebView2 browser arguments, which the environment variable cannot extend. This policy
-# (per user, per program name) adds the remote debugging port that smoke.mjs uses to look at and drive the real UI.
-$policy = 'HKCU:\Software\Policies\Microsoft\Edge\WebView2\AdditionalBrowserArguments'
-New-Item -Path $policy -Force | Out-Null
-New-ItemProperty -Path $policy -Name 'dopadam.exe' -Value '--remote-debugging-port=9333' -PropertyType String -Force | Out-Null
-
 if ($script:exe) {
   & node (Join-Path $here 'smoke.mjs') $script:exe $OutDir
   $smokeCode = $LASTEXITCODE
   Step 'smoke test on the installed program' { if ($smokeCode -ne 0) { throw "smoke.mjs exited with $smokeCode" } }
 }
 
-Remove-Item -Path 'HKCU:\Software\Policies\Microsoft\Edge\WebView2' -Recurse -Force -ErrorAction SilentlyContinue
+# A failed smoke test can leave the installed agent running; it would block the uninstall and take over later tests (single instance).
+$left = Get-Process dopadam -ErrorAction SilentlyContinue
+if ($left) { Write-Host "  stopping $($left.Count) dopadam process(es) left running"; $left | Stop-Process -Force; Start-Sleep -Seconds 2 }
 
 Step 'silent uninstall removes the program' {
   if (-not $script:installDir) { throw 'nothing was installed' }

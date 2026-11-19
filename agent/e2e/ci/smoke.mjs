@@ -144,7 +144,7 @@ const env = {
   DOPADAM_DATA_DIR: dataDir,
   DOPADAM_NO_AUTOSTART: "1",
   DOPADAM_QUIET: "1",
-  WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${CDP_PORT}`,
+  DOPADAM_WEBVIEW2_DEBUG_PORT: String(CDP_PORT),
 };
 console.log(`exe: ${exe}\ndata: ${dataDir}`);
 const startedAt = Date.now();

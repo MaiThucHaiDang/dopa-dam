@@ -147,8 +147,6 @@ jobs:
         continue-on-error: true
         run: |
           (cd extension && npm ci && npm run build) 2>&1 | tee "$CI_OUT/logs/10-extension-build.log"
-          # Diagnostic: which Edge launch options let the YouTube stand-in load (it is HSTS-upgraded to https otherwise).
-          node agent/e2e/ci/probe-edge.mjs 2>&1 | tee "$CI_OUT/logs/10-edge-probe.log" || true
           (cd extension && node test/e2e/with-agent.mjs) 2>&1 | tee "$CI_OUT/logs/11-extension-with-agent.log"
 
       - name: Final desktop screenshot

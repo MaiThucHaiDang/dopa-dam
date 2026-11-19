@@ -42,8 +42,21 @@ fn autostart_allowed() -> bool {
     std::env::var_os("DOPADAM_NO_AUTOSTART").is_none()
 }
 
+/// WebView2 arguments for every window. They replace wry's default, so that default is repeated here. Must be identical
+/// for the three windows, which share one WebView2 environment. DOPADAM_WEBVIEW2_DEBUG_PORT (used by the Windows CI smoke
+/// test) opens the Chromium remote debugging port on 127.0.0.1.
+fn webview_args() -> String {
+    let mut args = String::from("--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection");
+    if let Some(port) = std::env::var("DOPADAM_WEBVIEW2_DEBUG_PORT").ok().and_then(|p| p.parse::<u16>().ok()) {
+        args.push_str(&format!(" --remote-debugging-port={port}"));
+    }
+    args
+}
+
 fn build_windows(app: &tauri::AppHandle, start_hidden: bool) -> tauri::Result<()> {
+    let args = webview_args();
     let main = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
+        .additional_browser_args(&args)
         .title(platform::MAIN_TITLE)
         .inner_size(1040.0, 740.0)
         .min_inner_size(760.0, 560.0)
@@ -59,6 +72,7 @@ fn build_windows(app: &tauri::AppHandle, start_hidden: bool) -> tauri::Result<()
     });
 
     let warning = WebviewWindowBuilder::new(app, "warning", WebviewUrl::App("index.html#/warning".into()))
+        .additional_browser_args(&args)
         .title(platform::WARNING_TITLE)
         .decorations(false)
         .always_on_top(true)
@@ -79,6 +93,7 @@ fn build_windows(app: &tauri::AppHandle, start_hidden: bool) -> tauri::Result<()
     });
 
     WebviewWindowBuilder::new(app, "toast", WebviewUrl::App("index.html#/toast".into()))
+        .additional_browser_args(&args)
         .title(platform::NOTICE_TITLE)
         .decorations(false)
         .always_on_top(true)
