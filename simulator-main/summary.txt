@@ -1,0 +1,24 @@
+result bundle: Test.xcresult main / iPhone 16
+PASS  IntentTests.testASecondWarningWithinTheHourIsLevelOne()  0.05849301815032959
+PASS  IntentTests.testShouldAskDoesNotOpenTheApp()  0.0022219419479370117
+PASS  IntentTests.testShouldAskIsFalseWhileAnAllowWindowRuns()  0.04908299446105957
+PASS  IntentTests.testShouldAskIsTrueAgainWhenTheAllowWindowHasEnded()  0.009032964706420898
+PASS  IntentTests.testShouldAskIsTrueForAFreshApp()  0.004292964935302734
+PASS  IntentTests.testShouldAskIsTrueForAnEmptyName()  0.007151961326599121
+PASS  IntentTests.testShowWarningRecordsTheWarningAndShowsItsScreen()  0.02114403247833252
+PASS  IntentTests.testShowWarningWithAnEmptyNameRecordsNothingAndSaysSo()  0.047241926193237305
+PASS  SettingsTests.testLoweringALockTimeNeedsTheWaitAndThePhraseThenIsSaved()  105.07249188423157
+PASS  SettingsTests.testRaisingALockTimeSavesWithoutConfirmation()  31.37484896183014
+PASS  SettingsTests.testWeakeningWhileStudyingIsRefusedWithAVisibleMessage()  18.917778968811035
+PASS  StatsTests.testChartAndProgressCardsHaveData()  11.7848459482193
+PASS  StatsTests.testRiskCardSuggestsAWindowThatCanBeAddedAndRemovedOnlyAfterConfirmation()  16.772660970687866
+PASS  TabsTests.testEveryTabRenders()  40.186773896217346
+PASS  TabsTests.testNotificationPermissionButtonAsksTheSystem()  12.576882004737854
+PASS  TabsTests.testWarningScreensFitTheScreen()  5.258412003517151
+PASS  WarningFlowTests.testAlternativeActivityRunsATimer()  12.882084012031555
+PASS  WarningFlowTests.testExitRecordsTheChoiceAndLeavesTheScreen()  9.11197304725647
+PASS  WarningFlowTests.testFirstWarningAsksAndKeepsVaoLockedDuringTheCountdown()  7.802101969718933
+PASS  WarningFlowTests.testSecondWarningIsLevelOneAndVaoLeadsToMinutesAndTheAllowedScreen()  28.173544049263
+PASS  WarningFlowTests.testStudySessionMakesTheWarningLockThirtySecondsWithShortOptionsOnly()  43.31936001777649
+total: 21, passed: 21, failed: 0, skipped: 0
+screenshots: 56, text notes: 2

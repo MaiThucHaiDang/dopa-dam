@@ -1,0 +1,273 @@
+{
+  "devices" : [
+    {
+      "architecture" : "arm64",
+      "deviceId" : "341D689A-78F6-4171-9723-8609B5394AD8",
+      "deviceName" : "iPhone 16",
+      "modelName" : "iPhone 16",
+      "osBuildNumber" : "22F77",
+      "osVersion" : "18.5",
+      "platform" : "iOS Simulator"
+    }
+  ],
+  "testNodes" : [
+    {
+      "children" : [
+        {
+          "children" : [
+            {
+              "children" : [
+                {
+                  "duration" : "0.058s",
+                  "durationInSeconds" : 0.05849301815032959,
+                  "name" : "testASecondWarningWithinTheHourIsLevelOne()",
+                  "nodeIdentifier" : "IntentTests/testASecondWarningWithinTheHourIsLevelOne()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/DopaDam/DopaDamTests/IntentTests/testASecondWarningWithinTheHourIsLevelOne",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.0022s",
+                  "durationInSeconds" : 0.0022219419479370117,
+                  "name" : "testShouldAskDoesNotOpenTheApp()",
+                  "nodeIdentifier" : "IntentTests/testShouldAskDoesNotOpenTheApp()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/DopaDam/DopaDamTests/IntentTests/testShouldAskDoesNotOpenTheApp",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.049s",
+                  "durationInSeconds" : 0.04908299446105957,
+                  "name" : "testShouldAskIsFalseWhileAnAllowWindowRuns()",
+                  "nodeIdentifier" : "IntentTests/testShouldAskIsFalseWhileAnAllowWindowRuns()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/DopaDam/DopaDamTests/IntentTests/testShouldAskIsFalseWhileAnAllowWindowRuns",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.009s",
+                  "durationInSeconds" : 0.009032964706420898,
+                  "name" : "testShouldAskIsTrueAgainWhenTheAllowWindowHasEnded()",
+                  "nodeIdentifier" : "IntentTests/testShouldAskIsTrueAgainWhenTheAllowWindowHasEnded()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/DopaDam/DopaDamTests/IntentTests/testShouldAskIsTrueAgainWhenTheAllowWindowHasEnded",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.0043s",
+                  "durationInSeconds" : 0.004292964935302734,
+                  "name" : "testShouldAskIsTrueForAFreshApp()",
+                  "nodeIdentifier" : "IntentTests/testShouldAskIsTrueForAFreshApp()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/DopaDam/DopaDamTests/IntentTests/testShouldAskIsTrueForAFreshApp",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.0072s",
+                  "durationInSeconds" : 0.007151961326599121,
+                  "name" : "testShouldAskIsTrueForAnEmptyName()",
+                  "nodeIdentifier" : "IntentTests/testShouldAskIsTrueForAnEmptyName()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/DopaDam/DopaDamTests/IntentTests/testShouldAskIsTrueForAnEmptyName",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.021s",
+                  "durationInSeconds" : 0.02114403247833252,
+                  "name" : "testShowWarningRecordsTheWarningAndShowsItsScreen()",
+                  "nodeIdentifier" : "IntentTests/testShowWarningRecordsTheWarningAndShowsItsScreen()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/DopaDam/DopaDamTests/IntentTests/testShowWarningRecordsTheWarningAndShowsItsScreen",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.047s",
+                  "durationInSeconds" : 0.047241926193237305,
+                  "name" : "testShowWarningWithAnEmptyNameRecordsNothingAndSaysSo()",
+                  "nodeIdentifier" : "IntentTests/testShowWarningWithAnEmptyNameRecordsNothingAndSaysSo()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/DopaDam/DopaDamTests/IntentTests/testShowWarningWithAnEmptyNameRecordsNothingAndSaysSo",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                }
+              ],
+              "name" : "IntentTests",
+              "nodeIdentifierURL" : "test://com.apple.xcode/DopaDam/DopaDamTests/IntentTests",
+              "nodeType" : "Test Suite",
+              "result" : "Passed"
+            }
+          ],
+          "name" : "DopaDamTests",
+          "nodeIdentifierURL" : "test://com.apple.xcode/DopaDam/DopaDamTests",
+          "nodeType" : "Unit test bundle",
+          "result" : "Passed"
+        },
+        {
+          "children" : [
+            {
+              "children" : [
+                {
+                  "duration" : "1m 45s",
+                  "durationInSeconds" : 105.07249188423157,
+                  "name" : "testLoweringALockTimeNeedsTheWaitAndThePhraseThenIsSaved()",
+                  "nodeIdentifier" : "SettingsTests/testLoweringALockTimeNeedsTheWaitAndThePhraseThenIsSaved()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/DopaDam/DopaDamUITests/SettingsTests/testLoweringALockTimeNeedsTheWaitAndThePhraseThenIsSaved",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "31s",
+                  "durationInSeconds" : 31.37484896183014,
+                  "name" : "testRaisingALockTimeSavesWithoutConfirmation()",
+                  "nodeIdentifier" : "SettingsTests/testRaisingALockTimeSavesWithoutConfirmation()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/DopaDam/DopaDamUITests/SettingsTests/testRaisingALockTimeSavesWithoutConfirmation",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "18s",
+                  "durationInSeconds" : 18.917778968811035,
+                  "name" : "testWeakeningWhileStudyingIsRefusedWithAVisibleMessage()",
+                  "nodeIdentifier" : "SettingsTests/testWeakeningWhileStudyingIsRefusedWithAVisibleMessage()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/DopaDam/DopaDamUITests/SettingsTests/testWeakeningWhileStudyingIsRefusedWithAVisibleMessage",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                }
+              ],
+              "name" : "SettingsTests",
+              "nodeIdentifierURL" : "test://com.apple.xcode/DopaDam/DopaDamUITests/SettingsTests",
+              "nodeType" : "Test Suite",
+              "result" : "Passed"
+            },
+            {
+              "children" : [
+                {
+                  "duration" : "11s",
+                  "durationInSeconds" : 11.7848459482193,
+                  "name" : "testChartAndProgressCardsHaveData()",
+                  "nodeIdentifier" : "StatsTests/testChartAndProgressCardsHaveData()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/DopaDam/DopaDamUITests/StatsTests/testChartAndProgressCardsHaveData",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "16s",
+                  "durationInSeconds" : 16.772660970687866,
+                  "name" : "testRiskCardSuggestsAWindowThatCanBeAddedAndRemovedOnlyAfterConfirmation()",
+                  "nodeIdentifier" : "StatsTests/testRiskCardSuggestsAWindowThatCanBeAddedAndRemovedOnlyAfterConfirmation()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/DopaDam/DopaDamUITests/StatsTests/testRiskCardSuggestsAWindowThatCanBeAddedAndRemovedOnlyAfterConfirmation",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                }
+              ],
+              "name" : "StatsTests",
+              "nodeIdentifierURL" : "test://com.apple.xcode/DopaDam/DopaDamUITests/StatsTests",
+              "nodeType" : "Test Suite",
+              "result" : "Passed"
+            },
+            {
+              "children" : [
+                {
+                  "duration" : "40s",
+                  "durationInSeconds" : 40.186773896217346,
+                  "name" : "testEveryTabRenders()",
+                  "nodeIdentifier" : "TabsTests/testEveryTabRenders()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/DopaDam/DopaDamUITests/TabsTests/testEveryTabRenders",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "12s",
+                  "durationInSeconds" : 12.576882004737854,
+                  "name" : "testNotificationPermissionButtonAsksTheSystem()",
+                  "nodeIdentifier" : "TabsTests/testNotificationPermissionButtonAsksTheSystem()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/DopaDam/DopaDamUITests/TabsTests/testNotificationPermissionButtonAsksTheSystem",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "5s",
+                  "durationInSeconds" : 5.258412003517151,
+                  "name" : "testWarningScreensFitTheScreen()",
+                  "nodeIdentifier" : "TabsTests/testWarningScreensFitTheScreen()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/DopaDam/DopaDamUITests/TabsTests/testWarningScreensFitTheScreen",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                }
+              ],
+              "name" : "TabsTests",
+              "nodeIdentifierURL" : "test://com.apple.xcode/DopaDam/DopaDamUITests/TabsTests",
+              "nodeType" : "Test Suite",
+              "result" : "Passed"
+            },
+            {
+              "children" : [
+                {
+                  "duration" : "12s",
+                  "durationInSeconds" : 12.882084012031555,
+                  "name" : "testAlternativeActivityRunsATimer()",
+                  "nodeIdentifier" : "WarningFlowTests/testAlternativeActivityRunsATimer()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/DopaDam/DopaDamUITests/WarningFlowTests/testAlternativeActivityRunsATimer",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "9s",
+                  "durationInSeconds" : 9.11197304725647,
+                  "name" : "testExitRecordsTheChoiceAndLeavesTheScreen()",
+                  "nodeIdentifier" : "WarningFlowTests/testExitRecordsTheChoiceAndLeavesTheScreen()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/DopaDam/DopaDamUITests/WarningFlowTests/testExitRecordsTheChoiceAndLeavesTheScreen",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "7s",
+                  "durationInSeconds" : 7.802101969718933,
+                  "name" : "testFirstWarningAsksAndKeepsVaoLockedDuringTheCountdown()",
+                  "nodeIdentifier" : "WarningFlowTests/testFirstWarningAsksAndKeepsVaoLockedDuringTheCountdown()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/DopaDam/DopaDamUITests/WarningFlowTests/testFirstWarningAsksAndKeepsVaoLockedDuringTheCountdown",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "28s",
+                  "durationInSeconds" : 28.173544049263,
+                  "name" : "testSecondWarningIsLevelOneAndVaoLeadsToMinutesAndTheAllowedScreen()",
+                  "nodeIdentifier" : "WarningFlowTests/testSecondWarningIsLevelOneAndVaoLeadsToMinutesAndTheAllowedScreen()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/DopaDam/DopaDamUITests/WarningFlowTests/testSecondWarningIsLevelOneAndVaoLeadsToMinutesAndTheAllowedScreen",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "43s",
+                  "durationInSeconds" : 43.31936001777649,
+                  "name" : "testStudySessionMakesTheWarningLockThirtySecondsWithShortOptionsOnly()",
+                  "nodeIdentifier" : "WarningFlowTests/testStudySessionMakesTheWarningLockThirtySecondsWithShortOptionsOnly()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/DopaDam/DopaDamUITests/WarningFlowTests/testStudySessionMakesTheWarningLockThirtySecondsWithShortOptionsOnly",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                }
+              ],
+              "name" : "WarningFlowTests",
+              "nodeIdentifierURL" : "test://com.apple.xcode/DopaDam/DopaDamUITests/WarningFlowTests",
+              "nodeType" : "Test Suite",
+              "result" : "Passed"
+            }
+          ],
+          "name" : "DopaDamUITests",
+          "nodeIdentifierURL" : "test://com.apple.xcode/DopaDam/DopaDamUITests",
+          "nodeType" : "UI test bundle",
+          "result" : "Passed"
+        }
+      ],
+      "name" : "DopaDam",
+      "nodeType" : "Test Plan",
+      "result" : "Passed"
+    }
+  ],
+  "testPlanConfigurations" : [
+    {
+      "configurationId" : "1",
+      "configurationName" : "Test Scheme Action"
+    }
+  ]
+}

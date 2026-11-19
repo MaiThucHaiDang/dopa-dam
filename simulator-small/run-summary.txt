@@ -1,0 +1,13 @@
+commit: 1fddee08980bcba4953238f04f04cd4cf967c025
+run: https://github.com/MaiThucHaiDang/dopa-dam/actions/runs/44437308122
+job status: success
+device: iPhone SE (3rd generation)
+---
+result bundle: Test.xcresult small / iPhone SE (3rd generation)
+PASS  StatsTests.testChartAndProgressCardsHaveData()  16.959465980529785
+PASS  StatsTests.testRiskCardSuggestsAWindowThatCanBeAddedAndRemovedOnlyAfterConfirmation()  17.457424998283386
+PASS  TabsTests.testEveryTabRenders()  42.609524965286255
+PASS  TabsTests.testNotificationPermissionButtonAsksTheSystem()  15.454872965812683
+PASS  TabsTests.testWarningScreensFitTheScreen()  6.393648028373718
+total: 5, passed: 5, failed: 0, skipped: 0
+screenshots: 24, text notes: 1

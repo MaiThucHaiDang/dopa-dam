@@ -1,0 +1,6 @@
+/Users/runner/work/dopa-dam/dopa-dam/ios/native/DopaDamTests/IntentTests.swift:104:13: warning: variable 'intent' was never mutated; consider changing to 'let' constant
+/Users/runner/work/dopa-dam/dopa-dam/ios/native/DopaDamTests/IntentTests.swift:119:13: warning: variable 'intent' was never mutated; consider changing to 'let' constant
+/Users/runner/work/dopa-dam/dopa-dam/ios/native/DopaDamTests/IntentTests.swift:30:13: warning: variable 'intent' was never mutated; consider changing to 'let' constant
+/Users/runner/work/dopa-dam/dopa-dam/ios/native/DopaDamTests/IntentTests.swift:88:13: warning: variable 'intent' was never mutated; consider changing to 'let' constant
+2026-11-19 01:34:45.503 appintentsnltrainingprocessor[8474:28026] error: Unable to parse extract.actionsdata
+2026-11-19 01:34:50.916 appintentsmetadataprocessor[8589:28420] warning: Metadata extraction skipped. No AppIntents.framework dependency found.

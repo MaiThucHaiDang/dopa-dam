@@ -1,0 +1,97 @@
+{
+  "devices" : [
+    {
+      "architecture" : "arm64",
+      "deviceId" : "66571EB4-A450-4628-ABB9-3D215AFEDD58",
+      "deviceName" : "iPhone SE (3rd generation)",
+      "modelName" : "iPhone SE (3rd generation)",
+      "osBuildNumber" : "22F77",
+      "osVersion" : "18.5",
+      "platform" : "iOS Simulator"
+    }
+  ],
+  "testNodes" : [
+    {
+      "children" : [
+        {
+          "children" : [
+            {
+              "children" : [
+                {
+                  "duration" : "16s",
+                  "durationInSeconds" : 16.959465980529785,
+                  "name" : "testChartAndProgressCardsHaveData()",
+                  "nodeIdentifier" : "StatsTests/testChartAndProgressCardsHaveData()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/DopaDam/DopaDamUITests/StatsTests/testChartAndProgressCardsHaveData",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "17s",
+                  "durationInSeconds" : 17.457424998283386,
+                  "name" : "testRiskCardSuggestsAWindowThatCanBeAddedAndRemovedOnlyAfterConfirmation()",
+                  "nodeIdentifier" : "StatsTests/testRiskCardSuggestsAWindowThatCanBeAddedAndRemovedOnlyAfterConfirmation()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/DopaDam/DopaDamUITests/StatsTests/testRiskCardSuggestsAWindowThatCanBeAddedAndRemovedOnlyAfterConfirmation",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                }
+              ],
+              "name" : "StatsTests",
+              "nodeIdentifierURL" : "test://com.apple.xcode/DopaDam/DopaDamUITests/StatsTests",
+              "nodeType" : "Test Suite",
+              "result" : "Passed"
+            },
+            {
+              "children" : [
+                {
+                  "duration" : "42s",
+                  "durationInSeconds" : 42.609524965286255,
+                  "name" : "testEveryTabRenders()",
+                  "nodeIdentifier" : "TabsTests/testEveryTabRenders()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/DopaDam/DopaDamUITests/TabsTests/testEveryTabRenders",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "15s",
+                  "durationInSeconds" : 15.454872965812683,
+                  "name" : "testNotificationPermissionButtonAsksTheSystem()",
+                  "nodeIdentifier" : "TabsTests/testNotificationPermissionButtonAsksTheSystem()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/DopaDam/DopaDamUITests/TabsTests/testNotificationPermissionButtonAsksTheSystem",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "6s",
+                  "durationInSeconds" : 6.393648028373718,
+                  "name" : "testWarningScreensFitTheScreen()",
+                  "nodeIdentifier" : "TabsTests/testWarningScreensFitTheScreen()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/DopaDam/DopaDamUITests/TabsTests/testWarningScreensFitTheScreen",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                }
+              ],
+              "name" : "TabsTests",
+              "nodeIdentifierURL" : "test://com.apple.xcode/DopaDam/DopaDamUITests/TabsTests",
+              "nodeType" : "Test Suite",
+              "result" : "Passed"
+            }
+          ],
+          "name" : "DopaDamUITests",
+          "nodeIdentifierURL" : "test://com.apple.xcode/DopaDam/DopaDamUITests",
+          "nodeType" : "UI test bundle",
+          "result" : "Passed"
+        }
+      ],
+      "name" : "DopaDam",
+      "nodeType" : "Test Plan",
+      "result" : "Passed"
+    }
+  ],
+  "testPlanConfigurations" : [
+    {
+      "configurationId" : "1",
+      "configurationName" : "Test Scheme Action"
+    }
+  ]
+}
